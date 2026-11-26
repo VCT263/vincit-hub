@@ -14,8 +14,8 @@ const FERRAMENTAS = [
   },
   {
     key: "audiovisual:recuperador", href: "/audiovisual/ferramentas/recuperador", Icon: I.refresh, title: "Recuperador de arquivos",
-    desc: "Traz de volta vídeo Sony .RSV ou MP4 que não abre depois de a bateria acabar ou o cartão sair, e áudio WAV cortado.",
-    tags: ["Sony XAVC S", "WAV", "Roda no seu computador"],
+    desc: "Traz de volta vídeo que não abre depois de a bateria acabar ou o cartão sair (H.264 e H.265, de qualquer câmera) e áudio WAV cortado.",
+    tags: ["Sony XAVC S e HS", "Outras câmeras", "Vários de uma vez", "WAV"],
   },
 ];
 
@@ -46,7 +46,7 @@ export default function Ferramentas() {
         })}
         <div className="card p-5 border-dashed flex flex-col justify-center text-sm text-fog">
           <p className="font-semibold text-paper">Próximas ferramentas</p>
-          <p className="mt-1">Recuperação de H.265 (XAVC HS) e de outras câmeras.</p>
+          <p className="mt-1">Peça no chat a próxima: conversor de proxies, renomear em lote, checar cartão antes de formatar…</p>
         </div>
       </div>
     </>
