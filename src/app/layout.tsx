@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { brandCss } from "@/lib/brand";
 import { BrandProvider, type Brand } from "@/components/BrandContext";
 import RegisterSW from "@/components/RegisterSW";
+import ClaudeQueueBanner from "@/components/ClaudeQueueBanner";
 
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", weight: ["400", "600", "700", "800"] });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {css && <style id="brand-theme" dangerouslySetInnerHTML={{ __html: css }} />}
         <BrandProvider value={brand}>{children}</BrandProvider>
         <RegisterSW />
+        <ClaudeQueueBanner />
       </body>
     </html>
   );

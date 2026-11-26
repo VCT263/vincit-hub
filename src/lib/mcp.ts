@@ -225,6 +225,46 @@ export const TOOLS: Tool[] = [
       return { ok: true, id: data?.id, onde: "CREATOR › Desempenho & insights" };
     },
   },
+  {
+    name: "listar_pedidos_ia",
+    title: "Pedidos de IA do HUB",
+    description: "Lista os pedidos de IA que as telas do HUB deixaram para o Claude responder (diagnósticos, legendas, calendário, tendências, referências, propostas, decupagem…). Cada pedido traz as instruções (system) e o prompt completos. Responda cada um com responder_pedido_ia seguindo exatamente o formato pedido no prompt (muitos pedem só JSON). O resultado volta sozinho para a tela que pediu.",
+    inputSchema: { type: "object", properties: { incluir_respondidos: { type: "boolean", default: false, description: "Inclui os já respondidos nas últimas 24 h" } } },
+    readOnly: true,
+    run: async (ctx, a) => {
+      let q = ctx.sb.from("ai_requests").select("id, label, task, endpoint, status, system, prompt, web_search, max_tokens, created_at, account_id").order("created_at", { ascending: true }).limit(20);
+      q = a.incluir_respondidos ? q.gte("created_at", new Date(Date.now() - 864e5).toISOString()) : q.in("status", ["pending", "working"]);
+      const { data, error } = await q;
+      if (error) fail(error.message);
+      const pedidos = (data || []).map((r: any) => ({
+        id: r.id, titulo: r.label || r.task || "Pedido de IA", tarefa: r.task, status: r.status, criado_em: r.created_at,
+        precisa_pesquisa_web: !!r.web_search, max_tokens: r.max_tokens, instrucoes: r.system, prompt: r.prompt,
+      }));
+      return { quantidade: pedidos.length, pedidos, como_responder: "Escreva a resposta como se fosse a IA do HUB (instrucoes = system, prompt = mensagem do usuário) e envie o texto puro com responder_pedido_ia. Quando o prompt pede JSON, responda só o JSON." };
+    },
+  },
+  {
+    name: "responder_pedido_ia",
+    title: "Responder pedido de IA",
+    description: "Envia a resposta do Claude para um pedido de IA do HUB (id de listar_pedidos_ia). A tela que fez o pedido recebe o resultado e grava como antes.",
+    inputSchema: { type: "object", required: ["id", "texto"], properties: { id: { type: "string" }, texto: { type: "string", description: "Resposta completa, no formato pedido pelo prompt" } } },
+    run: async (ctx, a) => {
+      const { error } = await ctx.sb.rpc("ai_request_answer", { p_id: a.id, p_text: String(a.texto || "") });
+      if (error) fail(error.message);
+      return { ok: true, id: a.id, aviso: "Respondido. A tela do HUB que fez o pedido mostra o resultado em alguns segundos (se ainda estiver aberta)." };
+    },
+  },
+  {
+    name: "recusar_pedido_ia",
+    title: "Recusar pedido de IA",
+    description: "Marca um pedido de IA do HUB como não atendido, com o motivo (ex.: faltam dados). A tela mostra o motivo como erro.",
+    inputSchema: { type: "object", required: ["id", "motivo"], properties: { id: { type: "string" }, motivo: { type: "string" } } },
+    run: async (ctx, a) => {
+      const { error } = await ctx.sb.rpc("ai_request_fail", { p_id: a.id, p_error: String(a.motivo || "") });
+      if (error) fail(error.message);
+      return { ok: true, id: a.id };
+    },
+  },
 ];
 
 export function allowed(t: Tool, acc: Access) {
