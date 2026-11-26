@@ -4,7 +4,7 @@ import Link from "next/link";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
-  FONTS_CSS, H, W, applyCuts, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
+  CAMERA_LEVELS, FONTS_CSS, H, W, applyCuts, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
   type Kit, type Media, type Project, type Title, type Zoom,
 } from "@/lib/editor/model";
 
@@ -12,10 +12,10 @@ type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
 
 const PRESETS = [
-  { key: "impacto", title: "Corte seco + zoom", desc: "Tira os silêncios, zoom de 110% nas frases fortes, legenda palavra a palavra.", estilo: "impacto", zoom: true, cut: true },
-  { key: "broll", title: "Talking head limpo", desc: "Tira os silêncios, legenda com caixa colorida, sem zoom.", estilo: "caixa", zoom: false, cut: true },
-  { key: "editorial", title: "Editorial", desc: "Legenda serifada e discreta, cortes só nos silêncios longos.", estilo: "editorial", zoom: false, cut: true },
-  { key: "documental", title: "Documental calmo", desc: "Mantém as pausas, legenda simples embaixo, sem zoom.", estilo: "documental", zoom: false, cut: false },
+  { key: "impacto", title: "Corte seco + zoom", desc: "Tira os silêncios, câmera forte que acompanha a fala, punch de 110% nas frases fortes, legenda palavra a palavra.", estilo: "impacto", zoom: true, cut: true, camera: 3 },
+  { key: "broll", title: "Talking head limpo", desc: "Tira os silêncios, legenda com caixa colorida, câmera média seguindo a fala.", estilo: "caixa", zoom: false, cut: true, camera: 2 },
+  { key: "editorial", title: "Editorial", desc: "Legenda serifada e discreta, cortes só nos silêncios longos, câmera suave.", estilo: "editorial", zoom: false, cut: true, camera: 1 },
+  { key: "documental", title: "Documental calmo", desc: "Mantém as pausas, legenda simples embaixo, câmera parada.", estilo: "documental", zoom: false, cut: false, camera: 0 },
 ];
 
 export default function Editor() {
@@ -51,6 +51,8 @@ export default function Editor() {
   const total = totalDuration(p);
   const words = useMemo(() => outputWords(p, media), [p, media]);
   const screens = useMemo(() => captionScreens(words, kit.legenda?.palavras_por_tela || 3), [words, kit]);
+  const camLevel = cameraLevel(p, kit);
+  const cam = useMemo(() => speechCamera(words, camLevel), [words, camLevel]);
 
   /* ---------- dados do HUB ---------- */
   useEffect(() => {
@@ -88,10 +90,10 @@ export default function Editor() {
     const ctx = c.getContext("2d")!;
     const loc = locate(p, time);
     const v = loc ? videos.current.get(loc.seg.mediaId) : null;
-    if (v && v.readyState >= 2) drawCover(ctx, v, v.videoWidth, v.videoHeight, zoomAt(p, time));
+    if (v && v.readyState >= 2) drawCover(ctx, v, v.videoWidth, v.videoHeight, zoomAt(p, time, cam));
     else { ctx.fillStyle = "#0c0c0d"; ctx.fillRect(0, 0, W, H); }
     drawOverlays(ctx, p, screens, time, kit);
-  }, [p, screens, kit]);
+  }, [p, screens, kit, cam]);
 
   const seek = useCallback((time: number) => {
     time = Math.max(0, Math.min(total, time));
@@ -183,7 +185,7 @@ export default function Editor() {
     setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), estilo: pr.estilo } }));
     if (!media.some((m) => m.words)) { setMsg("Gere a legenda primeiro (aba Legenda). O estilo usa a fala para cortar e dar zoom."); return; }
     const minGap = pr.key === "editorial" ? 0.9 : (kit.regras?.silencio_ms || 350) / 1000;
-    let next: Project = { ...p };
+    let next: Project = { ...p, camera: pr.camera };
     if (pr.cut) next = { ...next, segments: removeSilences(p, media, minGap) };
     if (pr.zoom) {
       const ws = outputWords(next, media);
@@ -249,7 +251,7 @@ export default function Editor() {
   async function applyPlan() {
     if (!plan?.plan) return;
     const pl = plan.plan;
-    let next: Project = { ...p };
+    let next: Project = { ...p, ...(pl.camera != null && !isNaN(+pl.camera) ? { camera: Math.max(0, Math.min(3, Math.round(+pl.camera))) } : {}) };
     if ((pl.titulos || []).length) next = { ...next, titles: [...next.titles, ...pl.titulos.map((x: any) => ({ id: uid(), kind: ["gancho", "cta", "lower_third"].includes(x.tipo) ? x.tipo : "gancho", text: String(x.texto || ""), start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 2.5 }))] };
     if ((pl.zooms || []).length) next = { ...next, zooms: [...next.zooms, ...pl.zooms.map((z: any) => ({ id: uid(), start: +z.inicio, end: z.fim != null ? +z.fim : +z.inicio + 1.5, scale: +z.escala || 110 }))] };
     // cortes por último: títulos e zooms do plano estão no tempo de antes dos cortes
@@ -295,6 +297,7 @@ export default function Editor() {
             <option value="">Kit padrão</option>
             {kits.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
           </select>
+          <Link href="/audiovisual/kit" className="chip self-center">Editar kits</Link>
           <button disabled={!total || !!busy} onClick={doExport} className="px-4 py-2 rounded-xl bg-mint text-ink font-semibold text-sm disabled:opacity-40 inline-flex items-center gap-2"><I.arrow className="w-4 h-4 rotate-90" />Exportar 1080×1920</button>
         </div>
       </div>
@@ -386,7 +389,7 @@ export default function Editor() {
 
           {tab === "estilo" && (
             <div className="space-y-3 text-sm">
-              <p className="text-xs text-fog">Ajustes por cima do kit {baseKit ? `"${kits.find((k) => k.id === kitId)?.name}"` : "padrão"}. Para guardar de vez, edite o kit no Premiere com o Claude.</p>
+              <p className="text-xs text-fog">Ajustes por cima do kit {baseKit ? `"${kits.find((k) => k.id === kitId)?.name}"` : "padrão"}. Para guardar de vez, edite na página <Link href="/audiovisual/kit" className="text-mint">Kit de estilo</Link>.</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {[["impacto", "Impacto"], ["caixa", "Caixa"], ["editorial", "Editorial"], ["documental", "Documental"]].map(([v, l]) => (
                   <button key={v} onClick={() => setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), estilo: v } }))} className={`rounded-lg border px-2 py-2 text-xs font-semibold ${kit.legenda?.estilo === v ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
@@ -430,6 +433,16 @@ export default function Editor() {
               <p className="text-xs text-fog mt-0.5">{pr.desc}</p>
             </button>
           ))}
+          <div className="rounded-xl border border-line p-3">
+            <p className="text-sm font-semibold">Câmera que acompanha a fala</p>
+            <p className="text-xs text-fog mt-0.5">Zoom in e zoom out lentos a cada frase, mais fundo nas perguntas e exclamações, e um toque rápido nas palavras fortes. Usa a legenda gerada.</p>
+            <div className="grid grid-cols-4 gap-1 mt-2">
+              {CAMERA_LEVELS.map((l, i) => (
+                <button key={l} onClick={() => update((pp) => ({ ...pp, camera: i }))} className={`rounded-lg border px-1 py-1.5 text-[11px] font-semibold ${camLevel === i ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
+              ))}
+            </div>
+            {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
+          </div>
           <div className="rounded-xl border border-purple-400/30 bg-purple-400/5 p-3 text-xs text-soft">
             <p className="font-semibold text-purple-300">Plano do Claude</p>
             <p className="mt-1">O Claude lê a fala, o roteiro e o kit e devolve cortes, zooms e textos. Usa a sua assinatura, sem API paga.</p>
@@ -455,6 +468,7 @@ export default function Editor() {
             <Track name="TEXTO">{p.titles.map((x) => <Block key={x.id} left={pct(x.start)} width={pct(x.end - x.start)} cls="bg-purple-400 text-ink">{x.text}</Block>)}</Track>
             <Track name="LEGENDA">{p.captionsOn && screens.map((s, i) => <Block key={i} left={pct(s.start)} width={pct(s.end - s.start)} cls="bg-amber-300/80 text-ink">{s.words.map((w) => w.t).join(" ")}</Block>)}</Track>
             <Track name="ZOOM">{p.zooms.map((z) => <Block key={z.id} left={pct(z.start)} width={pct(z.end - z.start)} cls="border border-dashed border-mint text-mint">{z.scale}%</Block>)}</Track>
+            <Track name="CÂMERA">{cam.moves.map((m, i) => <Block key={i} left={pct(m.start)} width={pct(m.end - m.start)} cls={`border ${m.to >= m.from ? "border-sky-400/70 text-sky-300" : "border-orange-400/70 text-orange-300"}`}>{m.to >= m.from ? "zoom in" : "zoom out"} {Math.round(m.to * 100)}%</Block>)}{cam.hits.map((h, i) => <span key={`h${i}`} className="absolute top-2 w-2 h-2 -ml-1 rounded-full bg-sky-300 pointer-events-none" style={{ left: pct(h.t) }} />)}</Track>
             <Track name="VÍDEO">
               {L.map((l, i) => (
                 <Block key={l.seg.id} left={pct(l.start)} width={pct(l.end - l.start)} onClick={(e) => { e.stopPropagation(); setSel(l.seg.id); setTab("clipes"); seek(l.start + 0.01); }}

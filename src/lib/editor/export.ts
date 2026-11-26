@@ -7,7 +7,7 @@ import {
   ALL_FORMATS, AudioBufferSink, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, Mp4OutputFormat, Output,
   QUALITY_HIGH, canEncodeAudio, canEncodeVideo,
 } from "mediabunny";
-import { H, W, captionScreens, drawCover, drawOverlays, layout, outputWords, segLen, totalDuration, zoomAt, type Kit, type Media, type Project } from "./model";
+import { H, W, cameraLevel, captionScreens, drawCover, speechCamera, drawOverlays, layout, outputWords, segLen, totalDuration, zoomAt, type Kit, type Media, type Project } from "./model";
 
 const RATE = 48000;
 
@@ -18,7 +18,9 @@ export async function exportMp4(p: Project, media: Media[], kit: Kit, onProgress
   const audioCodec = (await canEncodeAudio("aac")) ? "aac" : "opus";
 
   const byId = new Map(media.map((m) => [m.id, m]));
-  const screens = captionScreens(outputWords(p, media), kit.legenda?.palavras_por_tela || 3);
+  const words = outputWords(p, media);
+  const screens = captionScreens(words, kit.legenda?.palavras_por_tela || 3);
+  const cam = speechCamera(words, cameraLevel(p, kit));
 
   const canvas = new OffscreenCanvas(W, H);
   const ctx = canvas.getContext("2d")!;
@@ -74,7 +76,7 @@ export async function exportMp4(p: Project, media: Media[], kit: Kit, onProgress
     for await (const wc of sink.canvasesAtTimestamps(times)) {
       if (signal?.cancel) { await output.cancel(); throw new Error("Exportação cancelada."); }
       const t = l.start + i / FPS;
-      if (wc) drawCover(ctx, wc.canvas, wc.canvas.width, wc.canvas.height, zoomAt(p, t));
+      if (wc) drawCover(ctx, wc.canvas, wc.canvas.width, wc.canvas.height, zoomAt(p, t, cam));
       drawOverlays(ctx, p, screens, t, kit);
       await videoSource.add(frame / FPS, 1 / FPS);
       frame++; i++;

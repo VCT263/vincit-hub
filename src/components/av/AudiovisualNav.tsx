@@ -11,6 +11,7 @@ const items = [
   { href: "/audiovisual/editor", label: "Editor", Icon: I.video, group: "03 · Pós-produção" },
   { href: "/audiovisual/premiere", label: "Premiere com o Claude", Icon: I.video, group: "03 · Pós-produção" },
   { href: "/audiovisual/midia", label: "Banco de mídia", Icon: I.folder, group: "04 · Acervo" },
+  { href: "/audiovisual/kit", label: "Kit de estilo", Icon: I.pen, group: "04 · Acervo" },
 ];
 
 export default function AudiovisualNav() {

@@ -8,13 +8,16 @@ export type Media = { id: string; name: string; file: File; url: string; duratio
 export type Segment = { id: string; mediaId: string; in: number; out: number };
 export type Title = { id: string; start: number; end: number; text: string; kind: "gancho" | "cta" | "lower_third" };
 export type Zoom = { id: string; start: number; end: number; scale: number };
-export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; captionsOn: boolean; edits: Record<string, string> };
+/** camera: 0 desligada, 1 suave, 2 média, 3 forte (sem valor, vale o do kit) */
+export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; captionsOn: boolean; edits: Record<string, string>; camera?: number };
 
 export type Kit = {
   cores?: { destaque?: string; texto?: string; fundo?: string };
   fontes?: { titulo?: string; legenda?: string };
   legenda?: { estilo?: string; palavras_por_tela?: number; caixa_alta?: boolean; altura?: number };
   regras?: { corte_max_s?: number; silencio_ms?: number; trilha_db?: number };
+  camera?: { intensidade?: number };
+  mogrts?: Record<string, string>;
 };
 
 export const W = 1080;
@@ -27,6 +30,7 @@ export const DEFAULT_KIT: Kit = {
   fontes: { titulo: "Anton", legenda: "Inter Black" },
   legenda: { estilo: "impacto", palavras_por_tela: 3, caixa_alta: true, altura: 0.64 },
   regras: { corte_max_s: 4, silencio_ms: 350, trilha_db: -18 },
+  camera: { intensidade: 2 },
 };
 
 export function mergeKit(k?: Kit | null): Kit {
@@ -36,6 +40,8 @@ export function mergeKit(k?: Kit | null): Kit {
     fontes: { ...d.fontes, ...(k?.fontes || {}) },
     legenda: { ...d.legenda, ...(k?.legenda || {}) },
     regras: { ...d.regras, ...(k?.regras || {}) },
+    camera: { ...d.camera, ...(k?.camera || {}) },
+    mogrts: k?.mogrts,
   };
 }
 
@@ -140,14 +146,93 @@ export function removeSilences(p: Project, media: Media[], minGap: number, pad =
 
 export type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-/** fator de zoom no tempo t (entrada rápida, estilo punch-in) */
-export function zoomAt(p: Project, t: number) {
+/* ---------- câmera que acompanha a fala ---------- */
+
+export const CAMERA_LEVELS = ["Desligada", "Suave", "Média", "Forte"];
+const AMP = [0, 0.035, 0.065, 0.1];
+
+export type CamMove = { start: number; end: number; from: number; to: number };
+export type Camera = { moves: CamMove[]; hits: { t: number; a: number }[] };
+export const NO_CAMERA: Camera = { moves: [], hits: [] };
+
+export const cameraLevel = (p: Project, kit: Kit) => Math.max(0, Math.min(3, Math.round(p.camera ?? kit.camera?.intensidade ?? 0)));
+
+/**
+ * Lê a fala e monta o movimento: cada frase é um empurrão lento para dentro (zoom in) ou um recuo (zoom out),
+ * alternando como um operador de câmera; frases com ! ou ? entram mais fundo; palavras fortes dão um soco curto;
+ * pausa longa devolve o quadro ao normal.
+ */
+export function speechCamera(words: ReturnType<typeof outputWords>, level: number): Camera {
+  const A = AMP[level] || 0;
+  if (!A || !words.length) return NO_CAMERA;
+  const phrases: { start: number; end: number; strong: boolean }[] = [];
+  let cur: typeof words = [];
+  const flush = () => { if (cur.length) phrases.push({ start: cur[0].start, end: cur[cur.length - 1].end, strong: /[!?]$/.test(cur[cur.length - 1].t) }); cur = []; };
+  words.forEach((w, i) => {
+    if (cur.length && (w.start - words[i - 1].end > 0.45 || w.end - cur[0].start > 4.5)) flush();
+    cur.push(w);
+    if (/[.!?;]$/.test(w.t)) flush();
+  });
+  flush();
+
+  const moves: CamMove[] = [];
+  let z = 1, prevEnd = -10;
+  for (const ph of phrases) {
+    if (ph.start - prevEnd > 0.9) z = 1; // pausa longa: volta ao quadro aberto
+    const from = z;
+    let to: number;
+    if (ph.strong) to = Math.min(1 + A * 2.2, z + A * 1.5); // pergunta/exclamação: entra mais
+    else if (z > 1 + A * 0.6) to = 1 + A * 0.1; // já está perto: recua (zoom out)
+    else to = z + A; // aberto: empurra (zoom in)
+    if (ph.end - ph.start < 0.5) to = from + (to - from) * 0.5; // frase curta mexe pouco
+    moves.push({ start: ph.start, end: ph.end, from, to });
+    z = to; prevEnd = ph.end;
+  }
+
+  const hits: Camera["hits"] = [];
+  let last = -10;
+  for (const w of words) {
+    const strong = /[!]$/.test(w.t) || isHot(w.t);
+    if (strong && w.start - last > 1.4) { hits.push({ t: w.start, a: A * 0.55 }); last = w.start; }
+  }
+  return { moves, hits };
+}
+
+const ease = (x: number) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+
+export function cameraAt(cam: Camera, t: number) {
+  const M = cam.moves;
+  if (!M.length) return 1;
+  let v: number;
+  if (t <= M[0].start) v = M[0].from;
+  else if (t >= M[M.length - 1].end) v = M[M.length - 1].to;
+  else {
+    v = 1;
+    for (let i = 0; i < M.length; i++) {
+      const m = M[i];
+      if (t >= m.start && t <= m.end) { v = m.from + (m.to - m.from) * ease((t - m.start) / Math.max(0.01, m.end - m.start)); break; }
+      const n = M[i + 1];
+      if (n && t > m.end && t < n.start) { v = m.to + (n.from - m.to) * ease((t - m.end) / (n.start - m.end)); break; }
+    }
+  }
+  for (const h of cam.hits) {
+    const d = t - h.t;
+    if (d < -0.3 || d > 1.2) continue;
+    v += h.a * Math.exp(-((d / (d < 0 ? 0.07 : 0.32)) ** 2)); // sobe rápido, assenta devagar
+  }
+  return v;
+}
+
+/** fator de zoom no tempo t: os zooms manuais (punch-in) vezes a câmera da fala */
+export function zoomAt(p: Project, t: number, cam: Camera = NO_CAMERA) {
+  let punch = 1;
   for (const z of p.zooms) {
     if (t < z.start || t > z.end) continue;
     const k = Math.min(1, (t - z.start) / 0.12, (z.end - t) / 0.12);
-    return 1 + (z.scale / 100 - 1) * Math.max(0, k);
+    punch = 1 + (z.scale / 100 - 1) * Math.max(0, k);
+    break;
   }
-  return 1;
+  return punch * cameraAt(cam, t);
 }
 
 /** desenha a imagem cobrindo 9:16, com zoom no centro */
