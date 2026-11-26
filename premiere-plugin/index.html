@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <b>VINCIT HUB</b>
+    <span id="who" class="muted"></span>
+  </header>
+
+  <!-- login -->
+  <section id="login" hidden>
+    <p class="muted">Entre com o mesmo e-mail e senha do HUB.</p>
+    <label>E-mail<input id="email" type="email"></label>
+    <label>Senha<input id="password" type="password"></label>
+    <button id="btnLogin" class="primary">Entrar</button>
+  </section>
+
+  <!-- painel -->
+  <section id="main" hidden>
+    <div class="box">
+      <div class="lab">Sequência ativa</div>
+      <div id="seqName" class="big">—</div>
+      <div id="seqInfo" class="muted"></div>
+    </div>
+
+    <label>Conteúdo do HUB (roteiro e decupagem)
+      <select id="content"><option value="">Nenhum</option></select>
+    </label>
+    <label>Kit de estilo
+      <select id="kit"><option value="">Sem kit</option></select>
+    </label>
+    <label>O que você quer do Claude
+      <textarea id="request" rows="3" placeholder="Ex.: estilo impacto, cortar respiros, B-roll onde falar de anúncio, gancho nos 2 primeiros segundos"></textarea>
+    </label>
+    <div class="row">
+      <button id="btnTranscribe">Transcrever clipes</button>
+      <button id="btnSend" class="primary">Enviar ao Claude</button>
+    </div>
+    <p id="status" class="muted"></p>
+
+    <div id="planBox" class="box" hidden>
+      <div class="lab">Plano do Claude</div>
+      <p id="planSummary"></p>
+      <div id="planItems"></div>
+      <div class="row">
+        <button id="btnApply" class="primary">Aplicar selecionados</button>
+        <button id="btnDiscard">Descartar</button>
+      </div>
+      <p class="muted small">Tudo entra como uma única ação. Ctrl+Z / Cmd+Z desfaz.</p>
+    </div>
+
+    <div class="foot">
+      <a id="lnkHub" href="https://vincit-hub.vercel.app/audiovisual/premiere">Abrir no HUB</a>
+      <button id="btnLogout" class="link">Sair</button>
+    </div>
+  </section>
+  <script src="hub.js"></script>
+  <script src="premiere.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

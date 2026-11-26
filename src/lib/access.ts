@@ -23,6 +23,7 @@ export const TOOLS: Tool[] = [
   { key: "audiovisual:ordem", label: "Ordem do dia & checklist de set", hub: "audiovisual", path: "/audiovisual/ordem-do-dia" },
   { key: "audiovisual:teleprompter", label: "Teleprompter", hub: "audiovisual", path: "/audiovisual/teleprompter" },
   { key: "audiovisual:recuperador", label: "Recuperador de arquivos (Ferramentas)", hub: "audiovisual", path: "/audiovisual/ferramentas/recuperador" },
+  { key: "audiovisual:premiere", label: "Premiere com o Claude (plugin)", hub: "audiovisual", path: "/audiovisual/premiere" },
   { key: "audiovisual:midia", label: "Banco de mídia (Google Drive)", hub: "audiovisual", path: "/audiovisual/midia" },
   { key: "ecommerce:plano", label: "Plano do trimestre", hub: "ecommerce", path: "/ecommerce/plano" },
   { key: "ecommerce:acoes", label: "Calendário de ações e campanhas", hub: "ecommerce", path: "/ecommerce/acoes" },
