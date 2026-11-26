@@ -31,5 +31,7 @@ export const I = {
   phone: (p: P) => (<svg {...base} className={p.className}><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>),
   mic: (p: P) => (<svg {...base} className={p.className}><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>),
   search: (p: P) => (<svg {...base} className={p.className}><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>),
+  bag: (p: P) => (<svg {...base} className={p.className}><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>),
+  target: (p: P) => (<svg {...base} className={p.className}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>),
   calendar: (p: P) => (<svg {...base} className={p.className}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>),
 };

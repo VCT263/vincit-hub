@@ -1,5 +1,5 @@
 /** Catálogo de ferramentas liberáveis por plano/usuário */
-export type Tool = { key: string; label: string; hub: "creator" | "agency" | "audiovisual" | "geral"; path?: string };
+export type Tool = { key: string; label: string; hub: "creator" | "agency" | "audiovisual" | "ecommerce" | "geral"; path?: string };
 
 export const TOOLS: Tool[] = [
   { key: "creator:perfis", label: "Perfis & marca", hub: "creator", path: "/creator/perfis" },
@@ -23,6 +23,8 @@ export const TOOLS: Tool[] = [
   { key: "audiovisual:ordem", label: "Ordem do dia & checklist de set", hub: "audiovisual", path: "/audiovisual/ordem-do-dia" },
   { key: "audiovisual:teleprompter", label: "Teleprompter", hub: "audiovisual", path: "/audiovisual/teleprompter" },
   { key: "audiovisual:midia", label: "Banco de mídia (Google Drive)", hub: "audiovisual", path: "/audiovisual/midia" },
+  { key: "ecommerce:plano", label: "Plano do trimestre", hub: "ecommerce", path: "/ecommerce/plano" },
+  { key: "ecommerce:acoes", label: "Calendário de ações e campanhas", hub: "ecommerce", path: "/ecommerce/acoes" },
   { key: "ia", label: "Inteligência artificial (agentes, roteiros, análises)", hub: "geral" },
 ];
 
@@ -32,7 +34,7 @@ const ALIAS: [string, string][] = [["/creator/diagnostico", "creator:estrategia"
 export type Access = { role: "superadmin" | "user"; status: "ativo" | "pendente" | "suspenso" | "expirado"; tools: string[]; plan?: string | null; expires_at?: string | null; name?: string | null };
 
 export const can = (tools: string[] | undefined, key: string) => !!tools && (tools.includes("*") || tools.includes(key));
-export type Hub = "creator" | "agency" | "audiovisual";
+export type Hub = "creator" | "agency" | "audiovisual" | "ecommerce";
 export const hubAllowed = (tools: string[] | undefined, hub: Hub) => !!tools && (tools.includes("*") || tools.some((t) => t.startsWith(hub + ":")));
 
 /** ferramenta exigida por um caminho (undefined = livre para usuários ativos) */

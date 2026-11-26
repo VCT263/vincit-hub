@@ -17,6 +17,7 @@ const tabs = [
   { href: "/creator", label: "Creator", Icon: I.camera, hub: "creator" as const },
   { href: "/agency", label: "Gestor", Icon: I.briefcase, hub: "agency" as const },
   { href: "/audiovisual", label: "Audiovisual", Icon: I.video, hub: "audiovisual" as const },
+  { href: "/ecommerce", label: "E-commerce", Icon: I.bag, hub: "ecommerce" as const },
 ];
 
 export default function TopBar() {
