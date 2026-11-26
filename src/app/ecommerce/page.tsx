@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import StoreGate, { StorePicker } from "@/components/ec/StoreGate";
-import { brl, commercialDates, fmtDay, KINDS, MONTHS, quarterOf, todayBR, weeksOf } from "@/lib/ecommerce";
+import { brl, commercialDates, fmtDay, KINDS, MONTHS, num, PROFILE_FIELDS, quarterOf, todayBR, weeksOf } from "@/lib/ecommerce";
 
 export default function Ecommerce() {
   return <StoreGate>{(ctx) => <Overview ctx={ctx} />}</StoreGate>;
@@ -87,11 +87,11 @@ function Overview({ ctx }: { ctx: any }) {
               const all = [...(a.before_items || []), ...(a.during_items || []), ...(a.after_items || [])];
               const done = all.filter((x: any) => x.done).length;
               return (
-                <Link key={a.id} href={`/ecommerce/acoes?a=${a.id}`} className="flex items-center gap-3 py-3 hover:bg-panel2/40 -mx-2 px-2 rounded-lg">
+                <Link key={a.id} href={`/ecommerce/acoes/campanha?id=${a.id}`} className="flex items-center gap-3 py-3 hover:bg-panel2/40 -mx-2 px-2 rounded-lg">
                   <span className="font-mono text-[11px] text-fog w-12 shrink-0">{fmtDay(a.date)}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">{a.title}</p>
-                    <p className="text-xs text-fog truncate">{[KINDS[a.kind], a.goal ? `meta ${brl(a.goal)}` : null, a.campaign ? "campanha pronta" : null].filter(Boolean).join(" · ")}</p>
+                    <p className="text-xs text-fog truncate">{[KINDS[a.kind], a.goal ? `meta ${brl(a.goal)}` : null, a.campaign?.pauta?.length ? `${a.campaign.pauta.length} conteúdos` : null].filter(Boolean).join(" · ")}</p>
                   </div>
                   <span className="chip shrink-0 tabular-nums">{done}/{all.length}</span>
                 </Link>
@@ -108,6 +108,8 @@ function Overview({ ctx }: { ctx: any }) {
           )}
         </section>
 
+        <div className="space-y-4">
+        <StoreProfileCard ctx={ctx} />
         <section className="card p-5">
           <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Quem vê esta loja</p>
           <div className="space-y-2">
@@ -128,7 +130,48 @@ function Overview({ ctx }: { ctx: any }) {
             </form>
           )}
         </section>
+        </div>
       </div>
     </>
+  );
+}
+
+/** Perfil estratégico: quem é a cliente, estilo, voz e números de atendimento. Alimenta as campanhas. */
+function StoreProfileCard({ ctx }: { ctx: any }) {
+  const p = ctx.store?.profile || {};
+  const filled = PROFILE_FIELDS.filter(([k]) => p[k]).length + (p.ticket ? 1 : 0) + (p.conversao ? 1 : 0);
+  const total = PROFILE_FIELDS.length + 2;
+  const [open, setOpen] = useState(filled < 3);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function save(k: string, v: any) {
+    if ((p[k] ?? null) === (v ?? null)) return;
+    const next = { ...p, [k]: v };
+    const { error } = await createClient().from("ec_stores").update({ profile: next }).eq("id", ctx.storeId);
+    if (error) return setMsg(error.message);
+    setMsg(null); ctx.reload?.();
+  }
+  return (
+    <section className="card p-5">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 text-left">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-mint">Perfil da loja</p>
+          <p className="text-xs text-fog mt-1">{filled}/{total} preenchidos · as campanhas usam este perfil</p>
+        </div>
+        <div className="w-16 h-1.5 rounded-full bg-line overflow-hidden shrink-0"><div className="h-full bg-mint" style={{ width: `${(filled / total) * 100}%` }} /></div>
+      </button>
+      {open && (
+        <div className="mt-4 space-y-3">
+          {PROFILE_FIELDS.map(([k, l, ph]) => (
+            <div key={k}><label className="label">{l}</label><textarea rows={2} className="input !min-h-0 text-sm" defaultValue={p[k] || ""} placeholder={ph} disabled={!ctx.isOwner} onBlur={(e) => save(k, e.target.value.trim() || null)} /></div>
+          ))}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label">Ticket médio (R$)</label><input inputMode="decimal" className="input" defaultValue={p.ticket ?? ""} disabled={!ctx.isOwner} onBlur={(e) => save("ticket", num(e.target.value))} /></div>
+            <div><label className="label">Conversão do atendimento (%)</label><input inputMode="decimal" className="input" defaultValue={p.conversao ?? ""} placeholder="Ex.: 30" disabled={!ctx.isOwner} onBlur={(e) => save("conversao", num(e.target.value))} /></div>
+          </div>
+          <p className="text-[11px] text-fog">Ticket médio e conversão saem do sistema da loja; com eles o HUB calcula quantas vendas e atendimentos cada ação precisa.{!ctx.isOwner ? " Só o dono edita." : ""}</p>
+          {msg && <p className="text-xs text-danger">{msg}</p>}
+        </div>
+      )}
+    </section>
   );
 }
