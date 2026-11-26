@@ -24,9 +24,9 @@ export type RefParams = {
 export type Frame = { off: number; size: number; key: boolean; lsb: number; ref: boolean; idr: boolean };
 export type VideoIndex = { frames: Frame[]; audio: [number, number][]; firstMbs: number[]; tail: number; gapsSemMeta: number };
 
-const AUD = [0, 0, 0, 2, 9];
-const KLV = [0x06, 0x0e, 0x2b, 0x34];
-const CH = 16 << 20;
+export const AUD = [0, 0, 0, 2, 9];
+export const KLV = [0x06, 0x0e, 0x2b, 0x34];
+export const CH = 16 << 20;
 
 // ---------------- bits ----------------
 export function unesc(b: Uint8Array) {
@@ -39,16 +39,16 @@ function esc(raw: Uint8Array) {
   for (const x of raw) { if (z >= 2 && x <= 3) { o.push(3); z = 0; } o.push(x); z = x === 0 ? z + 1 : 0; }
   return Uint8Array.from(o);
 }
-class BR {
+export class BR {
   bits: string; i = 0;
   constructor(b: Uint8Array) { this.bits = Array.from(b, (x) => x.toString(2).padStart(8, "0")).join(""); }
   u(n: number) { const v = n ? parseInt(this.bits.slice(this.i, this.i + n) || "0", 2) : 0; this.i += n; return v; }
   ue() { let z = 0; while (this.bits[this.i] === "0" && z < 32) { z++; this.i++; } this.i++; return (2 ** z) - 1 + this.u(z); }
 }
-const u32 = (b: Uint8Array, p: number) => ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3];
-const u16 = (b: Uint8Array, p: number) => (b[p] << 8) + b[p + 1];
-const str4 = (b: Uint8Array, p: number) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
-function indexOf(h: Uint8Array, n: number[], from = 0, to = h.length) {
+export const u32 = (b: Uint8Array, p: number) => ((b[p] << 24) >>> 0) + (b[p + 1] << 16) + (b[p + 2] << 8) + b[p + 3];
+export const u16 = (b: Uint8Array, p: number) => (b[p] << 8) + b[p + 1];
+export const str4 = (b: Uint8Array, p: number) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+export function indexOf(h: Uint8Array, n: number[], from = 0, to = h.length) {
   const L = n.length, f = n[0];
   for (let i = from; i <= to - L; i++) {
     if (h[i] !== f) continue;
@@ -60,7 +60,7 @@ function indexOf(h: Uint8Array, n: number[], from = 0, to = h.length) {
 
 // ---------------- referência ----------------
 type Box = { type: string; start: number; end: number }; // start = início do conteúdo
-function* boxes(d: Uint8Array, start: number, end: number): Generator<Box> {
+export function* boxes(d: Uint8Array, start: number, end: number): Generator<Box> {
   let p = start;
   while (p + 8 <= end) {
     let sz = u32(d, p); const t = str4(d, p + 4); let h = 8;
@@ -71,11 +71,11 @@ function* boxes(d: Uint8Array, start: number, end: number): Generator<Box> {
     p += sz;
   }
 }
-function findBox(d: Uint8Array, path: string[], start = 0, end = d.length): Box | null {
+export function findBox(d: Uint8Array, path: string[], start = 0, end = d.length): Box | null {
   for (const b of boxes(d, start, end)) if (b.type === path[0]) return path.length === 1 ? b : findBox(d, path.slice(1), b.start, b.end);
   return null;
 }
-function* allBoxes(d: Uint8Array, type: string, start: number, end: number) { for (const b of boxes(d, start, end)) if (b.type === type) yield b; }
+export function* allBoxes(d: Uint8Array, type: string, start: number, end: number) { for (const b of boxes(d, start, end)) if (b.type === type) yield b; }
 
 /** Lê só o moov do clipe de referência (ele pode estar no fim de um arquivo grande). */
 export async function readReference(src: Source): Promise<RefParams> {
@@ -162,7 +162,7 @@ export function guessResolution(firstMbs: number[], ref?: RefParams): [number, n
 }
 
 // ---------------- leitura em fluxo + cópia ----------------
-class Flow {
+export class Flow {
   buf = new Uint8Array(0); start = 0; loaded = 0;
   constructor(public src: Source, public sink: Sink | null, public onChunk?: (loaded: number) => void) {}
   /** garante bytes [abs, abs+n) no buffer; descarta o que vem antes de keep */
@@ -263,7 +263,7 @@ export async function scanAndCopy(src: Source, sink: Sink, l2fn: number, l2poc: 
 }
 
 // ---------------- índice (moov) ----------------
-class W {
+export class W {
   parts: number[] = [];
   u8(v: number) { this.parts.push(v & 255); return this; }
   u16(v: number) { this.parts.push((v >> 8) & 255, v & 255); return this; }
@@ -275,14 +275,14 @@ class W {
   zeros(n: number) { for (let i = 0; i < n; i++) this.parts.push(0); return this; }
   get() { return Uint8Array.from(this.parts); }
 }
-function box(type: string, ...parts: Uint8Array[]) {
+export function box(type: string, ...parts: Uint8Array[]) {
   const len = 8 + parts.reduce((a, b) => a + b.length, 0);
   const o = new Uint8Array(len); new DataView(o.buffer).setUint32(0, len);
   for (let i = 0; i < 4; i++) o[4 + i] = type.charCodeAt(i);
   let q = 8; for (const p of parts) { o.set(p, q); q += p.length; } return o;
 }
-const fbox = (type: string, v: number, fl: number, ...parts: Uint8Array[]) => box(type, new W().u32((v << 24) | fl).get(), ...parts);
-const MATRIX = [0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000];
+export const fbox = (type: string, v: number, fl: number, ...parts: Uint8Array[]) => box(type, new W().u32((v << 24) | fl).get(), ...parts);
+export const MATRIX = [0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000];
 
 export function buildMoov(ix: VideoIndex, r: RefParams, W0: number, H0: number) {
   const fr = ix.frames;
