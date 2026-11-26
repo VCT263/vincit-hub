@@ -267,8 +267,8 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "listar_edicoes_premiere",
-    title: "Edições do Premiere esperando plano",
-    description: "Lista as sequências que o plugin VINCIT HUB do Premiere mandou para o Claude: clipes da timeline, transcrição com tempos, o pedido do editor, o roteiro e a decupagem do conteúdo e o kit de estilo. Monte o plano de edição e envie com enviar_plano_edicao. Os tempos são em segundos da sequência.",
+    title: "Edições esperando plano (Premiere e Editor do HUB)",
+    description: "Lista as edições que o plugin VINCIT HUB do Premiere ou o Editor do HUB (projeto \"Editor do HUB\") mandaram para o Claude: clipes da timeline, transcrição com tempos, o pedido do editor, o roteiro e a decupagem do conteúdo e o kit de estilo. Monte o plano de edição e envie com enviar_plano_edicao. Os tempos são em segundos da sequência.",
     inputSchema: { type: "object", properties: { id: { type: "string", description: "id de uma edição específica (opcional)" }, incluir_aplicadas: { type: "boolean", default: false } } },
     readOnly: true,
     needs: "audiovisual:premiere",
@@ -309,8 +309,8 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "enviar_plano_edicao",
-    title: "Enviar plano de edição ao Premiere",
-    description: "Envia o plano de edição (JSON no formato de listar_edicoes_premiere) para uma sequência. O plugin do Premiere mostra o plano e o editor escolhe o que aplicar.",
+    title: "Enviar plano de edição",
+    description: "Envia o plano de edição (JSON no formato de listar_edicoes_premiere) para uma sequência. O plugin do Premiere ou o Editor do HUB mostra o plano e a pessoa escolhe o que aplicar. No Editor do HUB os cortes são aplicados de verdade na timeline.",
     inputSchema: {
       type: "object", required: ["id", "plano"],
       properties: { id: { type: "string" }, plano: { type: "object", description: "{resumo, cortes, legendas, titulos, zooms, insercoes, marcadores}" }, observacao: { type: "string" } },
@@ -334,7 +334,7 @@ export const TOOLS: Tool[] = [
       const { data, error } = await ctx.sb.from("av_edit_sessions").update({ plan, plan_note: clip(a.observacao, 1000), status: "plano_pronto", plan_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", a.id).select("id").maybeSingle();
       if (error) fail(error.message);
       if (!data) fail("Edição não encontrada. Use listar_edicoes_premiere para ver os ids.");
-      return { ok: true, id: a.id, itens: Object.fromEntries(keys.map((k) => [k, plan[k].length])), aviso: "O plano aparece no painel VINCIT HUB do Premiere em alguns segundos." };
+      return { ok: true, id: a.id, itens: Object.fromEntries(keys.map((k) => [k, plan[k].length])), aviso: "O plano aparece no Premiere ou no Editor do HUB em alguns segundos." };
     },
   },
   {
