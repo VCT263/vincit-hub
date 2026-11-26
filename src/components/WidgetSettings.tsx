@@ -49,6 +49,11 @@ export default function WidgetSettings() {
         <button className="btn btn-mint w-full" disabled={busy} onClick={() => gerar()}>{busy ? "Gerando…" : "Criar meu widget e calendário"}</button>
       ) : (
         <>
+          <div className="rounded-[10px] border border-mint/40 p-3 space-y-2">
+            <p className="text-sm"><b>App VINCIT HUB</b> (iPhone e Mac): widgets próprios na tela inicial, na tela bloqueada e na mesa do Mac, contador na barra de menus e avisos. Com o app instalado, toque abaixo no iPhone ou clique no Mac.</p>
+            <a className="btn btn-mint w-full" href={`vincithub://conectar?u=${encodeURIComponent(url)}`}><I.link className="w-4 h-4" />Conectar o app VINCIT HUB</a>
+            <button className="text-xs text-fog hover:text-paper underline" onClick={() => { navigator.clipboard?.writeText(url); setMsg({ t: "Link de conexão copiado. No app, toque em Colar link.", ok: true }); }}>Copiar link de conexão (se o botão não abrir o app)</button>
+          </div>
           <div className="rounded-[10px] border border-line p-3 space-y-2">
             <p className="text-sm"><b>Sem baixar nada:</b> assine o calendário do HUB. Tarefas, atrasos, compromissos, gravações e publicações aparecem no Calendário e no widget de Calendário que já vêm no iPhone e no Mac.</p>
             <a className="btn btn-mint w-full" href={url.replace(/^https?:/, "webcal:").replace("/api/resumo", "/api/calendario")}><I.calendar className="w-4 h-4" />Assinar calendário do HUB</a>

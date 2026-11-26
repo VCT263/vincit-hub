@@ -16,3 +16,9 @@ export function brandCss(color?: string | null) {
   return `:root{--color-mint:${accent};--color-mint-dim:${mix(accent, "#0c0c0d", 0.6)};--color-on-mint:${on};--color-mint-hover:${mix(accent, "#ffffff", 0.18)}}`;
 }
 export const PRESETS = ["#6eefb6", "#7aa7ff", "#f5c84c", "#ff6b6b", "#c084fc", "#fb923c", "#22d3ee", "#a3e635", "#f472b6", "#e5e5e5"];
+
+/** cor de destaque usada no tema (e nos widgets): a da marca, clareada se ficar escura demais; senão o verde padrão */
+export function accentOf(color?: string | null) {
+  if (!isHex(color)) return "#6eefb6";
+  return contrast(color!, "#151517") < 3 ? mix(color!, "#ffffff", 0.35) : color!;
+}

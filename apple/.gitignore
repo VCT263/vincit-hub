@@ -1,0 +1,6 @@
+# gerados pelo xcodegen a partir do project.yml
+*.xcodeproj/
+Suporte/
+build/
+DerivedData/
+xcuserdata/

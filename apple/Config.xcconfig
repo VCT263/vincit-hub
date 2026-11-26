@@ -1,0 +1,5 @@
+// Ajuste aqui antes de compilar no seu Mac.
+// DEVELOPMENT_TEAM: o "Team ID" da sua conta Apple Developer (developer.apple.com → Membership).
+DEVELOPMENT_TEAM =
+// Identificador do app. Se "com.vincit.hub" já estiver em uso na Apple, troque por outro (ex.: br.com.vincit.hub).
+VINCIT_BUNDLE = com.vincit.hub
