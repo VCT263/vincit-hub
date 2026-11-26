@@ -52,7 +52,7 @@ export default async function Overview() {
         <section className="card p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="font-mono text-[10px] uppercase tracking-widest text-fog">Próximas gravações</p>
-            <Link href="/creator/producao" className="text-xs text-fog hover:text-paper">Quadro de produção →</Link>
+            <Link href="/audiovisual/ordem-do-dia" className="text-xs text-fog hover:text-paper">Ordem do dia →</Link>
           </div>
           {rec.length === 0 && <p className="text-sm text-fog py-6 text-center">Nenhuma gravação marcada. Defina a data de gravação no cartão do conteúdo.</p>}
           <div className="divide-y divide-line">
@@ -93,6 +93,14 @@ export default async function Overview() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mt-4">
+        <Link href="/audiovisual/decupagem" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
+          <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.board className="w-5 h-5" /></span>
+          <div><p className="font-display font-bold">Decupagem</p><p className="text-sm text-fog mt-1">Quebra o roteiro em planos (a partir do texto ou pela IA), com enquadramento, áudio e mídia do banco.</p></div>
+        </Link>
+        <Link href="/audiovisual/ordem-do-dia" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
+          <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.calendar className="w-5 h-5" /></span>
+          <div><p className="font-display font-bold">Ordem do dia</p><p className="text-sm text-fog mt-1">Horário, local, equipe, equipamento e checklist de set, com link para a equipe marcar os planos no celular.</p></div>
+        </Link>
         <Link href="/audiovisual/teleprompter" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
           <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.prompter className="w-5 h-5" /></span>
           <div><p className="font-display font-bold">Teleprompter</p><p className="text-sm text-fog mt-1">Funciona no celular, rola pela sua voz, espelha para o vidro do prompter e pode ser controlado de outro aparelho.</p></div>
