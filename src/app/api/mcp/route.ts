@@ -25,7 +25,8 @@ const json = (body: any, status = 200, extra: Record<string, string> = {}) => Ne
 function unauthorized(req: Request, msg = "Faça login no VINCIT HUB para usar o conector.") {
   const meta = `${siteOrigin(req)}/.well-known/oauth-protected-resource`;
   return json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: msg } }, 401, {
-    "WWW-Authenticate": `Bearer error="invalid_token", error_description="${msg}", resource_metadata="${meta}"`,
+    // cabeçalho HTTP só aceita ASCII: a mensagem em português vai no corpo
+    "WWW-Authenticate": `Bearer error="invalid_token", error_description="Login required", resource_metadata="${meta}"`,
   });
 }
 
