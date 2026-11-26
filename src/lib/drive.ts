@@ -31,15 +31,19 @@ export async function listChildren(token: string, q: string, fields = FIELDS) {
   return out;
 }
 
+/** Áreas do banco de mídia. Cada arquivo do Drive fica em uma área (coluna kind). */
 export const KINDS = [
-  { k: "sfx", l: "Efeitos sonoros" },
-  { k: "trilha", l: "Trilhas" },
-  { k: "insercao", l: "Imagens de inserção" },
-  { k: "imagem", l: "Fotos e PNGs" },
-  { k: "lut", l: "LUTs" },
-  { k: "modelo", l: "Modelos" },
-  { k: "referencia", l: "Referências" },
-  { k: "outro", l: "Outros" },
+  { k: "sfx", l: "Efeitos sonoros", d: "Whooshes, impactos, transições e foley", pasta: "Efeitos sonoros" },
+  { k: "trilha", l: "Trilhas", d: "Músicas e beds para os vídeos", pasta: "Trilhas" },
+  { k: "insercao", l: "Imagens de inserção", d: "B-roll e takes de apoio para cobrir a fala", pasta: "Inserções" },
+  { k: "externo", l: "Banco de imagens externo", d: "Stock baixado de Pexels, Envato, Artgrid e outros", pasta: "Banco externo" },
+  { k: "interno", l: "Banco de conteúdos interno", d: "O que a produtora gravou e entregou: brutos, cortes e finais", pasta: "Conteúdos internos" },
+  { k: "marca", l: "Marcas e logos", d: "Logos, fontes e manuais dos clientes", pasta: "Marcas" },
+  { k: "imagem", l: "Fotos e PNGs", d: "Fotos, recortes, ícones e elementos gráficos", pasta: "Fotos e PNGs" },
+  { k: "lut", l: "LUTs", d: "Correção e look de cor", pasta: "LUTs" },
+  { k: "modelo", l: "Modelos", d: "Templates de edição, motion e presets", pasta: "Modelos" },
+  { k: "referencia", l: "Referências", d: "Vídeos e imagens de inspiração", pasta: "Referências" },
+  { k: "outro", l: "Outros", d: "O que não entrou em nenhuma área", pasta: "" },
 ] as const;
 
 const BY_FOLDER: [RegExp, string][] = [
@@ -48,21 +52,29 @@ const BY_FOLDER: [RegExp, string][] = [
   [/(refer[eê]ncias?|inspira)/i, "referencia"],
   [/(^|\b)luts?\b/i, "lut"],
   [/(modelos?|templates?|presets?|mogrt|motion)/i, "modelo"],
-  [/(b-?roll|inser[cç][aãõ]|stock|takes?|footage|v[ií]deos?)/i, "insercao"],
-  [/(fotos?|imagens?|png|logos?|photos?|images?)/i, "imagem"],
+  [/(marcas?|logos?|brand|identidade|fontes?|fonts?|manual)/i, "marca"],
+  [/(externo|stock|pexels|unsplash|pixabay|envato|artgrid|artlist|storyblocks|shutterstock|freepik|adobe ?stock|banco de (imagens|v[ií]deos))/i, "externo"],
+  [/(interno|brutos?|raw|grava[cç][aãõ]|capta[cç][aãõ]|entregas?|finais|finalizados?|cortes|conte[uú]dos?|projetos?|posts?|reels?)/i, "interno"],
+  [/(b-?roll|inser[cç][aãõ]|takes?|footage|apoio)/i, "insercao"],
+  [/(fotos?|imagens?|png|photos?|images?|[ií]cones?|icons?|elementos?)/i, "imagem"],
 ];
 
-/** tipo sugerido pelo nome, pela pasta e pelo formato; o usuário pode trocar depois */
+/** área sugerida pelo nome, pela pasta e pelo formato; o usuário pode trocar depois */
 export function inferKind(name: string, mime: string, folder: string, size?: number): string {
   const ext = (name.split(".").pop() || "").toLowerCase();
   if (["cube", "3dl", "look", "lut"].includes(ext)) return "lut";
   if (["mogrt", "aep", "aet", "drp", "drfx", "setting", "prfpst", "ffx", "moti", "motn", "prproj", "epr"].includes(ext)) return "modelo";
-  const segs = (folder || "").split("/").reverse();
+  if (["ttf", "otf", "woff", "woff2", "ai", "eps"].includes(ext)) return "marca";
+  // a pasta de cima define a área (ex.: "Marcas/Cliente X" fica em Marcas)
+  const segs = (folder || "").split("/");
   for (const s of segs) for (const [re, k] of BY_FOLDER) if (re.test(s)) {
-    // pasta diz "inserção" mas o arquivo é áudio: respeita o formato
-    if ((k === "insercao" || k === "imagem") && mime.startsWith("audio/")) continue;
+    const audio = mime.startsWith("audio/");
+    // pasta diz "inserção" ou "banco de imagens" mas o arquivo é áudio: respeita o formato
+    if (["insercao", "imagem", "externo", "marca"].includes(k) && audio) continue;
+    if (k === "sfx" || k === "trilha") { if (!audio && !mime.startsWith("video/")) continue; }
     return k;
   }
+  if (/logo/i.test(name)) return "marca";
   if (mime.startsWith("audio/")) return (size || 0) > 4_000_000 ? "trilha" : "sfx";
   if (mime.startsWith("video/")) return "insercao";
   if (mime.startsWith("image/")) return "imagem";
