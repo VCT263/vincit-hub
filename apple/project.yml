@@ -1,0 +1,157 @@
+# App nativo VINCIT HUB (iPhone e Mac) com widgets.
+# Gere o projeto do Xcode com:  brew install xcodegen && xcodegen   (dentro da pasta apple/)
+name: VincitHub
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+options:
+  bundleIdPrefix: com.vincit
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+
+targets:
+  # ── iPhone ──
+  VincitHub-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+      - Resources/Assets.xcassets
+    dependencies:
+      - target: VincitWidgets-iOS
+    settings:
+      base:
+        PRODUCT_NAME: VincitHub
+        PRODUCT_MODULE_NAME: VincitHub
+        PRODUCT_BUNDLE_IDENTIFIER: $(VINCIT_BUNDLE)
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    info:
+      path: Suporte/App-iOS.plist
+      properties:
+        CFBundleDisplayName: VINCIT HUB
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        VincitGrupo: group.com.vincit.hub
+        CFBundleURLTypes:
+          - CFBundleURLName: com.vincit.hub
+            CFBundleURLSchemes: [vincithub]
+        UILaunchScreen:
+          UIColorName: AccentInk
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIUserInterfaceStyle: Dark
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.vincit.hub.refresh]
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: Suporte/App-iOS.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.vincit.hub]
+    scheme: {}
+
+  VincitWidgets-iOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widgets
+      - Shared
+    settings:
+      base:
+        PRODUCT_NAME: VincitWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(VINCIT_BUNDLE).widgets
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: YES
+    info:
+      path: Suporte/Widgets-iOS.plist
+      properties:
+        VincitGrupo: group.com.vincit.hub
+        CFBundleDisplayName: VINCIT HUB
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Suporte/Widgets-iOS.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.vincit.hub]
+
+  # ── Mac ──
+  VincitHub-macOS:
+    type: application
+    platform: macOS
+    sources:
+      - App
+      - Shared
+      - Resources/Assets.xcassets
+    dependencies:
+      - target: VincitWidgets-macOS
+    settings:
+      base:
+        PRODUCT_NAME: VINCIT HUB
+        PRODUCT_MODULE_NAME: VincitHub
+        PRODUCT_BUNDLE_IDENTIFIER: $(VINCIT_BUNDLE)
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_HARDENED_RUNTIME: YES
+    info:
+      path: Suporte/App-macOS.plist
+      properties:
+        CFBundleDisplayName: VINCIT HUB
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.vincit.hub
+            CFBundleURLSchemes: [vincithub]
+        VincitGrupo: $(TeamIdentifierPrefix)group.com.vincit.hub
+        LSApplicationCategoryType: public.app-category.productivity
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+    entitlements:
+      path: Suporte/App-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups: [$(TeamIdentifierPrefix)group.com.vincit.hub]
+    scheme: {}
+
+  VincitWidgets-macOS:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Widgets
+      - Shared
+    settings:
+      base:
+        PRODUCT_NAME: VincitWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: $(VINCIT_BUNDLE).widgets
+        SKIP_INSTALL: YES
+        ENABLE_HARDENED_RUNTIME: YES
+    info:
+      path: Suporte/Widgets-macOS.plist
+      properties:
+        VincitGrupo: $(TeamIdentifierPrefix)group.com.vincit.hub
+        CFBundleDisplayName: VINCIT HUB
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Suporte/Widgets-macOS.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups: [$(TeamIdentifierPrefix)group.com.vincit.hub]

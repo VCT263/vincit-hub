@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { widgetUser } from "@/lib/widget";
 import { occurrences } from "@/components/tasks/shared";
 import { addDays, monday, todayBR } from "@/components/dia/shared";
+import { accentOf } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const uid = await widgetUser(db, k);
   if (!uid) return NextResponse.json({ ok: false, error: "Chave inválida. Gere uma nova em Minha conta." }, { status: 401 });
 
-  const { data: prof } = await db.from("profiles").select("name,status").eq("id", uid).maybeSingle();
+  const { data: prof } = await db.from("profiles").select("name,status,brand_color").eq("id", uid).maybeSingle();
   if (prof?.status && prof.status !== "ativo") return NextResponse.json({ ok: false, error: "Assinatura inativa." }, { status: 403 });
 
   const today = todayBR(), wStart = monday(today), wEnd = addDays(wStart, 6), until = addDays(today, 7);
@@ -43,14 +44,14 @@ export async function GET(request: Request) {
   const lista = [
     ...late.sort((a, b) => a.due_date.localeCompare(b.due_date)),
     ...dueToday.filter((t) => !t.done).sort((a, b) => (hm(a) || "99").localeCompare(hm(b) || "99")),
-  ].slice(0, 8).map((t) => ({ titulo: t.title, hora: hm(t), atrasada: t.due_date < today }));
+  ].slice(0, 8).map((t) => ({ id: t.id, titulo: t.title, hora: hm(t), atrasada: t.due_date < today, dias: t.due_date < today ? Math.round((Date.parse(today) - Date.parse(t.due_date)) / 864e5) : 0 }));
 
   // ── agenda (compromissos de hoje que ainda não passaram e o próximo da semana) ──
-  const agenda: { dia: string; hora: string; titulo: string; tipo: string; local?: string }[] = [];
+  const agenda: { dia: string; hora: string; inicio: string; titulo: string; tipo: string; local?: string }[] = [];
   for (const e of events || []) {
     const d0 = loc(e.starts_at).slice(0, 10), h = loc(e.starts_at).slice(11, 16);
     for (const d of occurrences(d0, e.recurrence, today, until, e.recurrence_until, e.exdates || []))
-      if (d > today || h >= nowHM) agenda.push({ dia: d, hora: h, titulo: e.title, tipo: KIND[e.kind] || "Compromisso", local: e.location || undefined });
+      if (d > today || h >= nowHM) agenda.push({ dia: d, hora: h, inicio: `${d}T${h}:00-03:00`, titulo: e.title, tipo: KIND[e.kind] || "Compromisso", local: e.location || undefined });
   }
   agenda.sort((a, b) => (a.dia + a.hora).localeCompare(b.dia + b.hora));
 
@@ -63,6 +64,11 @@ export async function GET(request: Request) {
   const publicarHoje = C.filter((c) => c.planned_for === today && !PUBLISHED.includes(stage.get(c.status_id) || "")).map((c) => c.title);
   const previstas = weekTasks.length;
   const feitasPrevistas = weekTasks.filter((t) => t.done).length;
+  // por dia da semana (gráfico do Mac): concluídas no dia e previstas para o dia
+  const dias = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(wStart, i);
+    return { dia: d, feitas: TK.filter((t) => t.done && t.done_at && loc(t.done_at).slice(0, 10) === d).length, previstas: TK.filter((t) => t.due_date === d).length };
+  });
 
   const h = parseInt(nowHM);
   const origin = new URL(request.url).origin;
@@ -77,8 +83,9 @@ export async function GET(request: Request) {
       publicar: publicarHoje.slice(0, 4),
       agenda: agenda.filter((a) => a.dia === today).slice(0, 5),
       proximo: agenda[0] || null,
-      semana: { de: wStart, ate: wEnd, concluidas: weekDone, previstas, feitas_previstas: feitasPrevistas, pct: previstas ? Math.round((feitasPrevistas / previstas) * 100) : null, publicados },
+      semana: { de: wStart, ate: wEnd, concluidas: weekDone, previstas, feitas_previstas: feitasPrevistas, pct: previstas ? Math.round((feitasPrevistas / previstas) * 100) : null, publicados, dias },
       avisos: (unread || []).length,
+      cor: accentOf(prof?.brand_color),
       url: origin + "/",
     },
     { headers: { "Cache-Control": "no-store" } },
