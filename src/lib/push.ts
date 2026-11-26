@@ -1,14 +1,35 @@
 /** Notificações push (Web Push com VAPID). Só roda no servidor. */
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServiceClient } from "@/lib/supabase/server";
 
-export const pushReady = () => !!(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+type Vapid = { pub: string; priv: string };
+let cached: Vapid | null = null;
 
-let configured = false;
-function setup() {
-  if (configured) return;
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "https://vincit-hub.vercel.app", process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!, process.env.VAPID_PRIVATE_KEY!);
-  configured = true;
+/**
+ * Chaves VAPID: as da Vercel (NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY), se existirem;
+ * senão as guardadas no banco (private.app_config), geradas aqui no primeiro uso.
+ */
+export async function vapid(): Promise<Vapid | null> {
+  if (cached) return cached;
+  let k: any = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
+    ? { pub: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, priv: process.env.VAPID_PRIVATE_KEY }
+    : null;
+  const db = createServiceClient();
+  if (!k) {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+    const { data, error } = await db.rpc("push_vapid_get");
+    if (error) return null;
+    k = data;
+  }
+  if (!k?.pub || !k?.priv) {
+    const g = webpush.generateVAPIDKeys();
+    const r = await db.rpc("push_vapid_set", { p_pub: g.publicKey, p_priv: g.privateKey });
+    k = r.data;
+  }
+  if (!k?.pub || !k?.priv) return null;
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "https://vincit-hub.vercel.app", k.pub, k.priv);
+  return (cached = { pub: k.pub, priv: k.priv });
 }
 
 type Sub = { id: string; endpoint: string; p256dh: string; auth: string };
@@ -16,8 +37,7 @@ export type PushMsg = { title: string; body?: string; href?: string; tag?: strin
 
 /** envia para as inscrições dadas; apaga as que o navegador já cancelou (404/410) */
 export async function sendTo(db: SupabaseClient, subs: Sub[], msg: PushMsg) {
-  if (!pushReady() || !subs.length) return 0;
-  setup();
+  if (!subs.length || !(await vapid())) return 0;
   let ok = 0;
   await Promise.all(subs.map(async (s) => {
     try {
@@ -36,7 +56,7 @@ export async function sendTo(db: SupabaseClient, subs: Sub[], msg: PushMsg) {
  * Vários avisos de uma vez (ex.: às 7h) viram uma notificação só.
  */
 export async function pushPending(db: SupabaseClient) {
-  if (!pushReady()) return 0;
+  if (!(await vapid())) return 0;
   const since = new Date(Date.now() - 864e5).toISOString();
   const { data: subs } = await db.from("push_subscriptions").select("id,owner_id,endpoint,p256dh,auth,created_at");
   if (!subs?.length) return 0;
