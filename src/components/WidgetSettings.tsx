@@ -46,11 +46,18 @@ export default function WidgetSettings() {
         </div>
       </div>
       {!url ? (
-        <button className="btn btn-mint w-full" disabled={busy} onClick={() => gerar()}>{busy ? "Gerando…" : "Criar meu widget"}</button>
+        <button className="btn btn-mint w-full" disabled={busy} onClick={() => gerar()}>{busy ? "Gerando…" : "Criar meu widget e calendário"}</button>
       ) : (
         <>
-          <button className="btn btn-mint w-full" onClick={copiar}><I.copy className="w-4 h-4" />Copiar script do widget</button>
-          <button className="text-xs text-fog hover:text-paper underline" onClick={() => setOpen(!open)}>{open ? "Esconder" : "Ver"} o passo a passo</button>
+          <div className="rounded-[10px] border border-line p-3 space-y-2">
+            <p className="text-sm"><b>Sem baixar nada:</b> assine o calendário do HUB. Tarefas, atrasos, compromissos, gravações e publicações aparecem no Calendário e no widget de Calendário que já vêm no iPhone e no Mac.</p>
+            <a className="btn btn-mint w-full" href={url.replace(/^https?:/, "webcal:").replace("/api/resumo", "/api/calendario")}><I.calendar className="w-4 h-4" />Assinar calendário do HUB</a>
+            <p className="text-xs text-fog">Toque no botão no iPhone ou clique no Mac e confirme em <b>Assinar</b>. Depois adicione o widget <b>Calendário</b> (no iPhone: segure a tela inicial → Editar → Adicionar widget; no Mac: botão direito na mesa → Editar Widgets). Para atualizar mais rápido: Ajustes → Calendário → Contas → Buscar Novos Dados → a cada 15 min.</p>
+            <button className="text-xs text-fog hover:text-paper underline" onClick={() => { navigator.clipboard?.writeText(url.replace("/api/resumo", "/api/calendario")); setMsg({ t: "Link do calendário copiado (use em Google Agenda → Outras agendas → Do URL).", ok: true }); }}>Copiar link do calendário (Google Agenda ou outro app)</button>
+          </div>
+          <p className="text-sm pt-1"><b>Widget com números</b> (precisa do app grátis Scriptable):</p>
+          <button className="btn btn-ghost w-full" onClick={copiar}><I.copy className="w-4 h-4" />Copiar script do widget</button>
+          <button className="text-xs text-fog hover:text-paper underline" onClick={() => setOpen(!open)}>{open ? "Esconder" : "Ver"} o passo a passo do Scriptable</button>
           {open && (
             <ol className="text-sm space-y-2 list-decimal pl-5 marker:text-mint">
               <li>No iPhone, instale o app grátis <b>Scriptable</b> na App Store.</li>
