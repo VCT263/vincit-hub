@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC.some((p) => path.startsWith(p));
+  const isPublic = PUBLIC.some((p) => path.startsWith(p)) || path === "/api/resumo";
   if (!user && !isPublic) {
     if (path.startsWith("/api/")) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     const url = request.nextUrl.clone();
