@@ -302,6 +302,7 @@ export const TOOLS: Tool[] = [
           zooms: "[{inicio, fim, escala}] escala em %, ex.: 110",
           insercoes: "[{inicio, fim, midia, motivo}] midia = nome do arquivo no projeto do Premiere ou descrição do B-roll",
           marcadores: "[{inicio, texto}] observações livres para o editor",
+          camera: "0 a 3 (só no Editor do HUB): câmera que acompanha a fala com zoom in e out por frase; 0 parada, 1 suave, 2 média, 3 forte",
         },
         regras: "Use só tempos que existem na transcrição/timeline. Respeite o kit de estilo e o pedido do editor. Nada é aplicado sem o editor revisar no Premiere.",
       };
@@ -313,7 +314,7 @@ export const TOOLS: Tool[] = [
     description: "Envia o plano de edição (JSON no formato de listar_edicoes_premiere) para uma sequência. O plugin do Premiere ou o Editor do HUB mostra o plano e a pessoa escolhe o que aplicar. No Editor do HUB os cortes são aplicados de verdade na timeline.",
     inputSchema: {
       type: "object", required: ["id", "plano"],
-      properties: { id: { type: "string" }, plano: { type: "object", description: "{resumo, cortes, legendas, titulos, zooms, insercoes, marcadores}" }, observacao: { type: "string" } },
+      properties: { id: { type: "string" }, plano: { type: "object", description: "{resumo, cortes, legendas, titulos, zooms, insercoes, marcadores, camera}" }, observacao: { type: "string" } },
     },
     needs: "audiovisual:premiere",
     run: async (ctx, a) => {
@@ -322,6 +323,7 @@ export const TOOLS: Tool[] = [
       if (!p || typeof p !== "object" || Array.isArray(p)) fail("O plano precisa ser um objeto JSON.");
       const keys = ["cortes", "legendas", "titulos", "zooms", "insercoes", "marcadores"];
       const plan: any = { resumo: clip(p.resumo, 1000) || "" };
+      if (p.camera != null && Number.isFinite(+p.camera)) plan.camera = Math.max(0, Math.min(3, Math.round(+p.camera)));
       for (const k of keys) {
         const arr = Array.isArray(p[k]) ? p[k] : [];
         plan[k] = arr.filter((x: any) => x && Number.isFinite(+x.inicio)).slice(0, 2000).map((x: any) => {
