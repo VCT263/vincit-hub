@@ -6,26 +6,26 @@ import { useAccess } from "@/lib/useAccess";
 import { can } from "@/lib/access";
 
 /** Ferramentas avulsas que resolvem um problema específico do dia a dia da produtora. */
-const SKILLS = [
+const FERRAMENTAS = [
   {
     key: "audiovisual:teleprompter", href: "/audiovisual/teleprompter", Icon: I.prompter, title: "Teleprompter",
     desc: "Puxa o roteiro do Creator, rola pela sua voz, espelha para o vidro do prompter e pode ser controlado pelo celular.",
     tags: ["Roteiro do Creator", "Celular", "Controle remoto"],
   },
   {
-    key: "audiovisual:recuperador", href: "/audiovisual/skills/recuperador", Icon: I.refresh, title: "Recuperador de arquivos",
+    key: "audiovisual:recuperador", href: "/audiovisual/ferramentas/recuperador", Icon: I.refresh, title: "Recuperador de arquivos",
     desc: "Traz de volta vídeo Sony .RSV ou MP4 que não abre depois de a bateria acabar ou o cartão sair, e áudio WAV cortado.",
     tags: ["Sony XAVC S", "WAV", "Roda no seu computador"],
   },
 ];
 
-export default function Skills() {
+export default function Ferramentas() {
   const acc = useAccess();
   return (
     <>
-      <PageHead kicker="AUDIOVISUAL" title="Skills" desc="Ferramentas para resolver problemas pontuais de gravação e pós-produção, direto no navegador." />
+      <PageHead kicker="AUDIOVISUAL" title="Ferramentas" desc="Ferramentas para resolver problemas pontuais de gravação e pós-produção, direto no navegador." />
       <div className="grid md:grid-cols-2 gap-4">
-        {SKILLS.map(({ key, href, Icon, title, desc, tags }, i) => {
+        {FERRAMENTAS.map(({ key, href, Icon, title, desc, tags }, i) => {
           const ok = !acc || can(acc.tools, key);
           const body = (
             <>
@@ -45,7 +45,7 @@ export default function Skills() {
           );
         })}
         <div className="card p-5 border-dashed flex flex-col justify-center text-sm text-fog">
-          <p className="font-semibold text-paper">Próximas skills</p>
+          <p className="font-semibold text-paper">Próximas ferramentas</p>
           <p className="mt-1">Recuperação de H.265 (XAVC HS) e de outras câmeras.</p>
         </div>
       </div>
