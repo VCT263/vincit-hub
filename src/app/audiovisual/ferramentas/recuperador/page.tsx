@@ -99,8 +99,8 @@ export default function Recuperador() {
 
   return (
     <>
-      <PageHead kicker="SKILLS" title="Recuperador de arquivos" desc="Traz de volta vídeo Sony .RSV ou MP4 que não abre e áudio WAV cortado. Tudo roda no seu computador: o arquivo não é enviado para lugar nenhum.">
-        <Link href="/audiovisual/skills" className="btn btn-ghost"><I.back className="w-4 h-4" />Skills</Link>
+      <PageHead kicker="FERRAMENTAS" title="Recuperador de arquivos" desc="Traz de volta vídeo Sony .RSV ou MP4 que não abre e áudio WAV cortado. Tudo roda no seu computador: o arquivo não é enviado para lugar nenhum.">
+        <Link href="/audiovisual/ferramentas" className="btn btn-ghost"><I.back className="w-4 h-4" />Ferramentas</Link>
       </PageHead>
 
       {!supported && (
