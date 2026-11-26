@@ -25,6 +25,8 @@ export const TOOLS: Tool[] = [
   { key: "audiovisual:midia", label: "Banco de mídia (Google Drive)", hub: "audiovisual", path: "/audiovisual/midia" },
   { key: "ecommerce:plano", label: "Plano do trimestre", hub: "ecommerce", path: "/ecommerce/plano" },
   { key: "ecommerce:acoes", label: "Calendário de ações e campanhas", hub: "ecommerce", path: "/ecommerce/acoes" },
+  { key: "ecommerce:lancamento", label: "Lançamento da loja online", hub: "ecommerce", path: "/ecommerce/lancamento" },
+  { key: "ecommerce:inteligencia", label: "Inteligência do negócio", hub: "ecommerce", path: "/ecommerce/inteligencia" },
   { key: "ia", label: "Inteligência artificial (agentes, roteiros, análises)", hub: "geral" },
 ];
 

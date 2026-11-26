@@ -4,9 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
-import { useAI } from "@/lib/useAI";
 import { syncTask } from "@/lib/gsync";
-import { brl, fmtDay, KINDS, num, profileText, STATUS, type EcAction, type Item } from "@/lib/ecommerce";
+import { brl, fmtDay, KINDS, num, STATUS, type EcAction, type Item } from "@/lib/ecommerce";
 
 const PH: [keyof EcAction, string, string][] = [
   ["before_items", "Antes", "aquecimento"],
@@ -21,7 +20,6 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const ai = useAI();
 
   async function patch(values: Partial<EcAction>) {
     const next = { ...a, ...values } as EcAction;
@@ -36,14 +34,6 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
 
   const items = (k: keyof EcAction) => (a[k] as Item[]) || [];
   const setItems = (k: keyof EcAction, xs: Item[]) => patch({ [k]: xs } as any);
-
-  async function campaign() {
-    const r = await ai.run<any>("ecommerce_campaign", {
-      store: store.name, profile: profileText(store.profile), action: { ...a, campaign: undefined },
-      kind: KINDS[a.kind], today: new Date().toISOString().slice(0, 10),
-    });
-    if (r) patch({ campaign: { ...r, pauta: (r.pauta || []).map((p: any, i: number) => ({ ...p, id: `p${Date.now().toString(36)}${i}`, status: "ideia" })), generated_at: new Date().toISOString() } });
-  }
 
   async function sendToBoard() {
     const posts = a.campaign?.pauta || [];
@@ -150,12 +140,10 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="font-mono text-[10px] uppercase tracking-widest text-mint">Campanha e conteúdo</p>
             <div className="flex flex-wrap gap-2">
-              <button onClick={campaign} disabled={ai.busy} className="btn btn-ghost btn-sm"><I.spark className="w-4 h-4" />{ai.busy ? "Criando…" : c ? "Refazer com IA" : "Criar campanha com IA"}</button>
               {c?.pauta?.length > 0 && <button onClick={sendToBoard} disabled={busy} className="btn btn-mint btn-sm"><I.board className="w-4 h-4" />{c.sent_at ? "Enviar de novo ao Quadro" : "Enviar pauta ao Quadro"}</button>}
             </div>
           </div>
-          {ai.error && <p className="text-sm text-danger mb-2">{ai.error}</p>}
-          {!c && <p className="text-sm text-fog">Preencha a frase da ação e a meta. A IA monta o conceito, as mensagens de cada fase, a pauta de Instagram com data e o roteiro de WhatsApp para as clientes VIP e inativas.</p>}
+          {!c && <p className="text-sm text-fog">Preencha a frase da ação e a meta. Depois peça ao Claude no chat do projeto, sem custo, por exemplo "cria a campanha da Black Friday da ISYS". Ele monta o conceito, a pauta com legendas, o WhatsApp, a oferta e o briefing da equipe e grava aqui. Ou crie os conteúdos à mão na campanha dia a dia.</p>}
           {c && (
             <div className="space-y-4 text-sm">
               {c.conceito && <div><p className="font-display font-bold text-lg">{c.conceito}</p>{c.mensagem && <p className="text-fog mt-1">{c.mensagem}</p>}</div>}
