@@ -4,7 +4,7 @@ import PageHead from "@/components/PageHead";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
-import { KINDS } from "@/lib/drive";
+import { KINDS, inferKind } from "@/lib/drive";
 
 type St = { configured: boolean; google: boolean; drive: boolean; needsScope?: boolean; email?: string; cfg?: any };
 const AUDIO = (m?: string) => !!m && m.startsWith("audio/");
@@ -13,7 +13,16 @@ const IMAGE = (m?: string) => !!m && m.startsWith("image/");
 const kb = (n?: number | null) => (!n ? "" : n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
 const dur = (ms?: number | null) => { if (!ms) return ""; const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const ago = (iso?: string) => { if (!iso) return "nunca"; const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 1 ? "agora" : m < 60 ? `há ${m} min` : m < 1440 ? `há ${Math.round(m / 60)} h` : new Date(iso).toLocaleDateString("pt-BR"); };
-const KCOLOR: Record<string, string> = { sfx: "chip-mint", trilha: "text-[#f5c84c] border-[#5c4a1a]", insercao: "text-[#7aa7ff] border-[#24365c]", imagem: "text-[#c084fc] border-[#4a2d5c]", lut: "", modelo: "", referencia: "", outro: "" };
+const KCOLOR: Record<string, string> = { sfx: "chip-mint", trilha: "text-[#f5c84c] border-[#5c4a1a]", insercao: "text-[#7aa7ff] border-[#24365c]", externo: "text-[#f0a35e] border-[#5c3a1a]", interno: "text-[#5ee0c8] border-[#1a4f47]", marca: "text-[#f07ab4] border-[#5c2443]", imagem: "text-[#c084fc] border-[#4a2d5c]", lut: "", modelo: "", referencia: "", outro: "" };
+/** bancos gratuitos para buscar fora, por área ({q} vira a busca) */
+const FORA: Record<string, [string, string][]> = {
+  sfx: [["Freesound", "https://freesound.org/search/?q={q}"], ["Pixabay", "https://pixabay.com/sound-effects/search/{q}/"]],
+  trilha: [["Pixabay Música", "https://pixabay.com/music/search/{q}/"], ["Free Music Archive", "https://freemusicarchive.org/search?quicksearch={q}"]],
+  insercao: [["Pexels vídeos", "https://www.pexels.com/search/videos/{q}/"], ["Pixabay vídeos", "https://pixabay.com/videos/search/{q}/"]],
+  externo: [["Pexels", "https://www.pexels.com/search/{q}/"], ["Pexels vídeos", "https://www.pexels.com/search/videos/{q}/"], ["Unsplash", "https://unsplash.com/s/photos/{q}"], ["Pixabay", "https://pixabay.com/images/search/{q}/"]],
+  imagem: [["Unsplash", "https://unsplash.com/s/photos/{q}"], ["Pixabay PNG", "https://pixabay.com/images/search/{q}%20png/"]],
+  referencia: [["Pinterest", "https://br.pinterest.com/search/pins/?q={q}"], ["Behance", "https://www.behance.net/search/projects?search={q}"], ["YouTube", "https://www.youtube.com/results?search_query={q}"]],
+};
 const kl = (k: string) => KINDS.find((x) => x.k === k)?.l || k;
 
 export default function MidiaPage() {
@@ -21,6 +30,8 @@ export default function MidiaPage() {
   const [items, setItems] = useState<any[] | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [kind, setKind] = useState("tudo");
+  const [fora, setFora] = useState("");
+  const [reorg, setReorg] = useState(false);
   const [q, setQ] = useState("");
   const [client, setClient] = useState("");
   const [sel, setSel] = useState<any>(null);
@@ -87,6 +98,20 @@ export default function MidiaPage() {
   }
   useEffect(() => () => audio.current?.pause(), []);
 
+  async function reorganize() {
+    if (!items?.length) return;
+    setReorg(true);
+    const groups: Record<string, string[]> = {};
+    for (const it of items) { const k = inferKind(it.name, it.mime || "", it.folder || "", Number(it.size || 0)); if (k !== it.kind) (groups[k] = groups[k] || []).push(it.id); }
+    const s = createClient(); let n = 0;
+    for (const [k, ids] of Object.entries(groups)) for (let i = 0; i < ids.length; i += 200) {
+      const { error } = await s.from("av_media").update({ kind: k, updated_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
+      if (!error) n += Math.min(200, ids.length - i);
+    }
+    setReorg(false); setMsg({ t: n ? `${n} arquivo(s) mudaram de área.` : "Tudo já estava na área certa.", ok: true });
+    await loadItems();
+  }
+
   async function save(patch: any) {
     if (!sel) return;
     const n = { ...sel, ...patch };
@@ -100,7 +125,7 @@ export default function MidiaPage() {
 
   return (
     <>
-      <PageHead kicker="04 · ACERVO" title="Banco de mídia" desc="Sua pasta do Google Drive vira o banco da produtora: efeitos, trilhas, inserções, LUTs e modelos com etiquetas, cliente e licença.">
+      <PageHead kicker="04 · ACERVO" title="Banco de mídia" desc="Sua pasta do Google Drive vira o banco da produtora, separado por áreas: efeitos sonoros, trilhas, inserções, banco externo, conteúdos internos, marcas, LUTs e modelos.">
         {ready && <button onClick={() => setPicker(true)} className="btn btn-ghost"><I.folder className="w-4 h-4" />{st!.cfg.drive_folder_name}</button>}
         {ready && <button onClick={() => sync()} disabled={syncing} className="btn btn-mint"><I.refresh className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />{syncing ? "Lendo o Drive…" : "Sincronizar"}</button>}
       </PageHead>
@@ -114,7 +139,7 @@ export default function MidiaPage() {
           <span className="w-11 h-11 rounded-xl bg-panel2 grid place-items-center text-mint"><I.folder className="w-5 h-5" /></span>
           <h2 className="font-display font-bold text-xl mt-4">Conecte o seu Google Drive</h2>
           <p className="text-sm text-fog mt-2 leading-relaxed">
-            Você escolhe uma pasta (por exemplo “VINCIT Mídia”, com subpastas Efeitos, Trilhas, Inserções, LUTs e Modelos). O HUB lê os arquivos, mostra a prévia e guarda as etiquetas. Os arquivos continuam no seu Drive: o que você colocar ou apagar lá aparece aqui na próxima sincronização.
+            Você escolhe uma pasta (por exemplo “VINCIT Mídia”, com subpastas como Efeitos sonoros, Trilhas, Inserções, Banco externo, Conteúdos internos, Marcas, LUTs e Modelos). O HUB lê os arquivos, mostra a prévia e guarda as etiquetas. Os arquivos continuam no seu Drive: o que você colocar ou apagar lá aparece aqui na próxima sincronização.
           </p>
           {!st.configured ? (
             <p className="text-sm text-danger mt-4">A integração com o Google ainda não foi configurada pelo administrador.</p>
@@ -130,23 +155,50 @@ export default function MidiaPage() {
       {st?.drive && !st.cfg?.drive_folder_id && (
         <section className="card p-6 max-w-2xl">
           <h2 className="font-display font-bold text-xl">Escolha a pasta do banco de mídia</h2>
-          <p className="text-sm text-fog mt-2">Tudo o que estiver dentro dela, inclusive em subpastas, entra no HUB. O nome das subpastas ajuda a separar efeitos, trilhas e inserções.</p>
+          <p className="text-sm text-fog mt-2">Tudo o que estiver dentro dela, inclusive em subpastas, entra no HUB. O nome das subpastas define a área de cada arquivo: efeitos sonoros, trilhas, inserções, banco externo, conteúdos internos, marcas e logos.</p>
           <button onClick={() => setPicker(true)} className="btn btn-mint mt-5"><I.folder className="w-4 h-4" />Escolher pasta</button>
         </section>
       )}
 
       {ready && (
         <>
-          <div className="flex flex-col md:flex-row gap-2 md:items-center">
-            <div className="flex gap-1 overflow-x-auto scroll-thin bg-panel border border-line rounded-xl p-1 text-[13px] font-semibold">
-              {[["tudo", "Tudo", items?.length || 0] as const, ...KINDS.filter((k) => counts[k.k]).map((k) => [k.k, k.l, counts[k.k]] as const)].map(([k, l, n]) => (
-                <button key={k} onClick={() => setKind(k)} className={`shrink-0 px-3 py-1.5 rounded-lg ${kind === k ? "bg-panel2 text-paper" : "text-fog hover:text-paper"}`}>{l} <span className="font-mono text-[11px] opacity-70">{n}</span></button>
-              ))}
-            </div>
-            <div className="relative md:ml-auto md:w-64">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
+            {[{ k: "tudo", l: "Tudo", d: "Todas as áreas juntas" }, ...KINDS.filter((k) => k.k !== "outro" || counts.outro)].map((a) => {
+              const n = a.k === "tudo" ? items?.length || 0 : counts[a.k] || 0;
+              return (
+                <button key={a.k} onClick={() => setKind(a.k)} title={a.d}
+                  className={`text-left rounded-xl border px-3 py-2.5 transition-colors ${kind === a.k ? "border-mint bg-mint/10" : "border-line bg-panel hover:border-slate"} ${!n && a.k !== "tudo" ? "opacity-60" : ""}`}>
+                  <p className="text-[13px] font-semibold leading-tight">{a.l}</p>
+                  <p className="font-mono text-[11px] text-fog mt-1">{n} {n === 1 ? "arquivo" : "arquivos"}</p>
+                </button>
+              );
+            })}
+          </div>
+          {kind !== "tudo" && (() => {
+            const a = KINDS.find((x) => x.k === kind)!; const src = FORA[kind];
+            return (
+              <div className="card p-4 mt-3 flex flex-col lg:flex-row gap-3 lg:items-center">
+                <div className="flex-1 min-w-0">
+                  <p className="font-display font-bold">{a.l}</p>
+                  <p className="text-xs text-fog mt-0.5">{a.d}.{a.pasta ? ` No Drive, guarde em uma subpasta chamada “${a.pasta}” dentro de ${st!.cfg.drive_folder_name || "a pasta do banco"}.` : ""}</p>
+                </div>
+                {src && (
+                  <form className="flex flex-wrap items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (fora.trim()) window.open(src[0][1].replace("{q}", encodeURIComponent(fora.trim())), "_blank", "noopener"); }}>
+                    <input className="input !w-44 !py-1.5 text-sm" placeholder="Buscar fora (grátis)" value={fora} onChange={(e) => setFora(e.target.value)} />
+                    {src.map(([n, u]) => (
+                      <a key={n} href={u.replace("{q}", encodeURIComponent(fora.trim() || a.l))} target="_blank" rel="noopener noreferrer" className="chip hover:text-paper">{n} ↗</a>
+                    ))}
+                  </form>
+                )}
+              </div>
+            );
+          })()}
+          <div className="flex flex-col md:flex-row gap-2 md:items-center mt-3">
+            <div className="relative md:w-72">
               <I.search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fog" />
-              <input className="input pl-9" placeholder="whoosh, café, transição…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input className="input pl-9" placeholder="Buscar no banco: whoosh, café, logo…" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
+            <button onClick={reorganize} disabled={reorg || !items?.length} className="btn btn-ghost btn-sm md:ml-auto" title="Põe cada arquivo na área indicada pelo nome da pasta. Também desfaz trocas feitas à mão.">{reorg ? "Organizando…" : "Reorganizar pelas pastas"}</button>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 mt-3">
             {tags.length > 0 && <span className="font-mono text-[10px] uppercase tracking-widest text-fog mr-1">Etiquetas</span>}
@@ -158,7 +210,7 @@ export default function MidiaPage() {
           </div>
           <p className="text-[11px] text-fog mt-2">Última leitura do Drive {ago(st!.cfg.last_sync_at)}{st!.cfg.last_error ? ` · ${st!.cfg.last_error}` : ""}</p>
 
-          {items && !list.length && <p className="text-sm text-fog py-12 text-center">{items.length ? "Nada com esses filtros." : "A pasta está vazia. Coloque arquivos nela pelo Drive e toque em Sincronizar."}</p>}
+          {items && !list.length && <p className="text-sm text-fog py-12 text-center">{!items.length ? "A pasta está vazia. Coloque arquivos nela pelo Drive e toque em Sincronizar." : kind !== "tudo" && !counts[kind] && !q && !client ? "Nada nesta área ainda. Coloque os arquivos na subpasta indicada acima e toque em Sincronizar." : "Nada com esses filtros."}</p>}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 mt-4">
             {list.map((it) => (
               <div key={it.id} className={`card p-2.5 cursor-pointer hover:border-fog transition-colors ${sel?.id === it.id ? "!border-mint-dim" : ""}`} onClick={() => setSel(it)}>
@@ -235,7 +287,7 @@ function Detail({ it, clients, save, playing, toggle }: { it: any; clients: any[
       </div>
       <div className="space-y-3">
         <div>
-          <label className="label">Tipo</label>
+          <label className="label">Área</label>
           <select className="input" value={it.kind} onChange={(e) => save({ kind: e.target.value })}>{KINDS.map((k) => <option key={k.k} value={k.k}>{k.l}</option>)}</select>
         </div>
         <div>
