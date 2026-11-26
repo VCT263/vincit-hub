@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import StoreGate, { StorePicker } from "@/components/ec/StoreGate";
-import { brl, commercialDates, fmtDay, KINDS, MONTHS, num, PROFILE_FIELDS, quarterOf, todayBR, weeksOf } from "@/lib/ecommerce";
+import QuarterBoard from "@/components/ec/QuarterBoard";
+import { brl, commercialDates, daysBetween, fmtDay, KINDS, MONTHS, num, PROFILE_FIELDS, quarterOf, todayBR, weeksOf } from "@/lib/ecommerce";
 
 export default function Ecommerce() {
   return <StoreGate>{(ctx) => <Overview ctx={ctx} />}</StoreGate>;
@@ -75,6 +76,8 @@ function Overview({ ctx }: { ctx: any }) {
         ))}
       </div>
 
+      <QuarterBoard ctx={ctx} />
+
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-4">
         <section className="card p-5">
           <div className="flex items-center justify-between mb-3">
@@ -93,6 +96,7 @@ function Overview({ ctx }: { ctx: any }) {
                     <p className="font-semibold text-sm truncate">{a.title}</p>
                     <p className="text-xs text-fog truncate">{[KINDS[a.kind], a.goal ? `meta ${brl(a.goal)}` : null, a.campaign?.pauta?.length ? `${a.campaign.pauta.length} conteúdos` : null].filter(Boolean).join(" · ")}</p>
                   </div>
+                  <span className="text-[11px] text-fog shrink-0 tabular-nums">{(() => { const n = daysBetween(today, a.date); return n > 0 ? `em ${n}d` : n === 0 ? "hoje" : ""; })()}</span>
                   <span className="chip shrink-0 tabular-nums">{done}/{all.length}</span>
                 </Link>
               );
@@ -102,7 +106,7 @@ function Overview({ ctx }: { ctx: any }) {
             <div className="border-t border-line mt-3 pt-3">
               <p className="text-xs text-fog mb-2">Datas que vêm aí e ainda não estão no calendário</p>
               <div className="flex flex-wrap gap-2">
-                {upcoming.map((d) => <Link key={d.date + d.title} href={`/ecommerce/acoes?nova=${d.date}&t=${encodeURIComponent(d.title)}&k=${d.kind}`} className="chip hover:text-paper">{fmtDay(d.date)} · {d.title} +</Link>)}
+                {upcoming.map((d) => <Link key={d.date + d.title} href={`/ecommerce/acoes?nova=${d.date}&t=${encodeURIComponent(d.title)}&k=${d.kind}`} className="chip hover:text-paper">{fmtDay(d.date)} · {d.title} <span className="text-fog">· {daysBetween(today, d.date) === 0 ? "hoje" : `em ${daysBetween(today, d.date)}d`}</span> +</Link>)}
               </div>
             </div>
           )}

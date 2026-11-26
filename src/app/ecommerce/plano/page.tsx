@@ -3,9 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
-import Markdown from "@/components/Markdown";
 import StoreGate, { StorePicker } from "@/components/ec/StoreGate";
-import { useAI } from "@/lib/useAI";
 import { brl, fmtDay, MONTHS, num, quarterMonths, quarterOf, todayBR, weeksOf } from "@/lib/ecommerce";
 
 export default function Plano() {
@@ -22,7 +20,6 @@ function Plan({ ctx }: { ctx: any }) {
   const [q, setQ] = useState<any>({ priorities: ["", "", ""] });
   const [acts, setActs] = useState<any[]>([]);
   const [saved, setSaved] = useState<string | null>(null);
-  const ai = useAI();
 
   const load = useCallback(async () => {
     const s = createClient();
@@ -66,15 +63,6 @@ function Plan({ ctx }: { ctx: any }) {
   const totGoal = sum("goal");
   const stockRatio = q.stock_value && totGoal ? Number(q.stock_value) / totGoal : null;
   const label = (m: string) => MONTHS[Number(m.slice(5, 7)) - 1];
-
-  async function closing() {
-    const r = await ai.run<{ text: string }>("ecommerce_closing", {
-      store: ctx.store.name, quarter: `${yq.quarter}º trimestre de ${yq.year}`,
-      months: months.map((m) => ({ mes: label(m), ...rows[m] })),
-      quarter_data: q, actions: acts,
-    });
-    if (r?.text) saveQuarter({ closing: r.text });
-  }
 
   const Money = ({ m, k, ph }: { m: string; k: string; ph?: string }) => (
     <input inputMode="decimal" className="input !py-1.5 tabular-nums" placeholder={ph || "R$"} defaultValue={rows[m]?.[k] ?? ""} key={`${m}-${k}-${rows[m]?.id || "n"}`}
@@ -209,12 +197,29 @@ function Plan({ ctx }: { ctx: any }) {
       </section>
 
       <section className="card p-5">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-fog">Fechamento do trimestre</p>
-          <button onClick={closing} disabled={ai.busy} className="btn btn-ghost btn-sm"><I.spark className="w-4 h-4" />{ai.busy ? "Escrevendo…" : q.closing ? "Refazer com IA" : "Escrever com IA"}</button>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Fechamento do trimestre</p>
+        <div className="grid md:grid-cols-3 gap-3 mb-4">
+          {months.map((m) => {
+            const r = rows[m] || {}, sold = Number(r.result) || 0;
+            const tier = !r.result ? null : r.goal_super && sold >= Number(r.goal_super) ? ["Super meta", "text-mint"] : r.goal && sold >= Number(r.goal) ? ["Meta batida", "text-mint"] : r.goal_min && sold >= Number(r.goal_min) ? ["Só a mínima", "text-paper"] : ["Abaixo da mínima", "text-danger"];
+            return (
+              <div key={m} className="rounded-xl border border-line p-3">
+                <p className="text-xs text-fog">{label(m)}</p>
+                <p className="font-display font-bold text-lg tabular-nums">{r.result ? brl(r.result) : "–"}</p>
+                <p className={`text-xs ${tier ? tier[1] : "text-fog"}`}>{tier ? `${tier[0]}${r.goal ? ` · ${Math.round((sold / Number(r.goal)) * 100)}% da meta` : ""}` : "lance o vendido acima"}</p>
+              </div>
+            );
+          })}
         </div>
-        {ai.error && <p className="text-sm text-danger mb-2">{ai.error}</p>}
-        {q.closing ? <Markdown text={q.closing} /> : <p className="text-sm text-fog">Lance o vendido de cada mês e o resultado das ações. A IA compara com as metas e escreve quanto vendeu, o que funcionou, o que mudar e o que fica para o próximo trimestre.</p>}
+        {acts.filter((a: any) => a.goal).length > 0 && (
+          <div className="mb-4 divide-y divide-line text-sm">
+            {acts.filter((a: any) => a.goal).map((a: any) => (
+              <div key={a.id} className="py-1.5 flex justify-between gap-3"><span className="truncate">{a.title}</span><span className="tabular-nums text-fog shrink-0">{a.result ? `${brl(a.result)} de ${brl(a.goal)} (${Math.round((Number(a.result) / Number(a.goal)) * 100)}%)` : `meta ${brl(a.goal)} · sem resultado`}</span></div>
+            ))}
+          </div>
+        )}
+        <label className="label">O que funcionou, o que mudar e o que fica para o próximo trimestre</label>
+        <textarea className="input !min-h-[110px]" defaultValue={q.closing || ""} key={`closing-${yq.year}-${yq.quarter}`} onBlur={(e) => e.target.value !== (q.closing || "") && saveQuarter({ closing: e.target.value })} placeholder="Quer um texto pronto? Peça o fechamento ao Claude no chat do projeto, sem custo." />
       </section>
     </>
   );
