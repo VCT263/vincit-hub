@@ -282,14 +282,14 @@ function Item({ n, aba, acoes, grande, aoNavegar }: { n: Nota; aba: Aba; acoes: 
             ) : (
               <>
                 {tarefa && <button disabled={ocupado} onClick={rodar(() => acoes.concluir(n))} className={`${btn} text-mint hover:bg-mint/10`}><A.check className="w-3.5 h-3.5" />Concluir</button>}
-                {tarefa && n.kind !== "lembrete" && <button disabled={ocupado} onClick={rodar(() => acoes.amanha(n))} className={ghost}>Passar para amanhã</button>}
+                {tarefa && n.kind !== "lembrete" && <button disabled={ocupado} onClick={rodar(() => acoes.amanha(n))} className={ghost}>{grande ? "Passar para amanhã" : "Amanhã"}</button>}
                 {cobranca && (confirma
                   ? <button disabled={ocupado} onClick={rodar(() => acoes.recebido(n))} className={`${btn} bg-mint text-[var(--color-on-mint,#06140e)]`}>Confirmar recebido</button>
                   : <button onClick={() => { setConfirma(true); setTimeout(() => setConfirma(false), 4000); }} className={`${btn} text-mint hover:bg-mint/10`}><A.money className="w-3.5 h-3.5" />Marcar recebido</button>)}
                 {aba === "adiados"
                   ? <button disabled={ocupado} onClick={rodar(() => acoes.adiar(n.id, null))} className={ghost}>Trazer de volta</button>
                   : <button onClick={() => setMenu(true)} className={ghost}><A.clock className="w-3.5 h-3.5" />Adiar</button>}
-                <button disabled={ocupado} onClick={rodar(() => acoes.lidas([n.id]))} className={ghost}>Marcar como lido</button>
+                <button disabled={ocupado} onClick={rodar(() => acoes.lidas([n.id]))} className={ghost} title="Marcar como lido">{grande ? "Marcar como lido" : "Lido"}</button>
               </>
             )}
           </div>
