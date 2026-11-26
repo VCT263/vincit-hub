@@ -98,4 +98,4 @@ Traga os 5 eixos, na ordem acima, com 2 a 3 recomendações nos eixos com dados.
 }
 
 /** sem API paga: o pedido vai para a fila do Claude (conector VINCIT HUB) e volta para esta rota */
-export const POST = withAIQueue("/api/ai/diagnostico", handle);
+export const POST = withAIQueue("diagnostico", handle);

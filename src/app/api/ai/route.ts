@@ -196,4 +196,4 @@ Use só esses números; quando faltar um dado, diga que falta. Responda em markd
 }
 
 /** sem API paga: o pedido vai para a fila do Claude (conector VINCIT HUB) e volta para esta rota */
-export const POST = withAIQueue("/api/ai", handle);
+export const POST = withAIQueue("ai", handle);
