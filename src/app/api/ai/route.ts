@@ -142,6 +142,44 @@ export async function POST(req: Request) {
       return NextResponse.json(extractJson(text));
     }
 
+    if (task === "ecommerce_campaign") {
+      const a = data.action || {};
+      const phases = (k: string) => (a[k] || []).map((x: any) => x.t).join("; ") || "-";
+      const text = await callClaude({
+        maxTokens: 6000,
+        prompt: `Você é estrategista de marketing de varejo de moda (loja física e online) no Brasil. Monte a campanha de uma ação comercial da loja ${data.store}.
+Método da loja (Plano de 90 dias): toda ação tem antes (aquecimento, começando pelo menos 5 dias antes), durante e depois (pós-venda); chame primeiro quem já conhece a loja (clientes VIP e inativas); em datas de desconto, só peças selecionadas e desconto "até", nunca a coleção nova; presente por faixa de compra em vez de desconto quando possível; nada de antecipar liquidação.
+Ação: ${a.title} (${data.kind})
+Data: ${a.date}${a.end_date ? ` até ${a.end_date}` : ""} · aquecimento a partir de ${a.warmup_date || "5 dias antes"}
+Meta: ${a.goal ? `R$ ${a.goal}` : "não definida"}${a.goal_max ? ` (máxima R$ ${a.goal_max})` : ""}
+Frase da ação: vou fazer ${a.do_what || "{{o quê}}"}, porque ${a.because || "{{motivo}}"}, oferecendo ${a.offering || "{{oferta}}"}, para ${a.audience || "{{público}}"}, mirando ${a.aiming || "{{resultado}}"}.
+Fases já planejadas: antes: ${phases("before_items")} | durante: ${phases("during_items")} | depois: ${phases("after_items")}
+Vitrine: ${a.vm_window || "não definida"}
+Hoje: ${data.today}. Não sugira datas no passado.
+
+Responda SOMENTE com JSON:
+{"conceito":"nome curto da campanha","mensagem":"mensagem central em 1-2 frases","fases":[{"fase":"Antes|Durante|Depois","periodo":"datas","objetivo":"o que a fase precisa conseguir"}],"pauta":[{"data":"AAAA-MM-DD","fase":"Antes|Durante|Depois","canal":"Instagram|WhatsApp|E-mail|Loja","formato":"Reels|Carrossel|Stories|Foto|Live","titulo":"tema em até 80 caracteres","gancho":"frase de abertura","roteiro":"3-5 linhas com a estrutura","cta":"um único CTA"}],"whatsapp":[{"para":"VIP|Inativas|Todas","quando":"data ou momento","mensagem":"texto pronto, curto, com {{nome}}"}],"vitrine":"sugestão de vitrine e VM em 1-2 frases","cuidados":["o que evitar nessa ação"]}
+Pauta de 6 a 12 itens cobrindo as três fases, com no máximo 1 oferta direta a cada 3 conteúdos. Não invente números de resultado.`,
+      });
+      return NextResponse.json(extractJson(text));
+    }
+
+    if (task === "ecommerce_closing") {
+      const text = await callClaude({
+        maxTokens: 3000,
+        prompt: `Você é consultor de gestão de loja de moda. Escreva o fechamento do ${data.quarter} da loja ${data.store}, pelo método do Plano de 90 dias (meta mínima paga contas e pró-labore; meta = mínima + lucro; super meta vale prêmio).
+Meses (metas e vendido informado no fechamento): ${JSON.stringify(data.months)}
+Dados do trimestre (estoque, pró-labore, prioridades): ${JSON.stringify(data.quarter_data)}
+Ações do calendário (meta e resultado): ${JSON.stringify(data.actions)}
+Use só esses números; quando faltar um dado, diga que falta. Responda em markdown com:
+## Resultado (vendido x meta mínima, meta e super meta, por mês e no total)
+## Ações que funcionaram e as que não
+## O que repetir e o que mudar
+## Para o próximo trimestre (3 prioridades concretas)`,
+      });
+      return NextResponse.json({ text });
+    }
+
     return NextResponse.json({ error: "Tarefa desconhecida" }, { status: 400 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro" }, { status: 500 });
