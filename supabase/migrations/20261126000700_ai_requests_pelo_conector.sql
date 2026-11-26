@@ -8,7 +8,7 @@ begin
   if coalesce(trim(p_text), '') = '' then raise exception 'Resposta vazia'; end if;
   update public.ai_requests
      set status = 'done', result_text = p_text, error = null, done_at = now(), started_at = coalesce(started_at, now())
-   where id = p_id and user_id = auth.uid() and status in ('pending', 'working')
+   where id = p_id and user_id = auth.uid() and status in ('pending', 'running')
   returning id into v;
   if v is null then raise exception 'Pedido não encontrado ou já respondido'; end if;
   return v;
@@ -20,7 +20,7 @@ declare v uuid;
 begin
   update public.ai_requests
      set status = 'error', error = left(coalesce(nullif(trim(p_error), ''), 'O Claude não conseguiu responder.'), 500), done_at = now()
-   where id = p_id and user_id = auth.uid() and status in ('pending', 'working')
+   where id = p_id and user_id = auth.uid() and status in ('pending', 'running')
   returning id into v;
   if v is null then raise exception 'Pedido não encontrado ou já respondido'; end if;
   return v;

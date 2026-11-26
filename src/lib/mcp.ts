@@ -233,7 +233,7 @@ export const TOOLS: Tool[] = [
     readOnly: true,
     run: async (ctx, a) => {
       let q = ctx.sb.from("ai_requests").select("id, label, task, endpoint, status, system, prompt, web_search, max_tokens, created_at, account_id").order("created_at", { ascending: true }).limit(20);
-      q = a.incluir_respondidos ? q.gte("created_at", new Date(Date.now() - 864e5).toISOString()) : q.in("status", ["pending", "working"]);
+      q = a.incluir_respondidos ? q.gte("created_at", new Date(Date.now() - 864e5).toISOString()) : q.in("status", ["pending", "running"]);
       const { data, error } = await q;
       if (error) fail(error.message);
       const pedidos = (data || []).map((r: any) => ({

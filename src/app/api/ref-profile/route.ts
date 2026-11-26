@@ -113,4 +113,4 @@ async function handle(req: Request) {
 }
 
 /** sem API paga: o pedido vai para a fila do Claude (conector VINCIT HUB) e volta para esta rota */
-export const POST = withAIQueue("/api/ref-profile", handle);
+export const POST = withAIQueue("ref-profile", handle);
