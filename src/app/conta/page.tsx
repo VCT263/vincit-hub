@@ -9,6 +9,7 @@ import CompanySettings from "@/components/agency/CompanySettings";
 import BrandSettings from "@/components/BrandSettings";
 import GoogleSettings from "@/components/GoogleSettings";
 import WidgetSettings from "@/components/WidgetSettings";
+import PushSettings from "@/components/PushSettings";
 import { useAccess } from "@/lib/useAccess";
 import { hubAllowed } from "@/lib/access";
 
@@ -63,6 +64,7 @@ export default function Conta() {
         <BrandSettings />
         {acc && hubAllowed(acc.tools, "agency") && <CompanySettings />}
         {acc && hubAllowed(acc.tools, "agency") && <GoogleSettings />}
+        <PushSettings />
         <WidgetSettings />
         <form onSubmit={save} className="card p-5 space-y-3">
           <p className="font-display font-bold">Alterar senha</p>
