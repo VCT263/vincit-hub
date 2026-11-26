@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { I } from "@/components/icons";
 
-const KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 const b64 = (s: string) => {
   const p = (s + "=".repeat((4 - (s.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
   return Uint8Array.from(atob(p), (c) => c.charCodeAt(0));
@@ -12,22 +11,12 @@ const device = () => {
   return /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Android/.test(u) ? "Android" : /Mac/.test(u) ? "Mac" : /Windows/.test(u) ? "Windows" : "Navegador";
 };
 
-/** par de chaves VAPID gerado no próprio navegador (a chave privada nunca sai daqui) */
-async function vapidKeys() {
-  const k = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
-  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", k.publicKey));
-  const pub = btoa(String.fromCharCode(...raw)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const jwk = await crypto.subtle.exportKey("jwk", k.privateKey);
-  return { pub, priv: jwk.d as string };
-}
-
 /** Minha conta → App e notificações: instalar o HUB e ligar o push neste aparelho */
 export default function PushSettings() {
   const [st, setSt] = useState<"carregando" | "sem_suporte" | "instalar_ios" | "negado" | "desligado" | "ligado">("carregando");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok?: boolean } | null>(null);
   const [ios, setIos] = useState(false);
-  const [keys, setKeys] = useState<{ pub: string; priv: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -44,14 +33,15 @@ export default function PushSettings() {
   }, []);
 
   async function ligar() {
-    if (!KEY) return setMsg({ t: "As notificações ainda não foram configuradas no servidor (faltam as chaves VAPID na Vercel)." });
     setBusy(true); setMsg(null);
     try {
+      const k = await fetch("/api/push/key").then((x) => x.json());
+      if (!k?.key) throw new Error(k?.error || "Servidor sem chave de notificação.");
       const perm = await Notification.requestPermission();
       if (perm !== "granted") { setSt(perm === "denied" ? "negado" : "desligado"); return; }
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
-      const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(KEY) }));
+      const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(k.key) }));
       const r = await fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: sub.toJSON(), device: device() }) }).then((x) => x.json());
       if (!r.ok) throw new Error(r.error);
       setSt("ligado");
@@ -96,19 +86,7 @@ export default function PushSettings() {
       )}
       {st === "sem_suporte" && <p className="text-sm text-fog">Este navegador não aceita notificações. No Mac, use o Safari (macOS Sonoma ou mais novo) ou o Chrome.</p>}
       {st === "negado" && <p className="text-sm text-fog">As notificações estão bloqueadas para o HUB. Libere em {ios ? "Ajustes → Notificações → VINCIT" : "configurações do navegador → Notificações"} e recarregue a página.</p>}
-      {!KEY && st !== "carregando" && (
-        <div className="rounded-[10px] border border-line p-3 space-y-2 text-sm">
-          <p><b>Falta configurar o servidor.</b> Gere as chaves abaixo e cadastre na Vercel (Settings → Environment Variables, ambiente Production) e faça um novo deploy. A chave privada é gerada neste navegador e não é enviada a lugar nenhum.</p>
-          {!keys ? <button className="btn btn-ghost btn-sm" onClick={async () => setKeys(await vapidKeys())}>Gerar chaves</button> : (
-            <div className="space-y-1.5 font-mono text-xs break-all">
-              <p><span className="text-mint">NEXT_PUBLIC_VAPID_PUBLIC_KEY</span><br />{keys.pub}</p>
-              <p><span className="text-mint">VAPID_PRIVATE_KEY</span><br />{keys.priv}</p>
-              <p><span className="text-mint">VAPID_SUBJECT</span><br />mailto:seu-email (o e-mail de contato do HUB)</p>
-            </div>
-          )}
-        </div>
-      )}
-      {st === "desligado" && KEY && <button className="btn btn-mint w-full" disabled={busy} onClick={ligar}>{busy ? "Ligando…" : "Ativar notificações neste aparelho"}</button>}
+      {st === "desligado" && <button className="btn btn-mint w-full" disabled={busy} onClick={ligar}>{busy ? "Ligando…" : "Ativar notificações neste aparelho"}</button>}
       {st === "ligado" && (
         <div className="flex flex-wrap gap-2 items-center">
           <span className="chip-mint text-xs">Ligadas neste aparelho</span>
