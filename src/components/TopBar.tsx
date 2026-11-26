@@ -9,7 +9,7 @@ import { hubAllowed } from "@/lib/access";
 import Bell from "./dia/Bell";
 
 /* rotas de Seu dia (a aba "/" fica ativa em todas) */
-const DIA = ["/tarefas", "/agenda", "/rotina", "/projetos"];
+const DIA = ["/tarefas", "/agenda", "/rotina", "/projetos", "/avisos"];
 
 /* Navegador horizontal: troca entre Seu dia e os hubs sem sair do topo */
 const tabs = [

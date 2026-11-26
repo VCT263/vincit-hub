@@ -1,6 +1,7 @@
 type P = { className?: string };
 const base = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, viewBox: "0 0 24 24" };
 export const I = {
+  bell: (p: P) => (<svg {...base} className={p.className}><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>),
   grid: (p: P) => (<svg {...base} className={p.className}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>),
   user: (p: P) => (<svg {...base} className={p.className}><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>),
   bolt: (p: P) => (<svg {...base} className={p.className}><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>),
