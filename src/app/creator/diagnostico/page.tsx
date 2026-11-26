@@ -1,4 +1,5 @@
 "use client";
+import { aiFetch } from "@/lib/aiFetch";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -47,7 +48,7 @@ export default function Diagnostico() {
   async function run() {
     setBusy(true); setErr(null); setMsg(null);
     try {
-      const r = await fetch("/api/ai/diagnostico", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ account_id: accId }) });
+      const r = await aiFetch("/api/ai/diagnostico", { account_id: accId });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Erro");
       const row = { id: j.id, created_at: j.created_at, result: j.result, inputs: j.inputs, account_id: accId };

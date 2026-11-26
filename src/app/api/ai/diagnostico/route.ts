@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { callClaude, extractJson, aiQuotaExceeded, QUOTA_MSG } from "@/lib/ai";
+import { callClaude, extractJson, aiQuotaExceeded, QUOTA_MSG, withAIQueue } from "@/lib/ai";
 import { briefingText } from "@/lib/briefing";
 import { AXES, computeInputs, availability } from "@/lib/diagnostico";
 
 export const maxDuration = 300;
 
 /** Raio-X do perfil: lê os dados no servidor (RLS do usuário), calcula a evidência e pede à IA nota, leitura e recomendações por eixo */
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const { account_id } = await req.json();
     const sb = await createClient();
@@ -96,3 +96,6 @@ Traga os 5 eixos, na ordem acima, com 2 a 3 recomendações nos eixos com dados.
     return NextResponse.json({ error: e.message || "Erro" }, { status: 500 });
   }
 }
+
+/** sem API paga: o pedido vai para a fila do Claude (conector VINCIT HUB) e volta para esta rota */
+export const POST = withAIQueue("/api/ai/diagnostico", handle);

@@ -1,4 +1,5 @@
 "use client";
+import { aiFetch } from "@/lib/aiFetch";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -29,7 +30,7 @@ export default function RefProfiles() {
   async function analyze(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
     try {
-      const r = await fetch("/api/ref-profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: f.url, account_id: f.account_id || undefined, paste: f.paste || undefined }) });
+      const r = await aiFetch("/api/ref-profile", { url: f.url, account_id: f.account_id || undefined, paste: f.paste || undefined });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Erro");
       setF({ ...f, url: "", paste: "" }); setShowPaste(false);

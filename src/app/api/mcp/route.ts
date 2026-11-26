@@ -18,6 +18,7 @@ const INSTRUCTIONS = [
   "Para análises, use ler_desempenho e cite só números reais; nunca invente métricas.",
   "Regras de texto: primeira linha da legenda com até 125 caracteres, no máximo 5 hashtags, sem clichês de IA.",
   "Mostre o conteúdo à pessoa e confirme antes de chamar as ferramentas que gravam (enviar_*, salvar_analise).",
+  "Quando a pessoa pedir para responder os pedidos de IA do HUB, chame listar_pedidos_ia e responda cada pedido com responder_pedido_ia, seguindo as instruções e o formato do prompt (JSON quando pedido); não precisa confirmar cada um.",
 ].join(" ");
 
 const json = (body: any, status = 200, extra: Record<string, string> = {}) => NextResponse.json(body, { status, headers: { ...CORS, ...extra } });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { callClaude, extractJson, aiQuotaExceeded, QUOTA_MSG } from "@/lib/ai";
+import { callClaude, extractJson, aiQuotaExceeded, QUOTA_MSG, withAIQueue } from "@/lib/ai";
 import { AGENTS } from "@/lib/agents";
 import { FORMATS, CATS, MIDIAS, FORMAT_MIDIA, formatBrief } from "@/lib/formats";
 import { EXAMPLES } from "@/lib/formats-examples";
@@ -14,7 +14,7 @@ function postsTable(posts: any[]) {
   ).join("\n");
 }
 
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const { task, data } = await req.json();
     if (await aiQuotaExceeded(await createClient())) return NextResponse.json({ error: QUOTA_MSG }, { status: 429 });
@@ -194,3 +194,6 @@ Use só esses números; quando faltar um dado, diga que falta. Responda em markd
     return NextResponse.json({ error: e.message || "Erro" }, { status: 500 });
   }
 }
+
+/** sem API paga: o pedido vai para a fila do Claude (conector VINCIT HUB) e volta para esta rota */
+export const POST = withAIQueue("/api/ai", handle);

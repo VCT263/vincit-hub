@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { igToken } from "@/lib/tokens";
-import { callClaude, extractJson, aiQuotaExceeded, QUOTA_MSG } from "@/lib/ai";
+import { callClaude, extractJson, aiQuotaExceeded, QUOTA_MSG, withAIQueue } from "@/lib/ai";
 import { gget } from "@/lib/meta";
 import { briefingText } from "@/lib/briefing";
 import { FORMATS } from "@/lib/formats";
@@ -66,7 +66,7 @@ async function youtube(handle: string): Promise<Snap | null> {
   };
 }
 
-export async function POST(req: Request) {
+async function handle(req: Request) {
   try {
     const { url, account_id, paste } = await req.json();
     const p = parse(url || "");
@@ -111,3 +111,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e.message || "Erro" }, { status: 500 });
   }
 }
+
+/** sem API paga: o pedido vai para a fila do Claude (conector VINCIT HUB) e volta para esta rota */
+export const POST = withAIQueue("/api/ref-profile", handle);
