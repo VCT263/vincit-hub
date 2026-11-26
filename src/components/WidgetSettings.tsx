@@ -42,7 +42,7 @@ export default function WidgetSettings() {
         <span className="w-9 h-9 rounded-[10px] bg-panel2 grid place-items-center shrink-0 text-mint"><I.calendar className="w-5 h-5" /></span>
         <div>
           <p className="font-display font-bold">Widget no celular e no Mac</p>
-          <p className="text-xs text-fog">Tarefas de hoje, atrasadas, próximo compromisso e o resumo da semana na tela inicial, na tela bloqueada e na mesa do Mac.</p>
+          <p className="text-xs text-fog">Tarefas de hoje, atrasadas, compromissos e o resumo da semana no widget de Calendário do iPhone e do Mac (sem baixar app) ou no widget do Scriptable.</p>
         </div>
       </div>
       {!url ? (
