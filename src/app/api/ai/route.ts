@@ -164,6 +164,15 @@ Pauta de 6 a 12 itens cobrindo as três fases, com no máximo 1 oferta direta a 
       return NextResponse.json(extractJson(text));
     }
 
+    if (task === "shot_list") {
+      const media = (data.media || []).slice(0, 150).map((m: any) => `- ${m.name} (${m.kind}${m.tags?.length ? `; ${m.tags.join(", ")}` : ""})`).join("\n");
+      const text = await callClaude({
+        maxTokens: 3500,
+        prompt: `Você é assistente de direção de uma produtora audiovisual. Faça a decupagem (lista de planos para gravar) do roteiro abaixo.\nFormato: ${data.format || "Reels 9:16"}\nTítulo: ${data.title || "-"}\nRoteiro:\n"""${(data.script || "").slice(0, 8000)}"""\n${media ? `\nArquivos disponíveis no banco de mídia da produtora (use o nome EXATO só quando servir de verdade):\n${media}\n` : ""}\nRegras:\n- Na ordem da montagem. Fala para a câmera e inserções (b-roll) separadas.\n- Enquadramento curto (ex.: Médio · olho, Close, Detalhe, Top shot, Plano aberto, POV).\n- Áudio: voz, som ambiente ou o efeito sonoro sugerido.\n- Não invente produto, local ou pessoa que o roteiro não cita; quando precisar, use {{marcador}}.\n- Entre 4 e 20 planos.\n\nResponda SOMENTE com JSON: {"planos":[{"descricao":"o que gravar","enquadramento":"...","audio":"...","midia":"nome exato do arquivo do banco ou vazio","notas":"dica curta de set ou vazio"}]}`,
+      });
+      return NextResponse.json(extractJson(text));
+    }
+
     if (task === "ecommerce_closing") {
       const text = await callClaude({
         maxTokens: 3000,
