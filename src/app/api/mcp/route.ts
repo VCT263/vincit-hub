@@ -1,0 +1,112 @@
+import { NextResponse } from "next/server";
+import { createClient as createPlain } from "@supabase/supabase-js";
+import type { Access } from "@/lib/access";
+import { CORS, siteOrigin } from "@/lib/oauth";
+import { TOOLS, allowed, isUserError, listTools, type Ctx } from "@/lib/mcp";
+
+/**
+ * Conector VINCIT HUB para o Claude (servidor MCP, transporte HTTP "streamable", sem sessão).
+ * Autenticação: token OAuth do Supabase Auth emitido para o app "Claude" (ver /oauth/consent).
+ */
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
+const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
+const INSTRUCTIONS = [
+  "Conector do VINCIT HUB (plataforma de conteúdo e gestão da produtora VINCIT). Responda em português do Brasil.",
+  "Antes de criar conteúdo, chame listar_perfis e respeite nicho, objetivos, voz da marca e briefing do perfil.",
+  "Para análises, use ler_desempenho e cite só números reais; nunca invente métricas.",
+  "Regras de texto: primeira linha da legenda com até 125 caracteres, no máximo 5 hashtags, sem clichês de IA.",
+  "Mostre o conteúdo à pessoa e confirme antes de chamar as ferramentas que gravam (enviar_*, salvar_analise).",
+].join(" ");
+
+const json = (body: any, status = 200, extra: Record<string, string> = {}) => NextResponse.json(body, { status, headers: { ...CORS, ...extra } });
+
+function unauthorized(req: Request, msg = "Faça login no VINCIT HUB para usar o conector.") {
+  const meta = `${siteOrigin(req)}/.well-known/oauth-protected-resource`;
+  return json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: msg } }, 401, {
+    // cabeçalho HTTP só aceita ASCII: a mensagem em português vai no corpo
+    "WWW-Authenticate": `Bearer error="invalid_token", error_description="Login required", resource_metadata="${meta}"`,
+  });
+}
+
+async function auth(req: Request): Promise<Ctx | null> {
+  const h = req.headers.get("authorization") || "";
+  const token = h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : "";
+  if (!token) return null;
+  const sb = createPlain(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await sb.auth.getUser(token);
+  if (error || !data?.user) return null;
+  const { data: acc } = await sb.rpc("my_access");
+  const access = (acc || { role: "user", status: "pendente", tools: [] }) as Access;
+  return { sb, userId: data.user.id, email: data.user.email || "", access };
+}
+
+async function handle(msg: any, ctx: Ctx) {
+  const { id, method, params } = msg || {};
+  const ok = (result: any) => ({ jsonrpc: "2.0", id, result });
+  const err = (code: number, message: string) => ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
+
+  switch (method) {
+    case "initialize": {
+      const v = VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : VERSIONS[1];
+      return ok({ protocolVersion: v, capabilities: { tools: { listChanged: false } }, serverInfo: { name: "vincit-hub", title: "VINCIT HUB", version: "1.0.0" }, instructions: INSTRUCTIONS });
+    }
+    case "ping":
+      return ok({});
+    case "tools/list":
+      return ok({ tools: listTools(ctx.access) });
+    case "tools/call": {
+      const t = TOOLS.find((x) => x.name === params?.name);
+      if (!t) return err(-32602, `Ferramenta desconhecida: ${params?.name}`);
+      const blocked = (text: string) => ok({ content: [{ type: "text", text }], isError: true });
+      if (ctx.access.role !== "superadmin" && ctx.access.status !== "ativo") return blocked(`Sua conta do HUB está ${ctx.access.status}. Fale com o administrador.`);
+      if (!allowed(t, ctx.access)) return blocked("Essa ferramenta não está incluída no seu plano do VINCIT HUB.");
+      try {
+        const out = await t.run(ctx, params?.arguments || {});
+        return ok({ content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: out, isError: false });
+      } catch (e: any) {
+        return blocked(isUserError(e) ? e.message : `Erro no HUB: ${e?.message || e}`);
+      }
+    }
+    case "resources/list":
+      return ok({ resources: [] });
+    case "prompts/list":
+      return ok({ prompts: [] });
+    default:
+      return err(-32601, `Método não suportado: ${method}`);
+  }
+}
+
+export async function POST(req: Request) {
+  let body: any;
+  try { body = await req.json(); } catch { return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "JSON inválido" } }, 400); }
+  const ctx = await auth(req);
+  if (!ctx) return unauthorized(req);
+
+  const list = Array.isArray(body) ? body : [body];
+  const out = [];
+  for (const m of list) {
+    if (m?.id === undefined || m?.id === null) continue; // notificações e respostas não têm retorno
+    out.push(await handle(m, ctx));
+  }
+  if (!out.length) return new NextResponse(null, { status: 202, headers: CORS });
+  return json(Array.isArray(body) ? out : out[0]);
+}
+
+/** sem fluxo SSE do servidor: o conector só responde a pedidos */
+export async function GET(req: Request) {
+  if (!req.headers.get("authorization")) return unauthorized(req);
+  return new NextResponse(null, { status: 405, headers: { ...CORS, Allow: "POST" } });
+}
+
+export function DELETE() {
+  return new NextResponse(null, { status: 405, headers: { ...CORS, Allow: "POST" } });
+}
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
