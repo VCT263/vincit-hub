@@ -3,6 +3,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { runFrom, log, publishStep } from "@/lib/flows";
 import { gget, mediaRow, MEDIA_FIELDS } from "@/lib/meta";
+import { pushPending } from "@/lib/push";
 
 export const maxDuration = 300;
 
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
   const db = createServiceClient();
   const { data, error } = await db.rpc("wh_due", { p_secret: secret });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const out = { contacts: 0, posts: 0, analyzed: 0 };
+  const out = { contacts: 0, posts: 0, analyzed: 0, pushed: 0 };
 
   for (const c of data?.contacts || []) {
     try {
@@ -47,5 +48,7 @@ export async function POST(req: Request) {
       } catch {} // post apagado ou token expirado: tenta de novo na próxima hora
     }
   }
+  // avisos novos viram notificação push para quem ativou (erro aqui não trava o resto)
+  try { out.pushed = await pushPending(db); } catch {}
   return NextResponse.json(out);
 }

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { can, hubAllowed, toolForPath, type Access } from "@/lib/access";
 
-const PUBLIC = ["/login", "/auth", "/api/meta/webhook", "/api/cron/", "/privacidade", "/p/", "/r/", "/c/"];
+const PUBLIC = ["/login", "/auth", "/api/meta/webhook", "/api/cron/", "/sw.js", "/manifest.webmanifest", "/pwa/", "/privacidade", "/p/", "/r/", "/c/"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
