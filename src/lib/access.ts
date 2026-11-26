@@ -1,5 +1,5 @@
 /** Catálogo de ferramentas liberáveis por plano/usuário */
-export type Tool = { key: string; label: string; hub: "creator" | "agency" | "geral"; path?: string };
+export type Tool = { key: string; label: string; hub: "creator" | "agency" | "audiovisual" | "geral"; path?: string };
 
 export const TOOLS: Tool[] = [
   { key: "creator:perfis", label: "Perfis & marca", hub: "creator", path: "/creator/perfis" },
@@ -18,6 +18,8 @@ export const TOOLS: Tool[] = [
   { key: "agency:financeiro", label: "Financeiro", hub: "agency", path: "/agency/financeiro" },
   { key: "agency:funil", label: "Funil de vendas", hub: "agency", path: "/agency/funil" },
   { key: "agency:propostas", label: "Propostas & orçamentos", hub: "agency", path: "/agency/propostas" },
+  { key: "audiovisual:teleprompter", label: "Teleprompter", hub: "audiovisual", path: "/audiovisual/teleprompter" },
+  { key: "audiovisual:midia", label: "Banco de mídia (Google Drive)", hub: "audiovisual", path: "/audiovisual/midia" },
   { key: "ia", label: "Inteligência artificial (agentes, roteiros, análises)", hub: "geral" },
 ];
 
@@ -27,7 +29,8 @@ const ALIAS: [string, string][] = [["/creator/diagnostico", "creator:estrategia"
 export type Access = { role: "superadmin" | "user"; status: "ativo" | "pendente" | "suspenso" | "expirado"; tools: string[]; plan?: string | null; expires_at?: string | null; name?: string | null };
 
 export const can = (tools: string[] | undefined, key: string) => !!tools && (tools.includes("*") || tools.includes(key));
-export const hubAllowed = (tools: string[] | undefined, hub: "creator" | "agency") => !!tools && (tools.includes("*") || tools.some((t) => t.startsWith(hub + ":")));
+export type Hub = "creator" | "agency" | "audiovisual";
+export const hubAllowed = (tools: string[] | undefined, hub: Hub) => !!tools && (tools.includes("*") || tools.some((t) => t.startsWith(hub + ":")));
 
 /** ferramenta exigida por um caminho (undefined = livre para usuários ativos) */
 export function toolForPath(path: string): string | undefined {

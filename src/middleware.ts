@@ -49,7 +49,8 @@ export async function middleware(request: NextRequest) {
       if (path.startsWith("/admin")) return go("/", "Área exclusiva do administrador");
       if ((path.startsWith("/api/ai") || path.startsWith("/api/ref-profile")) && !can(acc.tools, "ia")) return go("/", "IA não incluída no seu plano");
       if (path.startsWith("/api/meta") && !hubAllowed(acc.tools, "creator")) return go("/", "Creator não incluído no seu plano");
-      for (const hub of ["creator", "agency"] as const) {
+      if (path.startsWith("/api/av/") && !hubAllowed(acc.tools, "audiovisual")) return go("/", "Audiovisual não incluído no seu plano");
+      for (const hub of ["creator", "agency", "audiovisual"] as const) {
         if (path === `/${hub}` || path.startsWith(`/${hub}/`)) {
           if (!hubAllowed(acc.tools, hub)) return go("/", `${hub.toUpperCase()} não incluído no seu plano`);
           const t = toolForPath(path);
