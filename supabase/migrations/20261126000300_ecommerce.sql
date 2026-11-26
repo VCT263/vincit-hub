@@ -28,7 +28,8 @@ revoke all on function public.ec_can(uuid) from public, anon;
 grant execute on function public.ec_can(uuid) to authenticated;
 
 alter table public.ec_stores enable row level security;
-create policy ec_stores_sel on public.ec_stores for select using (public.ec_can(id));
+-- o dono precisa ver a loja na mesma instrução do insert (insert ... returning)
+create policy ec_stores_sel on public.ec_stores for select using (owner_id = auth.uid() or public.ec_can(id));
 create policy ec_stores_ins on public.ec_stores for insert with check (owner_id = auth.uid());
 create policy ec_stores_upd on public.ec_stores for update using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 create policy ec_stores_del on public.ec_stores for delete using (owner_id = auth.uid());
