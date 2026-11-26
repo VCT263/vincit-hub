@@ -9,7 +9,7 @@ import {
 } from "@excalidraw/excalidraw";
 import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
-import { BUCKET, FONT, STICKY, TEMPLATES, arrowBetween, sticky, templateByKey, uid } from "@/lib/brainstorm";
+import { BUCKET, CATEGORIES, FONT, STICKY, TEMPLATES, arrowBetween, sticky, templateByKey, uid } from "@/lib/brainstorm";
 import { useContentStatuses } from "@/lib/content";
 
 type Api = any; // ExcalidrawImperativeAPI
@@ -224,7 +224,7 @@ export default function BrainstormEditor({ id }: { id: string }) {
       elements: all.map((e: any) => { const f: any = byId.get(e.id); return f ? newElementWith(e, { width: f.width, height: f.height, x: f.x, y: f.y }) : e; }),
       captureUpdate: CaptureUpdateAction.NEVER,
     });
-    api.scrollToContent(api.getSceneElements().filter((e: any) => ids.has(e.id)), { fitToContent: true, animate: false });
+    api.scrollToContent(api.getSceneElements().filter((e: any) => ids.has(e.id)), { fitToViewport: true, viewportZoomFactor: 0.85, animate: false });
   }
 
   function addSticky(bg: string) {
@@ -271,7 +271,7 @@ export default function BrainstormEditor({ id }: { id: string }) {
     const els = api.getSceneElements();
     const ids = new Set(Object.keys(api.getAppState().selectedElementIds || {}));
     const texts = els.filter((e: any) => e.type === "text" && (ids.has(e.id) || (e.containerId && ids.has(e.containerId))));
-    const titles = Array.from(new Set(texts.map((e: any) => (e.originalText || e.text || "").replace(/\s+/g, " ").trim()).filter((t: string) => t && t !== "Nova ideia" && t !== "Escreva aqui…")));
+    const titles = Array.from(new Set(texts.map((e: any) => (e.originalText || e.text || "").replace(/\s+/g, " ").trim()).filter((t: string) => t && t !== "Nova ideia" && t !== "Escreva aqui…" && !/^[\wÀ-ú ]{1,12}:$/.test(t))));
     if (!titles.length) { say("Selecione post-its ou textos com alguma ideia escrita."); return; }
     const { error } = await createClient().from("content_ideas").insert(titles.map((t: any) => ({ title: t.slice(0, 200), body: t.length > 200 ? t : null, kind: "ideia", status_id: statuses[0]?.id || null })));
     say(error ? "Não deu para enviar as ideias agora." : `${titles.length} ${titles.length === 1 ? "ideia enviada" : "ideias enviadas"} ao Quadro de produção.`);
@@ -327,13 +327,18 @@ export default function BrainstormEditor({ id }: { id: string }) {
         </div>
       )}
       {menu === "modelos" && (
-        <div className="absolute right-3 top-14 mt-2 z-50 card p-2 w-80 rise">
-          <p className="text-xs text-fog px-2 pt-1 pb-2">Inserir no centro da tela</p>
-          {TEMPLATES.map((t) => (
-            <button key={t.key} onClick={() => addTemplate(t.key)} className="w-full text-left rounded-[10px] px-3 py-2 hover:bg-panel2">
-              <p className="text-sm font-semibold">{t.name}</p>
-              <p className="text-xs text-fog">{t.desc}</p>
-            </button>
+        <div className="absolute right-3 top-14 mt-2 z-50 card p-2 w-80 max-h-[70vh] overflow-y-auto scroll-thin rise">
+          <p className="text-xs text-fog px-2 pt-1 pb-1">Inserir no centro da tela</p>
+          {CATEGORIES.map((cat) => (
+            <div key={cat}>
+              <p className="font-mono text-[10px] text-mint tracking-widest uppercase px-3 pt-3 pb-1">{cat}</p>
+              {TEMPLATES.filter((t) => t.cat === cat).map((t) => (
+                <button key={t.key} onClick={() => addTemplate(t.key)} className="w-full text-left rounded-[10px] px-3 py-2 hover:bg-panel2">
+                  <p className="text-sm font-semibold">{t.name}</p>
+                  <p className="text-xs text-fog">{t.desc}</p>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}
