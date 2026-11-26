@@ -265,6 +265,100 @@ export const TOOLS: Tool[] = [
       return { ok: true, id: a.id };
     },
   },
+  {
+    name: "listar_edicoes_premiere",
+    title: "Edições do Premiere esperando plano",
+    description: "Lista as sequências que o plugin VINCIT HUB do Premiere mandou para o Claude: clipes da timeline, transcrição com tempos, o pedido do editor, o roteiro e a decupagem do conteúdo e o kit de estilo. Monte o plano de edição e envie com enviar_plano_edicao. Os tempos são em segundos da sequência.",
+    inputSchema: { type: "object", properties: { id: { type: "string", description: "id de uma edição específica (opcional)" }, incluir_aplicadas: { type: "boolean", default: false } } },
+    readOnly: true,
+    needs: "audiovisual:premiere",
+    run: async (ctx, a) => {
+      let q = ctx.sb.from("av_edit_sessions").select("id, content_id, kit_id, project_name, sequence_name, fps, duration_sec, timeline, transcript, request, status, plan_note, created_at").order("created_at", { ascending: false }).limit(5);
+      if (a.id) q = q.eq("id", a.id);
+      else if (!a.incluir_aplicadas) q = q.eq("status", "aguardando_plano");
+      const { data, error } = await q;
+      if (error) fail(error.message);
+      const out = [];
+      for (const s of data || []) {
+        const [{ data: ci }, { data: shots }, { data: kit }] = await Promise.all([
+          s.content_id ? ctx.sb.from("content_ideas").select("title, hook, body, format").eq("id", s.content_id).maybeSingle() : Promise.resolve({ data: null }),
+          s.content_id ? ctx.sb.from("av_shots").select("position, description, framing, audio").eq("content_id", s.content_id).order("position") : Promise.resolve({ data: [] }),
+          s.kit_id ? ctx.sb.from("av_style_kits").select("name, data").eq("id", s.kit_id).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
+        out.push({
+          id: s.id, status: s.status, projeto: s.project_name, sequencia: s.sequence_name, fps: s.fps, duracao_s: s.duration_sec,
+          pedido_do_editor: s.request, clipes: s.timeline, transcricao: s.transcript,
+          conteudo: ci ? { titulo: ci.title, gancho: ci.hook, formato: ci.format, roteiro: clip(ci.body, 6000) } : null,
+          decupagem: shots || [], kit_de_estilo: kit,
+        });
+      }
+      return {
+        quantidade: out.length, edicoes: out,
+        formato_do_plano: {
+          resumo: "1 a 3 frases sobre a edição proposta",
+          cortes: "[{inicio, fim, motivo}] trechos para remover (respiros, erros, repetições)",
+          legendas: "[{inicio, fim, texto, destaque}] frases curtas de 1 a 4 palavras; destaque = palavra a colorir",
+          titulos: "[{inicio, fim, texto, tipo: 'gancho'|'cta'|'lower_third'}]",
+          zooms: "[{inicio, fim, escala}] escala em %, ex.: 110",
+          insercoes: "[{inicio, fim, midia, motivo}] midia = nome do arquivo no projeto do Premiere ou descrição do B-roll",
+          marcadores: "[{inicio, texto}] observações livres para o editor",
+        },
+        regras: "Use só tempos que existem na transcrição/timeline. Respeite o kit de estilo e o pedido do editor. Nada é aplicado sem o editor revisar no Premiere.",
+      };
+    },
+  },
+  {
+    name: "enviar_plano_edicao",
+    title: "Enviar plano de edição ao Premiere",
+    description: "Envia o plano de edição (JSON no formato de listar_edicoes_premiere) para uma sequência. O plugin do Premiere mostra o plano e o editor escolhe o que aplicar.",
+    inputSchema: {
+      type: "object", required: ["id", "plano"],
+      properties: { id: { type: "string" }, plano: { type: "object", description: "{resumo, cortes, legendas, titulos, zooms, insercoes, marcadores}" }, observacao: { type: "string" } },
+    },
+    needs: "audiovisual:premiere",
+    run: async (ctx, a) => {
+      let p = a.plano;
+      if (typeof p === "string") { try { p = JSON.parse(p); } catch { fail("O plano precisa ser um JSON válido."); } }
+      if (!p || typeof p !== "object" || Array.isArray(p)) fail("O plano precisa ser um objeto JSON.");
+      const keys = ["cortes", "legendas", "titulos", "zooms", "insercoes", "marcadores"];
+      const plan: any = { resumo: clip(p.resumo, 1000) || "" };
+      for (const k of keys) {
+        const arr = Array.isArray(p[k]) ? p[k] : [];
+        plan[k] = arr.filter((x: any) => x && Number.isFinite(+x.inicio)).slice(0, 2000).map((x: any) => {
+          const o: any = { ...x, inicio: +x.inicio };
+          if (x.fim != null) o.fim = +x.fim;
+          return o;
+        });
+      }
+      if (!keys.some((k) => plan[k].length)) fail("O plano está vazio. Inclua ao menos cortes, legendas, títulos, zooms, inserções ou marcadores.");
+      const { data, error } = await ctx.sb.from("av_edit_sessions").update({ plan, plan_note: clip(a.observacao, 1000), status: "plano_pronto", plan_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", a.id).select("id").maybeSingle();
+      if (error) fail(error.message);
+      if (!data) fail("Edição não encontrada. Use listar_edicoes_premiere para ver os ids.");
+      return { ok: true, id: a.id, itens: Object.fromEntries(keys.map((k) => [k, plan[k].length])), aviso: "O plano aparece no painel VINCIT HUB do Premiere em alguns segundos." };
+    },
+  },
+  {
+    name: "salvar_kit_estilo",
+    title: "Salvar kit de estilo",
+    description: "Cria ou atualiza o kit de estilo de edição de um perfil ou cliente (cores, fontes, legenda, motion, regras de corte, MOGRTs). O plugin do Premiere e o plano de edição usam este kit.",
+    inputSchema: {
+      type: "object", required: ["nome", "kit"],
+      properties: {
+        id: { type: "string", description: "id do kit para atualizar (opcional)" }, nome: { type: "string" }, perfil_id: accountId,
+        kit: { type: "object", description: "{cores:{destaque, texto, fundo}, fontes:{titulo, legenda}, legenda:{estilo, palavras_por_tela, caixa_alta}, motion:[...], regras:{corte_max_s, silencio_ms, trilha_db}, mogrts:{legenda, gancho, cta, lower_third} (caminho do .mogrt no computador do editor)}" },
+      },
+    },
+    needs: "audiovisual:premiere",
+    run: async (ctx, a) => {
+      await account(ctx, a.perfil_id);
+      const row = { name: clip(a.nome, 120), account_id: a.perfil_id || null, data: a.kit || {}, updated_at: new Date().toISOString() };
+      const q = a.id ? ctx.sb.from("av_style_kits").update(row).eq("id", a.id) : ctx.sb.from("av_style_kits").insert(row);
+      const { data, error } = await q.select("id").maybeSingle();
+      if (error) fail(error.message);
+      if (!data) fail("Kit não encontrado.");
+      return { ok: true, id: data.id, onde: "AUDIOVISUAL › Premiere" };
+    },
+  },
 ];
 
 export function allowed(t: Tool, acc: Access) {
