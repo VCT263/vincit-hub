@@ -56,6 +56,12 @@ export default function Login() {
   const passOk = RULES.every(([, f]) => f(password));
   const matchOk = password === password2;
 
+  // volta para onde a pessoa estava (ex.: autorizar o Claude em /oauth/consent)
+  function safeNext() {
+    const n = new URLSearchParams(location.search).get("next") || "";
+    return n.startsWith("/") && !n.startsWith("//") ? n : "/";
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
@@ -64,7 +70,7 @@ export default function Login() {
       setBusy(true);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMsg({ t: error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message === "Email not confirmed" ? "Confirme seu e-mail pelo link que enviamos antes de entrar." : error.message });
-      else window.location.href = "/";
+      else window.location.href = safeNext();
       setBusy(false);
       return;
     }

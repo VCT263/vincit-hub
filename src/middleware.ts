@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { can, hubAllowed, toolForPath, type Access } from "@/lib/access";
 
-const PUBLIC = ["/login", "/auth", "/api/meta/webhook", "/api/cron/", "/sw.js", "/manifest.webmanifest", "/pwa/", "/privacidade", "/p/", "/r/", "/c/"];
+const PUBLIC = ["/login", "/api/mcp", "/api/oauth/register", "/api/oauth/metadata", "/.well-known/", "/auth", "/api/meta/webhook", "/api/cron/", "/sw.js", "/manifest.webmanifest", "/pwa/", "/privacidade", "/p/", "/r/", "/c/"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -27,11 +27,15 @@ export async function middleware(request: NextRequest) {
     if (path.startsWith("/api/")) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // guarda o destino para voltar depois do login (ex.: autorizar o Claude)
+    url.search = path.startsWith("/oauth/") ? `?next=${encodeURIComponent(path + request.nextUrl.search)}` : request.nextUrl.search;
     return NextResponse.redirect(url);
   }
   if (user && path === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    const next = request.nextUrl.searchParams.get("next") || "";
+    url.pathname = next.startsWith("/") && !next.startsWith("//") ? next.split("?")[0] : "/";
+    url.search = next.includes("?") ? next.slice(next.indexOf("?")) : "";
     return NextResponse.redirect(url);
   }
 

@@ -14,6 +14,16 @@ const nextConfig: NextConfig = {
       { source: "/audiovisual/skills/:path*", destination: "/audiovisual/ferramentas/:path*", permanent: false },
     ];
   },
+  async rewrites() {
+    // descoberta OAuth do conector do Claude (MCP)
+    return [
+      { source: "/.well-known/oauth-protected-resource", destination: "/api/oauth/metadata?kind=resource" },
+      { source: "/.well-known/oauth-protected-resource/:path*", destination: "/api/oauth/metadata?kind=resource" },
+      { source: "/.well-known/oauth-authorization-server", destination: "/api/oauth/metadata?kind=server" },
+      { source: "/.well-known/oauth-authorization-server/:path*", destination: "/api/oauth/metadata?kind=server" },
+      { source: "/.well-known/openid-configuration", destination: "/api/oauth/metadata?kind=server" },
+    ];
+  },
   images: { remotePatterns: [{ protocol: "https", hostname: "**" }] },
 };
 export default nextConfig;
