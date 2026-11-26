@@ -11,6 +11,7 @@ const items = [
   { href: "/tarefas", label: "Tarefas", Icon: A.check },
   { href: "/agenda", label: "Agenda", Icon: A.cal },
   { href: "/rotina", label: "Rotina", Icon: I.refresh },
+  { href: "/avisos", label: "Avisos", Icon: I.bell },
 ];
 /** espaço que guarda as listas dos projetos (kind = projetos depois da migração; antes, pelo nome) */
 export const isProjectsSpace = (s: any) => s.kind === "projetos" || (!s.kind && s.name === "Projetos");
