@@ -5,12 +5,17 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = url.origin;
-  const back = (q: string) => NextResponse.redirect(`${origin}/conta?${q}#google`);
+  const jar = await cookies();
+  const next = jar.get("g_next")?.value;
+  const back = (q: string) => {
+    const r = next && next.startsWith("/") && !next.startsWith("//") ? NextResponse.redirect(`${origin}${next}${next.includes("?") ? "&" : "?"}${q}`) : NextResponse.redirect(`${origin}/conta?${q}#google`);
+    r.cookies.delete("g_next");
+    return r;
+  };
   const err = url.searchParams.get("error");
   if (err) return back("google_erro=" + encodeURIComponent(err === "access_denied" ? "Conexão cancelada." : err));
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const jar = await cookies();
   if (!code || !state || state !== jar.get("g_state")?.value) return back("google_erro=" + encodeURIComponent("Sessão de conexão expirada. Tente de novo."));
 
   const r = await fetch("https://oauth2.googleapis.com/token", {
