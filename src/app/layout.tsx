@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
 import { brandCss } from "@/lib/brand";
 import { BrandProvider, type Brand } from "@/components/BrandContext";
+import RegisterSW from "@/components/RegisterSW";
 
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", weight: ["400", "600", "700", "800"] });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -12,7 +13,11 @@ const jet = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jet" });
 export const metadata: Metadata = {
   title: "VINCIT HUB",
   description: "Central de sistemas da VINCIT",
+  applicationName: "VINCIT HUB",
+  appleWebApp: { capable: true, title: "VINCIT", statusBarStyle: "black-translucent" },
 };
+
+export const viewport: Viewport = { themeColor: "#0c0c0d" };
 
 async function myBrand(): Promise<Brand> {
   try {
@@ -32,6 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="grain min-h-screen">
         {css && <style id="brand-theme" dangerouslySetInnerHTML={{ __html: css }} />}
         <BrandProvider value={brand}>{children}</BrandProvider>
+        <RegisterSW />
       </body>
     </html>
   );

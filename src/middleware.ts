@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { can, hubAllowed, toolForPath, type Access } from "@/lib/access";
 
-const PUBLIC = ["/login", "/auth", "/api/meta/webhook", "/api/cron/", "/privacidade", "/p/", "/r/", "/c/"];
+const PUBLIC = ["/login", "/auth", "/api/meta/webhook", "/api/cron/", "/sw.js", "/manifest.webmanifest", "/pwa/", "/privacidade", "/p/", "/r/", "/c/"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC.some((p) => path.startsWith(p));
+  const isPublic = PUBLIC.some((p) => path.startsWith(p)) || path === "/api/resumo";
   if (!user && !isPublic) {
     if (path.startsWith("/api/")) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     const url = request.nextUrl.clone();
@@ -49,7 +49,8 @@ export async function middleware(request: NextRequest) {
       if (path.startsWith("/admin")) return go("/", "Área exclusiva do administrador");
       if ((path.startsWith("/api/ai") || path.startsWith("/api/ref-profile")) && !can(acc.tools, "ia")) return go("/", "IA não incluída no seu plano");
       if (path.startsWith("/api/meta") && !hubAllowed(acc.tools, "creator")) return go("/", "Creator não incluído no seu plano");
-      for (const hub of ["creator", "agency"] as const) {
+      if (path.startsWith("/api/av/") && !hubAllowed(acc.tools, "audiovisual")) return go("/", "Audiovisual não incluído no seu plano");
+      for (const hub of ["creator", "agency", "audiovisual"] as const) {
         if (path === `/${hub}` || path.startsWith(`/${hub}/`)) {
           if (!hubAllowed(acc.tools, hub)) return go("/", `${hub.toUpperCase()} não incluído no seu plano`);
           const t = toolForPath(path);

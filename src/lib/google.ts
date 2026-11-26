@@ -91,9 +91,30 @@ export function toGoogleTask(t: any) {
     summary: (t.done ? "✓ " : "") + t.title,
     description: desc,
     ...when,
+    reminders: taskReminders(t, when),
     transparency: "transparent",
     extendedProperties: { private: { vincit_task: t.id } },
   };
+}
+
+/**
+ * Lembretes do evento da tarefa, para o celular e o Mac avisarem pelo app de agenda:
+ * concluída não avisa; com lembrete (remind_at) antes do início, avisa nessa hora;
+ * com horário e sem lembrete, avisa 10 min antes; dia inteiro sem lembrete usa o padrão do calendário.
+ */
+function taskReminders(t: any, when: any) {
+  if (t.done) return { useDefault: false, overrides: [] };
+  // início do evento em horário de Brasília (UTC-3, sem horário de verão)
+  const startMs = when.start.dateTime
+    ? new Date(when.start.dateTime + "-03:00").getTime()
+    : new Date(when.start.date + "T00:00:00-03:00").getTime();
+  if (t.remind_at) {
+    const min = Math.round((startMs - new Date(t.remind_at).getTime()) / 60000);
+    // o Google só aceita lembrete antes do início, até 4 semanas
+    if (min >= 0 && min <= 40320) return { useDefault: false, overrides: [{ method: "popup", minutes: min }] };
+  }
+  if (when.start.dateTime) return { useDefault: false, overrides: [{ method: "popup", minutes: 10 }] };
+  return { useDefault: true };
 }
 
 /** evento do Google já criado para a tarefa (procurado pela marca privada vincit_task) */
