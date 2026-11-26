@@ -65,3 +65,24 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 
 .scroll-thin::-webkit-scrollbar { height: 6px; width: 6px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 6px; }
+
+/* Brainstorm (Excalidraw) com a cor de destaque do assinante */
+.brainstorm .excalidraw, .brainstorm .excalidraw.theme--dark {
+  --color-primary: var(--color-mint);
+  --color-primary-darker: color-mix(in srgb, var(--color-mint) 82%, #000);
+  --color-primary-darkest: color-mix(in srgb, var(--color-mint) 68%, #000);
+  --color-primary-hover: color-mix(in srgb, var(--color-mint) 88%, #fff);
+  --color-primary-light: color-mix(in srgb, var(--color-mint) 22%, transparent);
+  --color-primary-light-darker: color-mix(in srgb, var(--color-mint) 32%, transparent);
+  --color-surface-primary-container: color-mix(in srgb, var(--color-mint) 30%, #fff);
+  --color-on-primary-container: color-mix(in srgb, var(--color-mint) 40%, #000);
+  --color-brand-hover: var(--color-mint);
+  --color-brand-active: var(--color-mint);
+  --color-selection: var(--color-mint);
+  --ui-font: var(--font-inter), system-ui, sans-serif;
+}
+.brainstorm .excalidraw.excalidraw.theme--dark {
+  --island-bg-color: #151517; --default-border-color: #2a2a2e;
+  --color-surface-primary-container: color-mix(in srgb, var(--color-mint) 22%, #1c1c1f);
+  --color-on-primary-container: var(--color-mint);
+}
