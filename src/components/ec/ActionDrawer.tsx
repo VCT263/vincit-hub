@@ -1,11 +1,12 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { useAI } from "@/lib/useAI";
 import { syncTask } from "@/lib/gsync";
-import { brl, fmtDay, KINDS, num, STATUS, type EcAction, type Item } from "@/lib/ecommerce";
+import { brl, fmtDay, KINDS, num, profileText, STATUS, type EcAction, type Item } from "@/lib/ecommerce";
 
 const PH: [keyof EcAction, string, string][] = [
   ["before_items", "Antes", "aquecimento"],
@@ -38,10 +39,10 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
 
   async function campaign() {
     const r = await ai.run<any>("ecommerce_campaign", {
-      store: store.name, action: { ...a, campaign: undefined },
+      store: store.name, profile: profileText(store.profile), action: { ...a, campaign: undefined },
       kind: KINDS[a.kind], today: new Date().toISOString().slice(0, 10),
     });
-    if (r) patch({ campaign: { ...r, generated_at: new Date().toISOString() } });
+    if (r) patch({ campaign: { ...r, pauta: (r.pauta || []).map((p: any, i: number) => ({ ...p, id: `p${Date.now().toString(36)}${i}`, status: "ideia" })), generated_at: new Date().toISOString() } });
   }
 
   async function sendToBoard() {
@@ -87,6 +88,10 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
   return (
     <Modal open title={a.title} onClose={onClose} wide>
       <div className="space-y-5">
+        <Link href={`/ecommerce/acoes/campanha?id=${a.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-mint/40 bg-mint/5 px-4 py-3 hover:border-mint">
+          <div><p className="text-sm font-semibold">Abrir a campanha dia a dia</p><p className="text-xs text-fog">Aquecimento, dia da ação e pós-venda com cada conteúdo, mensagem e tarefa no seu dia, e a conta da meta.</p></div>
+          <I.arrow className="w-4 h-4 shrink-0" />
+        </Link>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="col-span-2"><label className="label">Nome da ação</label><input className="input" defaultValue={a.title} onBlur={(e) => e.target.value.trim() && field("title", e.target.value.trim())} /></div>
           <div><label className="label">Tipo</label><select className="input" value={a.kind} onChange={(e) => patch({ kind: e.target.value })}>{Object.entries(KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>

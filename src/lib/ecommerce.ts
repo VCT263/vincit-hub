@@ -88,3 +88,32 @@ export const PHASES = {
   after: ["Agradecimento e pós-venda", "Conferir o resultado contra a meta", "Anotar o que repetir e o que mudar"],
 };
 export const toItems = (xs: string[]): Item[] => xs.map((t) => ({ t, done: false }));
+
+/** Perfil estratégico da loja: a IA usa em todas as campanhas. */
+export const PROFILE_FIELDS: [string, string, string][] = [
+  ["publico", "Cliente ideal", "Ex.: mulheres de 28 a 45 anos, trabalham fora, compram para ocasiões e trabalho"],
+  ["estilo", "Estilo e posicionamento", "Ex.: moda feminina casual chic, curadoria, peças versáteis"],
+  ["preco", "Faixa de preço", "Ex.: vestidos de R$ 189 a R$ 399"],
+  ["voz", "Tom de voz", "Ex.: próxima, elegante, sem gírias, chama a cliente pelo nome"],
+  ["diferenciais", "Diferenciais", "Ex.: atendimento personalizado, malinha em casa, provador com consultoria"],
+  ["canais", "Canais e alcance", "Ex.: loja física no centro, Instagram @isys, lista de WhatsApp com 600 clientes"],
+];
+export type StoreProfile = Record<string, any> & { ticket?: number | null; conversao?: number | null };
+export function profileText(p?: StoreProfile | null) {
+  if (!p) return "";
+  const lines = PROFILE_FIELDS.filter(([k]) => p[k]).map(([k, l]) => `${l}: ${p[k]}`);
+  if (p.ticket) lines.push(`Ticket médio: R$ ${p.ticket}`);
+  if (p.conversao) lines.push(`Conversão do atendimento: ${p.conversao}%`);
+  return lines.join("\n");
+}
+
+/** A conta da meta: quantas vendas e atendimentos a ação precisa. */
+export function goalMath(goal?: number | null, ticket?: number | null, conversao?: number | null, days = 1) {
+  if (!goal || !ticket) return null;
+  const vendas = Math.ceil(goal / ticket);
+  const atend = conversao ? Math.ceil(vendas / (conversao / 100)) : null;
+  return { vendas, atend, vendasDia: Math.ceil(vendas / Math.max(1, days)), atendDia: atend ? Math.ceil(atend / Math.max(1, days)) : null };
+}
+export const daysBetween = (a: string, b: string) => Math.round((new Date(b + "T12:00:00").getTime() - new Date(a + "T12:00:00").getTime()) / 864e5);
+export const addDays = (d: string, n: number) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return iso(x); };
+export const PHASE_COLOR: Record<string, string> = { Antes: "#7aa7ff", Durante: "var(--color-mint)", Depois: "#c084fc" };

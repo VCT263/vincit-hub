@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
@@ -87,16 +88,16 @@ function Calendar({ ctx }: { ctx: any }) {
                 const all = [...a.before_items, ...a.during_items, ...a.after_items];
                 const done = all.filter((x) => x.done).length;
                 return (
-                  <button key={a.id} onClick={() => setOpen(a)} className={`text-left rounded-xl border border-line bg-panel2/50 p-3 hover:border-mint transition-colors ${a.status === "cancelada" ? "opacity-50" : ""}`}>
+                  <Link key={a.id} href={`/ecommerce/acoes/campanha?id=${a.id}`} className={`block text-left rounded-xl border border-line bg-panel2/50 p-3 hover:border-mint transition-colors ${a.status === "cancelada" ? "opacity-50" : ""}`}>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[11px] text-mint">{fmtDay(a.date)}</span>
                       <span className="chip text-[10px]">{KINDS[a.kind]}</span>
                       {a.status !== "planejada" && <span className="chip text-[10px]">{STATUS[a.status]}</span>}
                     </div>
                     <p className="font-semibold mt-1.5">{a.title}</p>
-                    <p className="text-xs text-fog mt-0.5">{[a.goal ? `meta ${brl(a.goal)}` : null, a.warmup_date ? `aquece em ${fmtDay(a.warmup_date)}` : null, a.campaign ? "campanha pronta" : null].filter(Boolean).join(" · ") || "sem meta"}</p>
+                    <p className="text-xs text-fog mt-0.5">{[a.goal ? `meta ${brl(a.goal)}` : null, a.warmup_date ? `aquece em ${fmtDay(a.warmup_date)}` : null, a.campaign?.pauta?.length ? `${a.campaign.pauta.length} conteúdos` : null].filter(Boolean).join(" · ") || "sem meta"}</p>
                     <div className="h-1 rounded-full bg-line mt-2 overflow-hidden"><div className="h-full bg-mint" style={{ width: `${all.length ? (done / all.length) * 100 : 0}%` }} /></div>
-                  </button>
+                  </Link>
                 );
               })}
               {ms.length > 0 && (

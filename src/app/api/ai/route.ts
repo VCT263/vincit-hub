@@ -149,7 +149,7 @@ export async function POST(req: Request) {
         maxTokens: 6000,
         prompt: `Você é estrategista de marketing de varejo de moda (loja física e online) no Brasil. Monte a campanha de uma ação comercial da loja ${data.store}.
 Método da loja (Plano de 90 dias): toda ação tem antes (aquecimento, começando pelo menos 5 dias antes), durante e depois (pós-venda); chame primeiro quem já conhece a loja (clientes VIP e inativas); em datas de desconto, só peças selecionadas e desconto "até", nunca a coleção nova; presente por faixa de compra em vez de desconto quando possível; nada de antecipar liquidação.
-Ação: ${a.title} (${data.kind})
+${data.profile ? `Perfil da loja:\n${data.profile}\n` : ""}Ação: ${a.title} (${data.kind})
 Data: ${a.date}${a.end_date ? ` até ${a.end_date}` : ""} · aquecimento a partir de ${a.warmup_date || "5 dias antes"}
 Meta: ${a.goal ? `R$ ${a.goal}` : "não definida"}${a.goal_max ? ` (máxima R$ ${a.goal_max})` : ""}
 Frase da ação: vou fazer ${a.do_what || "{{o quê}}"}, porque ${a.because || "{{motivo}}"}, oferecendo ${a.offering || "{{oferta}}"}, para ${a.audience || "{{público}}"}, mirando ${a.aiming || "{{resultado}}"}.
@@ -158,7 +158,7 @@ Vitrine: ${a.vm_window || "não definida"}
 Hoje: ${data.today}. Não sugira datas no passado.
 
 Responda SOMENTE com JSON:
-{"conceito":"nome curto da campanha","mensagem":"mensagem central em 1-2 frases","fases":[{"fase":"Antes|Durante|Depois","periodo":"datas","objetivo":"o que a fase precisa conseguir"}],"pauta":[{"data":"AAAA-MM-DD","fase":"Antes|Durante|Depois","canal":"Instagram|WhatsApp|E-mail|Loja","formato":"Reels|Carrossel|Stories|Foto|Live","titulo":"tema em até 80 caracteres","gancho":"frase de abertura","roteiro":"3-5 linhas com a estrutura","cta":"um único CTA"}],"whatsapp":[{"para":"VIP|Inativas|Todas","quando":"data ou momento","mensagem":"texto pronto, curto, com {{nome}}"}],"vitrine":"sugestão de vitrine e VM em 1-2 frases","cuidados":["o que evitar nessa ação"]}
+{"conceito":"nome curto da campanha","mensagem":"mensagem central em 1-2 frases","fases":[{"fase":"Antes|Durante|Depois","periodo":"datas","objetivo":"o que a fase precisa conseguir"}],"pauta":[{"data":"AAAA-MM-DD","fase":"Antes|Durante|Depois","canal":"Instagram|WhatsApp|E-mail|Loja","formato":"Reels|Carrossel|Stories|Foto|Live","titulo":"tema em até 80 caracteres","gancho":"frase de abertura","roteiro":"3-5 linhas com a estrutura ou as cenas","legenda":"legenda pronta para postar, no tom da loja","cta":"um único CTA"}],"whatsapp":[{"para":"VIP|Inativas|Todas","quando":"data ou momento","mensagem":"texto pronto, curto, com {{nome}}"}],"oferta":{"mecanica":"como funciona a oferta em 1-2 frases","faixas":[{"acima":500,"brinde":"o que ganha"}]},"equipe":{"briefing":"o que a equipe de vendas precisa saber e falar, 2-3 frases","objecoes":[{"objecao":"o que a cliente diz","resposta":"como responder"}]},"vitrine":"sugestão de vitrine e VM em 1-2 frases","cuidados":["o que evitar nessa ação"]}
 Pauta de 6 a 12 itens cobrindo as três fases, com no máximo 1 oferta direta a cada 3 conteúdos. Não invente números de resultado.`,
       });
       return NextResponse.json(extractJson(text));
