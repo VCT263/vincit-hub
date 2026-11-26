@@ -8,6 +8,11 @@ import { can } from "@/lib/access";
 /** Ferramentas avulsas que resolvem um problema específico do dia a dia da produtora. */
 const SKILLS = [
   {
+    key: "audiovisual:teleprompter", href: "/audiovisual/teleprompter", Icon: I.prompter, title: "Teleprompter",
+    desc: "Puxa o roteiro do Creator, rola pela sua voz, espelha para o vidro do prompter e pode ser controlado pelo celular.",
+    tags: ["Roteiro do Creator", "Celular", "Controle remoto"],
+  },
+  {
     key: "audiovisual:recuperador", href: "/audiovisual/skills/recuperador", Icon: I.refresh, title: "Recuperador de arquivos",
     desc: "Traz de volta vídeo Sony .RSV ou MP4 que não abre depois de a bateria acabar ou o cartão sair, e áudio WAV cortado.",
     tags: ["Sony XAVC S", "WAV", "Roda no seu computador"],
