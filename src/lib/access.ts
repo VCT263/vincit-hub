@@ -18,6 +18,8 @@ export const TOOLS: Tool[] = [
   { key: "agency:financeiro", label: "Financeiro", hub: "agency", path: "/agency/financeiro" },
   { key: "agency:funil", label: "Funil de vendas", hub: "agency", path: "/agency/funil" },
   { key: "agency:propostas", label: "Propostas & orçamentos", hub: "agency", path: "/agency/propostas" },
+  { key: "audiovisual:decupagem", label: "Decupagem", hub: "audiovisual", path: "/audiovisual/decupagem" },
+  { key: "audiovisual:ordem", label: "Ordem do dia & checklist de set", hub: "audiovisual", path: "/audiovisual/ordem-do-dia" },
   { key: "audiovisual:teleprompter", label: "Teleprompter", hub: "audiovisual", path: "/audiovisual/teleprompter" },
   { key: "audiovisual:midia", label: "Banco de mídia (Google Drive)", hub: "audiovisual", path: "/audiovisual/midia" },
   { key: "ia", label: "Inteligência artificial (agentes, roteiros, análises)", hub: "geral" },
