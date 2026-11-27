@@ -543,7 +543,7 @@ export function lockupSvg(kind: LockupKind, d: any, mono?: string) {
   if (kind === "logotipo" || !symS) return L.svg;
   const sp = svgParts(symS); const ar = sp.w / sp.h;
   if (kind === "horizontal") {
-    const sh = L.h * 1.15, sw = sh * ar, gap = L.h * .3;
+    const sh = L.h * 1.15, sw = sh * ar, gap = Math.max(L.h * .3, sh * .55); // respiro maior: nome espaçado não pode encostar no símbolo
     const W = sw + gap + L.w, H = sh;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}">${nest(symS, 0, 0, sw, sh)}${nest(L.svg, sw + gap, (H - L.h) / 2, L.w, L.h)}</svg>`;
   }
