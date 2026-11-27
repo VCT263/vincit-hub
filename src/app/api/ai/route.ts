@@ -194,6 +194,32 @@ Use só esses números; quando faltar um dado, diga que falta. Responda em markd
       return NextResponse.json({ text });
     }
 
+    if (task === "brand_verbal") {
+      const text = await callClaude({
+        maxTokens: 5000,
+        prompt: `Você é redator-chefe de um estúdio de branding. Escreva a expressão verbal completa da marca abaixo para o manual de marca, em português do Brasil, com a voz dela (não a sua).
+Marca: ${data.nome}
+Estratégia:
+${(data.estrategia || "").slice(0, 3000)}
+Briefing:
+${(data.brief || "").slice(0, 5000)}
+Regras:
+- posicionamento no modelo "Para [público] que [necessidade], [marca] é [categoria] que [diferencial], porque [prova]"; cada parte curta e concreta.
+- valores: 3 a 5, cada um com como a marca vive, comunica e influencia (uma frase cada, com ação concreta).
+- arquetipos: para cada arquétipo da estratégia (use a chave: ${(data.arquetipos || []).join(", ") || "inocente, sabio, explorador, rebelde, mago, heroi, amante, bobo, cara_comum, cuidador, governante, criador"}), 1 a 2 frases de como ele aparece nesta marca na prática.
+- manifesto: 8 a 16 linhas curtas, parágrafos separados por linha em branco, fecha com o lema; só se o briefing não trouxer manifesto.
+- tom: 0 a 100 em formal(0)↔casual(100), serio(0)↔divertido(100), respeito: respeitoso(0)↔irreverente(100), energia: entusiasmado(0)↔objetivo(100); tom_porque com uma frase por eixo.
+- somos: 5 pares "somos X, mas não Y" (Y é o exagero do traço, não o oposto).
+- usamos: 12 palavras da marca; evitamos: 8 palavras ou expressões; trocas: 5 (em vez de / dizemos).
+- situacoes: 4 (ex.: lançamento, atendimento, oferta, erro), com o tom e um exemplo real de frase.
+- canais: 4 (Instagram, WhatsApp e mais 2 que a marca usa), com como falar ali e um exemplo de texto.
+- reescritas: 3 textos genéricos de mercado reescritos do jeito da marca.
+- Nada de clichê de IA ('O resultado?', 'Não é X, é Y', 'jornada', 'elevar', 'potencializar'), nada de exclamação em excesso, nenhum número inventado; use o que o briefing dá.
+Responda SOMENTE com JSON: {"posicionamento":{"publico":"","necessidade":"","categoria":"","diferencial":"","prova":""},"valores":[{"valor":"","vive":"","comunica":"","influencia":""}],"arquetipos":{"chave":""},"manifesto":"","tom":{"formal":50,"serio":50,"respeito":50,"energia":50},"tom_porque":{"formal":"","serio":"","respeito":"","energia":""},"somos":[{"somos":"","nao":""}],"usamos":[],"evitamos":[],"trocas":[{"em_vez":"","dizemos":""}],"situacoes":[{"quando":"","tom":"","exemplo":""}],"canais":[{"canal":"","como":"","exemplo":""}],"reescritas":[{"generico":"","marca":""}]}`,
+      });
+      return NextResponse.json(extractJson(text));
+    }
+
     if (task === "brand_territories") {
       const text = await callClaude({
         maxTokens: 3000,

@@ -92,6 +92,10 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   .grain::before { display: none !important; }
 }
 
+/* estilos do manual: os títulos mudam de voz (editorial em itálico de revista, suíço em caixa baixa justa) */
+.deck-slide[data-style="editorial"] h2 { text-transform: none !important; font-style: italic; font-weight: 400 !important; letter-spacing: -.025em !important; }
+.deck-slide[data-style="suico"] h2 { text-transform: none !important; letter-spacing: -.035em !important; }
+
 /* PDF do manual de marca: só os slides, no tamanho real, um por página (PrintDeck) */
 @media screen { .print-deck-root { display: none; } }
 @media print {

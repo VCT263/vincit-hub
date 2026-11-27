@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/client";
 import { brandPrompt, brandVideoKit } from "@/lib/brandPrompt";
 import { download } from "@/lib/design";
 import { I } from "@/components/icons";
+import { useAI } from "@/lib/useAI";
+import { briefText } from "@/lib/design";
+import { strategyText } from "@/lib/brand-strategy";
 
 /* Direcionamento da marca para a IA: o texto pronto, o perfil do Instagram que usa a marca
    (os pedidos de IA e o conector do Claude levam o texto junto) e o kit de edição de vídeo da marca. */
@@ -13,6 +16,13 @@ export default function BrandAIPanel({ d, set }: { d: any; set: (patch: any) => 
   const [msg, setMsg] = useState("");
   const [open, setOpen] = useState(false);
   const name = d.brief?.nome || "marca";
+  const { run, busy } = useAI();
+  async function verbal() {
+    setMsg("Pedido enviado ao Claude. A expressão verbal entra no manual quando ele responder.");
+    const r: any = await run("brand_verbal", { nome: d.brief?.nome || "", brief: briefText(d.brief) + (d.brief?.manifesto ? `\nManifesto: ${d.brief.manifesto}` : ""), estrategia: strategyText(d), arquetipos: d.strategy?.arquetipos || [] });
+    if (r && (r.posicionamento || r.tom)) { set({ verbal: { ...(d.verbal || {}), ...r }, ...(d.verbal ? { _verbal_antes: d.verbal } : {}) }); setMsg("Expressão verbal nova no manual: posicionamento, valores, tom, vocabulário, canais e reescritas."); }
+    else setMsg("O Claude não devolveu a expressão verbal. Tente de novo.");
+  }
   useEffect(() => { createClient().from("ig_accounts").select("id, username").order("created_at").then(({ data }) => setPerfis((data as any) || [])); }, []);
 
   async function copy() { await navigator.clipboard.writeText(prompt); setMsg("Direcionamento copiado. Cole no começo da conversa com qualquer IA."); }
@@ -33,6 +43,7 @@ export default function BrandAIPanel({ d, set }: { d: any; set: (patch: any) => 
         <p className="font-semibold text-sm mr-auto">Direcionamento para IA</p>
         <button onClick={copy} className="btn btn-mint btn-sm"><I.copy className="w-3.5 h-3.5" />Copiar</button>
         <button onClick={() => download(URL.createObjectURL(new Blob([prompt], { type: "text/markdown" })), `${name}-direcionamento-ia.md`)} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Baixar .md</button>
+        <button onClick={verbal} disabled={busy} className="btn btn-ghost btn-sm">{busy ? "Escrevendo…" : d.verbal ? "Reescrever expressão verbal" : "Escrever expressão verbal"}</button>
         <button onClick={kit} className="btn btn-ghost btn-sm">{d.kit_id ? "Atualizar" : "Criar"} kit de edição de vídeo</button>
       </div>
       <p className="text-xs text-fog">Voz, frases, o que nunca dizer, paleta com proporção, letras, grafismos e regras de post e de vídeo, montados a partir desta marca. Vai junto dos pedidos de IA do perfil ligado (posts, calendário, roteiros, campanhas) e aparece para o Claude no conector.</p>

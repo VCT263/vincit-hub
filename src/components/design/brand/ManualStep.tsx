@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CANVA_BRAND_KIT, download, loadImg, primaryLogo, svgUrl, svgWithFonts, type Logo, type Swatch } from "@/lib/design";
-import { FORMATS, Presenter, PrintDeck, ScaledSlide, useDeck, type Format } from "./Presentation";
+import { FORMATS, Presenter, PrintDeck, STYLES, ScaledSlide, styleFor, useDeck, type DeckStyle, type Format } from "./Presentation";
 import LogoMotion from "./LogoMotion";
 import { useMockups } from "./MockupView";
 import { I } from "@/components/icons";
@@ -57,6 +57,7 @@ export default function ManualStep({ d, id, set }: StepProps) {
     <div className="space-y-5">
       <div className="card p-4 flex flex-wrap gap-2 items-center print:hidden">
         <div className="flex gap-1.5 mr-2">{(Object.keys(FORMATS) as Format[]).map((k) => <button key={k} onClick={() => { setFormat(k); set({ deck_format: k }); }} className={`chip !px-3 !py-1.5 ${format === k ? "chip-mint" : ""}`} title={FORMATS[k].l}>{k}</button>)}</div>
+        <div className="flex gap-1.5 mr-2">{(Object.keys(STYLES) as DeckStyle[]).map((k) => <button key={k} onClick={() => set({ deck_style: k })} className={`chip !px-3 !py-1.5 ${styleFor(d) === k ? "chip-mint" : ""}`} title={STYLES[k].d}>{STYLES[k].l}</button>)}</div>
         <button onClick={() => setShow(0)} className="btn btn-mint btn-sm"><I.play className="w-3.5 h-3.5" />Apresentar</button>
         <button onClick={printAll} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Salvar PDF</button>
         {logo && <button onClick={() => logoFile("svg")} className="btn btn-ghost btn-sm">Logo SVG</button>}
@@ -65,7 +66,7 @@ export default function ManualStep({ d, id, set }: StepProps) {
         <a href={CANVA_BRAND_KIT} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Kit de Marca no Canva ↗</a>
         <button onClick={carrossel} className="btn btn-ghost btn-sm ml-auto"><I.cards className="w-3.5 h-3.5" />Criar carrossel com a marca</button>
         {msg && <p className="w-full text-xs text-fog">{msg}</p>}
-        <p className="w-full text-[11px] text-fog">{slides.length} slides em {FORMATS[format].l}. No PDF, escolha "Salvar como PDF" e ative "Gráficos de fundo"; o tamanho da página já vem certo. Clique num slide para apresentar a partir dele.</p>
+        <p className="w-full text-[11px] text-fog">{slides.length} slides em {FORMATS[format].l}, estilo {STYLES[styleFor(d)].l}{d.deck_style ? "" : " (escolhido pelo nicho)"}: {STYLES[styleFor(d)].d} No PDF, escolha "Salvar como PDF" e ative "Gráficos de fundo"; o tamanho da página já vem certo. Clique num slide para apresentar a partir dele.</p>
       </div>
 
       <LinkApresentacao id={id} d={d} set={set} />
