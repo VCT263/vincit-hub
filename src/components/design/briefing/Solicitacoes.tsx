@@ -9,7 +9,7 @@ export default function Solicitacoes() {
   const [rows, setRows] = useState<any[]>([]);
   const [aguardando, setAguardando] = useState(0);
   useEffect(() => {
-    createClient().from("design_briefings").select("id,title,client_name,status,respondent,answered_at,marca:answers->>marca_nome,nao_quer:answers->>nao_quer").in("status", ["respondido", "aberto"]).order("answered_at", { ascending: false })
+    createClient().from("design_briefings").select("id,title,client_name,status,respondent,answered_at,marca:answers->>marca_nome,nao_quer:answers->>nao_quer").in("status", ["respondido", "aberto"]).is("deleted_at", null).order("answered_at", { ascending: false })
       .then(({ data }) => { const all = (data as any[]) || []; setRows(all.filter((r) => r.status === "respondido")); setAguardando(all.filter((r) => r.status === "aberto").length); });
   }, []);
   if (!rows.length && !aguardando) return null;

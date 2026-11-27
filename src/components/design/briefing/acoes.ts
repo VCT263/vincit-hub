@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { ETAPAS, toBrief } from "@/lib/briefing-cliente";
 
-export type Briefing = { id: string; token: string; title: string; client_name?: string; client_id?: string; intro?: string; status: "aberto" | "respondido" | "projeto" | "arquivado"; answers: any; respondent?: string; answered_at?: string; notes?: string; brand_id?: string; versoes?: Versao[]; created_at: string; updated_at: string };
+export type Briefing = { id: string; token: string; title: string; client_name?: string; client_id?: string; intro?: string; status: "aberto" | "respondido" | "projeto" | "arquivado"; answers: any; respondent?: string; answered_at?: string; notes?: string; brand_id?: string; versoes?: Versao[]; deleted_at?: string | null; created_at: string; updated_at: string };
 export type Versao = { at: string; por: "cliente" | "equipe"; nome?: string; motivo?: string; answers: any };
 
 export const briefingUrl = (token: string) => `${typeof window !== "undefined" ? window.location.origin : "https://vincit-hub.vercel.app"}/b/${token}`;
