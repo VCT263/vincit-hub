@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
-import Markdown from "@/components/Markdown";
 import { FORMAT_LIST, MAX_REVISIONS, blockers, isLate } from "@/lib/content";
+import { estimate, parseScript } from "@/lib/prompter";
+import ScriptSheet from "@/components/creator/ScriptSheet";
 
 type Props = { item: any; statuses: any[]; accounts: any[]; clients: any[]; pillars: string[]; assignees: string[]; onClose: () => void; onSaved: () => void };
 
@@ -23,6 +24,7 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
   const [note, setNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const s = () => createClient();
   const set = (k: string, v: any) => setF((x: any) => ({ ...x, [k]: v }));
   const stageOf = (id: string) => statuses.find((x) => x.id === id)?.stage;
@@ -134,20 +136,23 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
         </Section>
 
         <Section title="Roteiro">
-          <label className="label">Gancho</label>
-          <input className="input mb-3" value={f.hook || ""} onChange={(e) => set("hook", e.target.value)} placeholder="Os primeiros 3 segundos" />
-          <label className="label">Roteiro ou copy</label>
-          <textarea className="input min-h-[160px] font-mono text-xs" value={f.body || ""} onChange={(e) => set("body", e.target.value)} />
-          {f.body && <details className="mt-2"><summary className="text-xs text-fog cursor-pointer">Pré-visualizar</summary><div className="mt-2 bg-panel2 rounded-xl p-4"><Markdown text={f.body} /></div></details>}
-          <Link href={`/creator/laboratorio?tab=criar${f.card ? `&carta=${f.card}` : ""}${f.format ? `&format=${encodeURIComponent(f.format)}` : ""}`} className="btn btn-ghost btn-sm mt-3"><I.flask className="w-4 h-4" />Desenvolver no Laboratório</Link>
-          {f.id && (
-            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
-              <span className="text-[10px] uppercase tracking-widest text-fog font-mono w-full">Levar para o Audiovisual</span>
-              <Link href={`/audiovisual/teleprompter?c=${f.id}`} className="btn btn-ghost btn-sm"><I.video className="w-4 h-4" />Teleprompter</Link>
-              <Link href={`/audiovisual/decupagem?c=${f.id}`} className="btn btn-ghost btn-sm"><I.board className="w-4 h-4" />Decupagem</Link>
-              <Link href={`/audiovisual/ordem-do-dia?c=${f.id}`} className="btn btn-ghost btn-sm"><I.calendar className="w-4 h-4" />Ordem do dia</Link>
+          <button onClick={() => setSheet(true)} className="group w-full text-left rounded-2xl border border-line hover:border-mint bg-panel2 p-3 flex gap-4 items-stretch transition-colors">
+            {/* miniatura da folha */}
+            <div className="w-[74px] shrink-0 aspect-[210/297] rounded-[3px] bg-[#fafaf7] p-2 flex flex-col gap-1 shadow-lg group-hover:-rotate-2 transition-transform">
+              <span className="h-[3px] w-8 bg-[#141416] rounded" />
+              <span className="h-[2px] w-12 bg-[#c9c9c3] rounded" />
+              <span className="h-px w-full bg-[#141416] my-1" />
+              {[0, 1, 2, 3, 4].map((i) => <span key={i} className="flex gap-1"><span className="h-[2px] w-5 bg-[#c9c9c3] rounded" /><span className="h-[2px] flex-1 bg-[#dcdcd6] rounded" /></span>)}
+              <span className="mt-auto h-[3px] w-3 rounded bg-mint" />
             </div>
-          )}
+            <div className="min-w-0 flex-1 py-1">
+              <p className="font-display font-extrabold text-lg leading-tight">Roteiro técnico</p>
+              <p className="text-xs text-fog mt-1 leading-relaxed">{f.hook ? `“${f.hook}”` : f.body ? "Pauta, falas, tabela de direção técnica e set numa folha A4." : "Ainda sem roteiro. Abra a folha para escrever."}</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-fog mt-2">{f.body ? `${parseScript(f.body).words.length} palavras · ~${estimate(parseScript(f.body).words.length)}` : "folha em branco"}</p>
+              <span className="btn btn-mint btn-sm mt-3 pointer-events-none">Abrir folha</span>
+            </div>
+          </button>
+          <Link href={`/creator/laboratorio?tab=criar${f.card ? `&carta=${f.card}` : ""}${f.format ? `&format=${encodeURIComponent(f.format)}` : ""}`} className="btn btn-ghost btn-sm mt-3"><I.flask className="w-4 h-4" />Desenvolver no Laboratório</Link>
         </Section>
 
         {reached("producao") && (
@@ -210,6 +215,16 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           <button disabled={busy} onClick={() => save()} className="btn btn-mint">Salvar</button>
         </div>
       </div>
+      {sheet && item?.id && (
+        <ScriptSheet
+          item={{ ...f, id: item.id }}
+          accountName={accounts.find((a) => a.id === f.account_id)?.username}
+          clientName={(() => { const c = clients.find((c) => c.id === f.client_id); return c ? c.company || c.name : null; })()}
+          statusName={statuses.find((x) => x.id === f.status_id)?.name}
+          onPatch={(p) => { setF((x: any) => ({ ...x, ...p })); onSaved(); }}
+          onClose={() => setSheet(false)}
+        />
+      )}
     </div>
   );
 }

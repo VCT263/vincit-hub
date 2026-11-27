@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAI } from "@/lib/useAI";
 import { FRAMINGS, shotsFromScript, type Shot } from "@/lib/shots";
 import { parseScript } from "@/lib/prompter";
+import { MOVES } from "@/lib/roteiro";
 
 const READY = ["roteiro", "producao"];
 const fmtDay = (d?: string | null) => (d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "") : "");
@@ -64,7 +65,7 @@ export default function Decupagem() {
     const s = createClient();
     if (replace && shots?.length) await s.from("av_shots").delete().eq("content_id", sel);
     const base = replace ? 0 : (shots?.[shots.length - 1]?.position || 0) + 1;
-    await s.from("av_shots").insert(list.map((x, i) => ({ content_id: sel, position: base + i, description: x.description, framing: x.framing || null, audio: x.audio || null, notes: x.notes || null, media_id: x.media_id || null })));
+    await s.from("av_shots").insert(list.map((x, i) => ({ content_id: sel, position: base + i, description: x.description, framing: x.framing || null, audio: x.audio || null, notes: x.notes || null, media_id: x.media_id || null, part: x.part || null, line: x.line || null, movement: x.movement || null, broll: x.broll || null })));
     await loadShots(sel); load();
   }
   async function fromScript() {
@@ -169,6 +170,7 @@ export default function Decupagem() {
                       <button onClick={() => patch(s.id, { done: !s.done })} className={`mt-1 w-5 h-5 rounded-md border-2 shrink-0 grid place-items-center ${s.done ? "bg-mint border-mint text-[var(--color-on-mint,#06140e)]" : "border-[#4a4d52]"}`} aria-label="Gravado">{s.done && "✓"}</button>
                       <span className="font-mono text-[11px] text-fog mt-1.5 w-5 shrink-0">{String(i + 1).padStart(2, "0")}</span>
                       <div className="flex-1 min-w-0 grid gap-2">
+                        {(s.part || s.line) && <p className="text-sm leading-snug"><span className="font-mono text-[10px] uppercase tracking-widest text-mint mr-2">{s.part}</span>{s.line && <span className="text-paper/90">“{s.line}”</span>}</p>}
                         <input className="input !py-1.5 font-semibold" defaultValue={s.description} onBlur={(e) => e.target.value !== s.description && patch(s.id, { description: e.target.value || "Plano" })} />
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <input className="input !py-1.5 text-sm" list="framings" placeholder="Enquadramento" defaultValue={s.framing || ""} onBlur={(e) => e.target.value !== (s.framing || "") && patch(s.id, { framing: e.target.value || null })} />
@@ -177,6 +179,10 @@ export default function Decupagem() {
                             <option value="">Sem mídia do banco</option>
                             {media.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                           </select>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input className="input !py-1.5 text-sm" list="moves" placeholder="Movimento de câmera" defaultValue={s.movement || ""} onBlur={(e) => e.target.value !== (s.movement || "") && patch(s.id, { movement: e.target.value || null })} />
+                          <input className="input !py-1.5 text-sm" placeholder="B-roll / inserção" defaultValue={s.broll || ""} onBlur={(e) => e.target.value !== (s.broll || "") && patch(s.id, { broll: e.target.value || null })} />
                         </div>
                         <input className="input !py-1.5 text-sm" placeholder="Nota de set (opcional)" defaultValue={s.notes || ""} onBlur={(e) => e.target.value !== (s.notes || "") && patch(s.id, { notes: e.target.value || null })} />
                       </div>
@@ -193,6 +199,7 @@ export default function Decupagem() {
               </div>
               {shots && shots.length > 0 && <p className="text-xs text-fog mt-3">{shots.length} planos · {shots.filter((s) => s.done).length} gravados · {shots.filter((s) => s.media_id).length} com mídia do banco. Para levar ao set, coloque este conteúdo numa <Link href="/audiovisual/ordem-do-dia" className="text-mint underline">ordem do dia</Link>.</p>}
               <datalist id="framings">{FRAMINGS.map((f) => <option key={f} value={f} />)}</datalist>
+              <datalist id="moves">{MOVES.map((f) => <option key={f} value={f} />)}</datalist>
             </>
           )}
         </section>
