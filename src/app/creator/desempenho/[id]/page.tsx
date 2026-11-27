@@ -433,7 +433,7 @@ const DIAS_LONGO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta",
 /** mapa de calor dia × hora dos seguidores online (uma cor, mais forte = mais gente) */
 function QuandoPostar({ grid }: { grid: number[][] }) {
   const [sel, setSel] = useState<[number, number] | null>(null);
-  const max = Math.max(...grid.flat(), 1);
+  const max = Math.max(...grid.flat(), 1), min = Math.min(...grid.flat());
   const ranked = grid.flatMap((row, d) => row.map((v, h) => ({ d, h, v }))).sort((a, b) => b.v - a.v);
   // melhores janelas: um por dia diferente
   const best: typeof ranked = [];
@@ -461,7 +461,7 @@ function QuandoPostar({ grid }: { grid: number[][] }) {
                     <button key={h} type="button" onPointerEnter={() => setSel([d, h])} onClick={() => setSel([d, h])}
                       aria-label={`${DIAS_LONGO[d]} ${h}h: ${v} seguidores online`}
                       className={`h-6 rounded-[3px] ${cur && cur.d === d && cur.h === h ? "ring-1 ring-paper" : ""}`}
-                      style={{ background: `color-mix(in srgb, var(--color-mint) ${Math.round(8 + (v / max) * 92)}%, var(--color-panel2))` }} />
+                      style={{ background: `color-mix(in srgb, var(--color-mint) ${Math.round(6 + Math.pow((v - min) / (max - min || 1), 1.6) * 94)}%, var(--color-panel2))` }} />
                   ))}
                 </div>
               ))}
