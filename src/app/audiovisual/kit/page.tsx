@@ -114,7 +114,7 @@ export default function KitPage() {
     const [{ data: k }, { data: p }, { data: b }] = await Promise.all([
       s.from("av_style_kits").select("id,name,account_id,data").order("updated_at", { ascending: false }),
       s.from("ig_accounts").select("id,username"),
-      s.from("design_projects").select("id,title,data").eq("kind", "marca").order("updated_at", { ascending: false }),
+      s.from("design_projects").select("id,title,data").eq("kind", "marca").is("archived_at", null).order("updated_at", { ascending: false }),
     ]);
     setBrands(b || []);
     setKits((k as Row[]) || []);
