@@ -46,6 +46,42 @@ async function demo(id: string, token: string, breakdown: string) {
   return null;
 }
 
+/** alcance e visualizações divididos entre seguidores e não seguidores */
+async function byFollow(id: string, token: string, since: number, until: number) {
+  try {
+    const j = await gget(`${id}/insights`, { access_token: token, metric: "reach,views", period: "day", metric_type: "total_value", breakdown: "follow_type", since: String(since), until: String(until) });
+    const out: Record<string, { seguidores: number; nao: number }> = {};
+    for (const it of j.data || []) {
+      const res = it.total_value?.breakdowns?.[0]?.results || [];
+      const get = (k: string) => res.filter((r: any) => r.dimension_values?.[0] === k).reduce((a: number, r: any) => a + (Number(r.value) || 0), 0);
+      out[it.name] = { seguidores: get("FOLLOWER"), nao: get("NON_FOLLOWER") };
+    }
+    return Object.keys(out).length ? out : null;
+  } catch { return null; }
+}
+
+/** seguidores online por dia da semana × hora (horário de Brasília), média dos últimos dias */
+async function online(id: string, token: string, end: number) {
+  try {
+    const j = await gget(`${id}/insights`, { access_token: token, metric: "online_followers", period: "lifetime", since: String(end - 29 * DAY), until: String(end) });
+    const vals = j.data?.[0]?.values || [];
+    const sum = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const cnt = Array.from({ length: 7 }, () => Array(24).fill(0));
+    let any = false;
+    for (const v of vals) {
+      if (!v?.value || typeof v.value !== "object") continue;
+      const day0 = new Date(v.end_time).getTime() - DAY * 1000; // o valor descreve o dia anterior ao end_time
+      for (const [h, n] of Object.entries(v.value)) {
+        const t = new Date(day0 + Number(h) * 3600 * 1000 - 3 * 3600 * 1000); // horas em UTC -> Brasília
+        sum[t.getUTCDay()][t.getUTCHours()] += Number(n) || 0;
+        cnt[t.getUTCDay()][t.getUTCHours()]++;
+        any = true;
+      }
+    }
+    return any ? sum.map((row, d) => row.map((x, h) => (cnt[d][h] ? Math.round(x / cnt[d][h]) : 0))) : null;
+  } catch { return null; }
+}
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -76,6 +112,7 @@ export async function GET(req: Request) {
       demo(id, token, "age"),
       demo(id, token, "city"),
     ]);
+    const [follow, onlineGrid] = await Promise.all([byFollow(id, token, start, end), online(id, token, end)]);
     // seguidores ganhos por dia, alinhados aos mesmos dias da série
     const fMap = new Map<string, number>();
     (followers || []).forEach((f: any) => fMap.set(new Date(new Date(f.t).getTime() - DAY * 1000).toISOString().slice(0, 10), f.v));
@@ -91,6 +128,8 @@ export async function GET(req: Request) {
       current: { ...cur, follows: sum("follows") },
       previous: prev,
       followers_count: acc.followers_count,
+      follow,
+      online: onlineGrid,
       audience: { gender, age, city: city ? city.sort((a: any, b: any) => b.v - a.v).slice(0, 8) : null, total: acc.followers_count || (gender || []).reduce((a: number, x: any) => a + x.v, 0) },
     }, { headers: { "cache-control": "private, max-age=600" } });
   } catch (e: any) {
