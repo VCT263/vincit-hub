@@ -162,7 +162,7 @@ export default function BriefingDetalhe() {
             <div>
               <p className="font-semibold text-sm">Suas notas</p>
               <p className="text-xs text-fog mt-0.5 mb-2">Complete o que faltou, o que você percebeu na conversa e o que precisa confirmar com o cliente. Vai junto para o projeto.</p>
-              <textarea value={b.notes || ""} onChange={(e) => save({ notes: e.target.value }, 700)} rows={8} className="input" placeholder="Ex.: confirmar se “AG Skin” entra com S maiúsculo. Ela fala muito de esporte: explorar comunidade." />
+              <textarea value={b.notes || ""} onChange={(e) => save({ notes: e.target.value }, 700)} rows={8} className="input" placeholder="Ex.: confirmar como o nome entra no logo. Ela fala muito de esporte: explorar comunidade." />
             </div>
             {b.status === "respondido" && <button onClick={projeto} disabled={busy} className="btn btn-mint w-full"><I.shapes className="w-4 h-4" />{busy ? "Criando…" : "Criar projeto de marca"}</button>}
             <p className="text-[11px] text-fog">O projeto já nasce com nome, o que faz, público, concorrentes, palavras, tipo de logo, cores, o que evitar, personalidade e as referências. Você segue pela Estratégia.</p>

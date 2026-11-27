@@ -62,18 +62,16 @@
 
     <!-- etapas -->
     <div class="step">
-      <div class="num">1</div>
+      <div class="step-head"><div class="num">1</div><div class="step-title">Transcrever</div></div>
       <div class="step-body">
-        <div class="step-title">Transcrever</div>
         <div class="muted small">O Premiere transcreve os clipes de V1 e A1. Faça uma vez por sequência.</div>
         <div id="btnTranscribe" class="btn ghost">Transcrever clipes</div>
       </div>
     </div>
 
     <div class="step">
-      <div class="num">2</div>
+      <div class="step-head"><div class="num">2</div><div class="step-title">Enviar ao Claude</div></div>
       <div class="step-body">
-        <div class="step-title">Enviar ao Claude</div>
         <div class="lab">Conteúdo do HUB</div>
         <input id="contentSearch" type="text" placeholder="Buscar roteiro…">
         <div id="contentList" class="list"></div>
@@ -86,9 +84,8 @@
     </div>
 
     <div class="step last">
-      <div class="num">3</div>
+      <div class="step-head"><div class="num">3</div><div class="step-title">Aplicar</div></div>
       <div class="step-body">
-        <div class="step-title">Aplicar</div>
         <div class="muted small">O plano aparece no topo. Edições enviadas pelo Editor do HUB também chegam aqui.</div>
       </div>
     </div>
@@ -97,7 +94,7 @@
 
     <div class="foot">
       <span id="lnkHub" class="link">Abrir o HUB</span>
-      <span class="muted small">v0.3</span>
+      <span class="muted small">v0.3.1</span>
     </div>
   </section>
   <script src="hub.js"></script>

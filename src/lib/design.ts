@@ -555,9 +555,10 @@ export function primaryLogo(d: any, mono?: string) {
 }
 
 /* ───────────── Grafismos ───────────── */
-export type Pattern = { source: "simbolo" | "monograma"; scale: number; gap: number; rotate: number; offset: boolean; opacity: number; bg: string; fg: string };
+/** svg: elemento próprio do grafismo (ex.: o losango do i da ISYS), no lugar do símbolo inteiro */
+export type Pattern = { source: "simbolo" | "monograma"; svg?: string; nome?: string; scale: number; gap: number; rotate: number; offset: boolean; opacity: number; bg: string; fg: string };
 export function patternSvg(d: any, p: Pattern, W = 1080, H = 1080) {
-  const src = p.source === "monograma" && d.monogram ? monogramSvg(d.monogram, p.fg, "transparent").replace(/fill="transparent"/g, 'fill="none"') : monoSvg(logoAsSvg((d.logos || []).find((l: Logo) => l.id === (d.symbol_id || d.logo_id))) || monogramSvg(d.monogram || { letters: "A", font: "Inter", weight: 800, shape: "nenhum", overlap: 0, fg: p.fg, bg: "none", stack: false }), p.fg);
+  const src = p.svg ? monoSvg(p.svg, p.fg) : p.source === "monograma" && d.monogram ? monogramSvg(d.monogram, p.fg, "transparent").replace(/fill="transparent"/g, 'fill="none"') : monoSvg(logoAsSvg((d.logos || []).find((l: Logo) => l.id === (d.symbol_id || d.logo_id))) || monogramSvg(d.monogram || { letters: "A", font: "Inter", weight: 800, shape: "nenhum", overlap: 0, fg: p.fg, bg: "none", stack: false }), p.fg);
   const sp = svgParts(src); const ar = sp.w / sp.h;
   const h = p.scale, w = h * ar, cw = w + p.gap, ch = h + p.gap;
   let out = "";
