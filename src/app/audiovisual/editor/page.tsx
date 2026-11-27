@@ -4,18 +4,16 @@ import Link from "next/link";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
-  CAMERA_LEVELS, CAPTION_STYLES, LOOKS, TRANSITIONS, FONTS_CSS, H, TITLE_LABEL, W, activeOverlays, applyCuts, drawInsert, isHot, setFormat, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
+  CAMERA_LEVELS, CAMERA_MOVES, CAPTION_STYLES, LETTERING_KINDS, LOOKS, MOTION_KINDS, OVERLAY_MODES, TITLE_SUB_HINT, TRANSITIONS, FONTS_CSS, shakeAt, H, TITLE_LABEL, W, activeOverlays, applyCuts, drawInsert, isHot, setFormat, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
   type Format, type Kit, type Media, type Overlay, type OverlayMode, type Project, type Title, type Zoom,
 } from "@/lib/editor/model";
+import { CAMADA_LABEL, sugerir, type Sugestao } from "@/lib/editor/sugestoes";
 import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from "@/lib/editor/styles";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
 
-const SUB_HINT: Partial<Record<Title["kind"], string>> = {
-  episodio: "Linha de baixo (ex.: EP. 03 · 2026)", capitulo: "Linha pequena (opcional)", lower_third: "Cargo ou @perfil", palavra: "Linha pequena",
-  frase: "Palavras na cor de destaque (ex.: conforto)", data: "Segunda linha (ex.: domingo · Floripa)", lista: "Itens separados por | (ex.: dormir | treinar | escrever)", rec: "Canto de baixo (ex.: 4K UHD)",
-};
+const SUB_HINT = TITLE_SUB_HINT;
 export default function Editor() {
   const [media, setMedia] = useState<Media[]>([]);
   const [p, setP] = useState<Project>(EMPTY);
@@ -35,6 +33,8 @@ export default function Editor() {
   const [addAs, setAddAs] = useState<"fala" | "broll">("fala");
   const [ask, setAsk] = useState("");
   const [plan, setPlan] = useState<{ id: string; status: string; plan?: any; note?: string } | null>(null);
+  const [sugs, setSugs] = useState<Sugestao[] | null>(null);
+  const [busca, setBusca] = useState<{ id: string; q: string; itens?: any[]; fontes?: Record<string, string>; loading?: boolean } | null>(null);
 
   setFormat(p.format); // W e H da prévia acompanham o formato escolhido
   const wide = p.format === "16:9";
@@ -111,7 +111,7 @@ export default function Editor() {
     const ctx = c.getContext("2d")!;
     const loc = locate(p, time);
     const v = loc ? videos.current.get(loc.seg.mediaId) : null;
-    if (v && v.readyState >= 2) drawCover(ctx, v, v.videoWidth, v.videoHeight, zoomAt(p, time, cam));
+    if (v && v.readyState >= 2) drawCover(ctx, v, v.videoWidth, v.videoHeight, zoomAt(p, time, cam), false, shakeAt(p, time));
     else { ctx.fillStyle = "#0c0c0d"; ctx.fillRect(0, 0, W, H); }
     const act = activeOverlays(p, time);
     brollVideos.current.forEach((bv, id) => { if (!act.some((o) => o.mediaId === id)) bv.pause(); });
@@ -244,6 +244,9 @@ export default function Editor() {
       data: [new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }), new Date().toLocaleDateString("pt-BR", { weekday: "long" }), 3],
       lista: ["O que muda o jogo", "dormir melhor | treinar cedo | escrever o dia", 6],
       rec: ["REC", "4K UHD", 4],
+      vazado: ["vendas", "sem anúncio", 2.4],
+      numero: ["70%", "das vendas", 2.6], grafico: ["Vendas", "em 3 meses", 2.8], checklist: ["3 ajustes", "foto | preço | descrição", 3.4],
+      seta: ["olha aqui", "baixo", 2], relogio: ["30 min", "por dia", 2.6], progresso: ["70", "da meta", 2.6],
     };
     const [text, sub, len] = def[kind];
     const start = kind === "cta" ? Math.max(0, total - 3) : kind === "gancho" || kind === "episodio" ? 0 : tRef.current;
@@ -265,6 +268,63 @@ export default function Editor() {
   }
 
   /* ---------- plano do Claude (pela fila do conector, sem API paga) ---------- */
+  /* ---------- sugestões a partir da fala ---------- */
+  function gerarSugestoes() {
+    if (!words.length) { setMsg("Gere a legenda primeiro (aba Legenda): as sugestões saem da fala."); return; }
+    const c = contents.find((x) => x.id === contentId);
+    const out = sugerir(p, words, kit, { roteiro: c?.body, titulo: c?.hook || undefined, wide });
+    setSugs(out);
+    setMsg(out.length ? `${out.length} sugestões. Aceite uma a uma ou todas de uma vez.` : "Não achei pontos para sugerir nessa fala.");
+  }
+  function aplicarSug(sg: Sugestao, pp: Project): Project {
+    if (sg.title) return { ...pp, titles: [...pp.titles, sg.title] };
+    if (sg.zoom) return { ...pp, zooms: [...pp.zooms.filter((z) => z.end <= sg.zoom!.start || z.start >= sg.zoom!.end), sg.zoom] };
+    return pp;
+  }
+  function aceitar(sg: Sugestao) {
+    if (sg.camada === "insercao") { buscarImagem(sg); return; }
+    update((pp) => aplicarSug(sg, pp));
+    setSugs((l) => (l || []).filter((x) => x.id !== sg.id));
+  }
+  function aceitarTodas() {
+    const ok = (sugs || []).filter((x) => x.camada !== "insercao");
+    update((pp) => ok.reduce((acc, sg) => aplicarSug(sg, acc), pp));
+    setSugs((l) => (l || []).filter((x) => x.camada === "insercao"));
+    setMsg(`${ok.length} sugestões aplicadas. As imagens de inserção ficaram na lista: escolha a imagem de cada uma.`);
+  }
+  async function buscarImagem(sg: Sugestao, q = sg.busca || "") {
+    setBusca({ id: sg.id, q, loading: true });
+    try {
+      const r = await fetch(`/api/av/imagens?q=${encodeURIComponent(q)}&formato=${p.format || "9:16"}`);
+      const j = await r.json();
+      setBusca({ id: sg.id, q, itens: j.itens || [], fontes: j.fontes || {} });
+    } catch { setBusca({ id: sg.id, q, itens: [] }); }
+  }
+  async function usarImagem(sg: Sugestao, it: any) {
+    setBusy({ f: 0.3, msg: "Trazendo a imagem…" });
+    try {
+      const src = it.fonte === "interno" ? it.url : `/api/av/imagens/baixar?url=${encodeURIComponent(it.url)}`;
+      const r = await fetch(src);
+      if (!r.ok) throw new Error(await r.text());
+      const blob = await r.blob();
+      const isVid = blob.type.startsWith("video/");
+      const name = `${it.fonte} · ${(it.autor || sg.busca || "imagem").toString().slice(0, 40)}${isVid ? ".mp4" : ".jpg"}`;
+      const file = new File([blob], name, { type: blob.type });
+      const url = URL.createObjectURL(file);
+      const meta = isVid
+        ? await new Promise<{ d: number; w: number; h: number }>((res) => { const v = document.createElement("video"); v.preload = "metadata"; v.src = url; v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); v.onerror = () => res({ d: 0, w: 0, h: 0 }); })
+        : await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; });
+      if (!meta.d) throw new Error("arquivo não abriu");
+      const m: Media = { id: uid(), name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: !isVid, broll: true };
+      setMedia((all) => [...all, m]);
+      update((pp) => ({ ...pp, overlays: [...(pp.overlays || []), { id: uid(), mediaId: m.id, start: sg.t, end: Math.min(totalDuration(pp), sg.end), in: 0, mode: sg.modo || "cheia" }] }));
+      setSugs((l) => (l || []).filter((x) => x.id !== sg.id));
+      setBusca(null);
+      setMsg(`Imagem de "${sg.busca}" entrou em ${fmt(sg.t)}.${it.licenca ? ` Licença: ${it.licenca}${it.autor ? `, de ${it.autor}` : ""}.` : ""}`);
+    } catch (e: any) { setMsg(`Não deu para usar essa imagem: ${e.message}`); }
+    setBusy(null);
+  }
+
   async function askClaude() {
     if (!words.length) { setMsg("Gere a legenda antes: o Claude usa a fala para montar o plano."); return; }
     const s = createClient();
@@ -296,12 +356,12 @@ export default function Editor() {
     if (est) { setPreset(est.num); setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), ...est.legenda }, fontes: { ...(o.fontes || {}), ...est.fontes } })); }
     let next: Project = { ...(est ? projetoDoEstilo(p, est) : p), ...(pl.camera != null && !isNaN(+pl.camera) ? { camera: Math.max(0, Math.min(3, Math.round(+pl.camera))) } : {}) };
     if ((pl.titulos || []).length) next = { ...next, titles: [...next.titles, ...pl.titulos.map((x: any) => ({ id: uid(), kind: Object.keys(TITLE_LABEL).includes(x.tipo) ? x.tipo : "gancho", text: String(x.texto || ""), sub: x.linha ? String(x.linha) : undefined, start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 2.5 }))] };
-    if ((pl.zooms || []).length) next = { ...next, zooms: [...next.zooms, ...pl.zooms.map((z: any) => ({ id: uid(), start: +z.inicio, end: z.fim != null ? +z.fim : +z.inicio + 1.5, scale: +z.escala || 110 }))] };
+    if ((pl.zooms || []).length) next = { ...next, zooms: [...next.zooms, ...pl.zooms.map((z: any) => ({ id: uid(), start: +z.inicio, end: z.fim != null ? +z.fim : +z.inicio + 1.5, scale: +z.escala || 110, tipo: ["punch", "push", "pull", "tremida", "chicote"].includes(z.tipo) ? z.tipo : undefined }))] };
     // B-roll do plano: casa pelo nome do arquivo que está no acervo
     const ins = (pl.insercoes || []).map((x: any) => {
       const name = String(x.midia || "").toLowerCase();
       const m = name && media.find((mm) => mm.name.toLowerCase().includes(name) || name.includes(mm.name.toLowerCase().replace(/\.[a-z0-9]+$/, "")));
-      return m ? { id: uid(), mediaId: m.id, start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 3, in: 0, mode: (["esquerda", "direita"].includes(x.modo) ? x.modo : "cheia") as OverlayMode } : null;
+      return m ? { id: uid(), mediaId: m.id, start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 3, in: 0, mode: (OVERLAY_MODES.some(([v]) => v === x.modo) ? x.modo : "cheia") as OverlayMode } : null;
     }).filter(Boolean) as Overlay[];
     if (ins.length) next = { ...next, overlays: [...(next.overlays || []), ...ins] };
     // cortes por último: títulos e zooms do plano estão no tempo de antes dos cortes
@@ -370,7 +430,7 @@ export default function Editor() {
         <aside className="card p-3 min-w-0 order-2 lg:order-1">
           <div className="flex flex-wrap gap-1 mb-3">
             {(["clipes", "legenda", "textos", "estilo"] as const).map((k) => (
-              <button key={k} onClick={() => setTab(k)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${tab === k ? "border-mint-dim text-mint" : "border-line text-fog"}`}>{{ clipes: "Clipes", legenda: "Legenda", textos: "Textos", estilo: "Lettering" }[k]}</button>
+              <button key={k} onClick={() => setTab(k)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${tab === k ? "border-mint-dim text-mint" : "border-line text-fog"}`}>{{ clipes: "Clipes", legenda: "Legenda", textos: "Lettering e motion", estilo: "Visual da legenda" }[k]}</button>
             ))}
           </div>
 
@@ -413,7 +473,7 @@ export default function Editor() {
                     <div key={o.id} className="rounded-xl border border-line p-2 space-y-1.5">
                       <div className="flex justify-between text-xs"><span className="truncate">{media.find((m) => m.id === o.mediaId)?.name}</span><button onClick={() => update((pp) => ({ ...pp, overlays: (pp.overlays || []).filter((x) => x.id !== o.id) }))} className="text-red-400">Apagar</button></div>
                       <select className="input !py-1 text-xs" value={o.mode} onChange={(e) => setOv(o.id, { mode: e.target.value as OverlayMode })}>
-                        <option value="cheia">Tela cheia</option><option value="esquerda">Cartão à esquerda</option><option value="direita">Cartão à direita</option>
+                        {OVERLAY_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select>
                       <div className="grid grid-cols-3 gap-1.5">
                         <NumIn label="De" value={o.start} onChange={(v) => setOv(o.id, { start: v })} />
@@ -451,18 +511,12 @@ export default function Editor() {
           {tab === "textos" && (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-1.5">
-                <button onClick={() => addTitle("gancho")} className="chip">+ Gancho</button>
-                <button onClick={() => addTitle("cta")} className="chip">+ CTA</button>
-                <button onClick={() => addTitle("lower_third")} className="chip">+ Nome na tela</button>
-                <button onClick={() => addTitle("episodio")} className="chip">+ Abertura do episódio</button>
-                <button onClick={() => addTitle("capitulo")} className="chip">+ Capítulo</button>
-                <button onClick={() => addTitle("palavra")} className="chip">+ Palavra-chave</button>
-                <button onClick={() => addTitle("frase")} className="chip">+ Frase de impacto</button>
-                <button onClick={() => addTitle("letreiro")} className="chip">+ Letreiro espaçado</button>
-                <button onClick={() => addTitle("data")} className="chip">+ Data e lugar</button>
-                <button onClick={() => addTitle("lista")} className="chip">+ Tela de explicação</button>
-                <button onClick={() => addTitle("rec")} className="chip">+ Câmera REC</button>
-                <button onClick={() => update((pp) => ({ ...pp, zooms: [...pp.zooms, { id: uid(), start: tRef.current, end: Math.min(total, tRef.current + 1.5), scale: 112 }] }))} className="chip">+ Zoom no cursor</button>
+                <p className="w-full font-mono text-[10px] tracking-[.14em] text-fog uppercase">Lettering</p>
+                {LETTERING_KINDS.map((k) => <button key={k} onClick={() => addTitle(k)} className="chip">+ {TITLE_LABEL[k]}</button>)}
+                <p className="w-full font-mono text-[10px] tracking-[.14em] text-fog uppercase mt-1">Motion</p>
+                {MOTION_KINDS.map((k) => <button key={k} onClick={() => addTitle(k)} className="chip">+ {TITLE_LABEL[k]}</button>)}
+                <p className="w-full font-mono text-[10px] tracking-[.14em] text-fog uppercase mt-1">Câmera no cursor</p>
+                {CAMERA_MOVES.map(([k, l]) => <button key={k} onClick={() => update((pp) => ({ ...pp, zooms: [...pp.zooms, { id: uid(), start: tRef.current, end: Math.min(total, tRef.current + (k === "push" || k === "pull" ? 3 : k === "punch" ? 1.5 : 0.6)), scale: k === "push" || k === "pull" ? 118 : 112, tipo: k }] }))} className="chip">+ {l}</button>)}
               </div>
               {p.titles.map((tt) => (
                 <div key={tt.id} className="rounded-xl border border-line p-2.5 space-y-2">
@@ -533,6 +587,58 @@ export default function Editor() {
               );
             })}
           </div>
+          <div className="rounded-xl border border-amber-300/30 bg-amber-300/5 p-3 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-amber-200">Sugestões da edição</p>
+              <Link href="/audiovisual/kit" className="text-[11px] text-fog">ajustar no kit</Link>
+            </div>
+            <p className="text-fog mt-1">Lê a fala e o roteiro e sugere lettering, imagem de inserção, motion e câmera nos pontos certos, seguindo o kit.</p>
+            <div className="flex gap-2 mt-2">
+              <button disabled={!media.length || !!busy} onClick={gerarSugestoes} className="px-3 py-1.5 rounded-lg border border-amber-300/50 text-amber-200 font-semibold disabled:opacity-40">{sugs ? "Sugerir de novo" : "Sugerir edição"}</button>
+              {sugs && sugs.some((x) => x.camada !== "insercao") && <button onClick={aceitarTodas} className="px-3 py-1.5 rounded-lg bg-amber-300 text-ink font-semibold">Aceitar todas</button>}
+            </div>
+            {sugs && (
+              <ul className="mt-2 space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
+                {sugs.map((sg) => (
+                  <li key={sg.id} className="rounded-lg border border-line p-2">
+                    <div className="flex items-start gap-2">
+                      <button onClick={() => seek(sg.t + 0.01)} className="font-mono text-[10px] text-fog shrink-0 mt-0.5">{fmt(sg.t)}</button>
+                      <div className="min-w-0 flex-1">
+                        <p><span className={`font-mono text-[9px] uppercase tracking-wider mr-1 ${sg.camada === "lettering" ? "text-purple-300" : sg.camada === "motion" ? "text-mint" : sg.camada === "camera" ? "text-sky-300" : "text-amber-200"}`}>{CAMADA_LABEL[sg.camada]}</span>{sg.resumo}</p>
+                        <p className="text-fog text-[11px]">{sg.motivo}</p>
+                      </div>
+                      <button onClick={() => aceitar(sg)} className="text-mint font-semibold shrink-0" title={sg.camada === "insercao" ? "Buscar imagem" : "Aceitar"}>{sg.camada === "insercao" ? "Buscar" : "✓"}</button>
+                      <button onClick={() => setSugs((l) => (l || []).filter((x) => x.id !== sg.id))} className="text-fog shrink-0" title="Descartar">✕</button>
+                    </div>
+                    {busca?.id === sg.id && (
+                      <div className="mt-2 space-y-1.5">
+                        <form onSubmit={(e) => { e.preventDefault(); buscarImagem(sg, busca.q); }} className="flex gap-1">
+                          <input className="input !py-1 text-xs" value={busca.q} onChange={(e) => setBusca({ ...busca, q: e.target.value })} />
+                          <button className="chip">Buscar</button>
+                        </form>
+                        {busca.loading ? <p className="text-fog">Buscando no banco interno, Pexels, Pixabay e Openverse…</p> : (
+                          <>
+                            <div className="grid grid-cols-3 gap-1">
+                              {(busca.itens || []).slice(0, 18).map((it) => (
+                                <button key={it.fonte + it.id} onClick={() => usarImagem(sg, it)} title={`${it.fonte}${it.autor ? ` · ${it.autor}` : ""}${it.licenca ? ` · ${it.licenca}` : ""}`} className="relative aspect-square rounded-md overflow-hidden border border-line hover:border-mint">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={it.thumb} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                  <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-[9px] px-1 truncate">{it.fonte}</span>
+                                </button>
+                              ))}
+                            </div>
+                            {!(busca.itens || []).length && <p className="text-fog">Nada encontrado. Tente outra palavra.</p>}
+                            <p className="text-[10px] text-fog">{Object.entries(busca.fontes || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")}</p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+                {!sugs.length && <li className="text-fog">Nada pendente.</li>}
+              </ul>
+            )}
+          </div>
           <div className="rounded-xl border border-line p-3">
             <p className="text-sm font-semibold">Câmera que acompanha a fala</p>
             <p className="text-xs text-fog mt-0.5">Zoom in e zoom out lentos a cada frase, mais fundo nas perguntas e exclamações, e um toque rápido nas palavras fortes. Usa a legenda gerada.</p>
@@ -580,8 +686,8 @@ export default function Editor() {
           <div ref={tlRef} onClick={clickTl} className="relative min-w-[640px] select-none cursor-pointer">
             <Track name="TEXTO">{p.titles.map((x) => <Block key={x.id} left={pct(x.start)} width={pct(x.end - x.start)} cls="bg-purple-400 text-ink">{x.text}</Block>)}</Track>
             <Track name="LEGENDA">{p.captionsOn && screens.map((s, i) => <Block key={i} left={pct(s.start)} width={pct(s.end - s.start)} cls="bg-amber-300/80 text-ink">{s.words.map((w) => w.t).join(" ")}</Block>)}</Track>
-            <Track name="ZOOM">{p.zooms.map((z) => <Block key={z.id} left={pct(z.start)} width={pct(z.end - z.start)} cls="border border-dashed border-mint text-mint">{z.scale}%</Block>)}</Track>
-            {(p.overlays || []).length > 0 && <Track name="B-ROLL">{(p.overlays || []).map((o) => <Block key={o.id} left={pct(o.start)} width={pct(o.end - o.start)} cls="bg-sky-400/80 text-ink">{o.mode === "cheia" ? "▣" : "◧"} {media.find((m) => m.id === o.mediaId)?.name}</Block>)}</Track>}
+            <Track name="ZOOM">{p.zooms.map((z) => <Block key={z.id} left={pct(z.start)} width={pct(z.end - z.start)} cls="border border-dashed border-mint text-mint">{CAMERA_MOVES.find((m) => m[0] === (z.tipo || "punch"))?.[1]} {z.scale}%</Block>)}</Track>
+            {(p.overlays || []).length > 0 && <Track name="B-ROLL">{(p.overlays || []).map((o) => <Block key={o.id} left={pct(o.start)} width={pct(o.end - o.start)} cls="bg-sky-400/80 text-ink">{OVERLAY_MODES.find(([v]) => v === o.mode)?.[1]} · {media.find((m) => m.id === o.mediaId)?.name}</Block>)}</Track>}
             <Track name="CÂMERA">{cam.moves.map((m, i) => <Block key={i} left={pct(m.start)} width={pct(m.end - m.start)} cls={`border ${m.to >= m.from ? "border-sky-400/70 text-sky-300" : "border-orange-400/70 text-orange-300"}`}>{m.to >= m.from ? "zoom in" : "zoom out"} {Math.round(m.to * 100)}%</Block>)}{cam.hits.map((h, i) => <span key={`h${i}`} className="absolute top-2 w-2 h-2 -ml-1 rounded-full bg-sky-300 pointer-events-none" style={{ left: pct(h.t) }} />)}</Track>
             <Track name="VÍDEO">
               {L.map((l, i) => (
