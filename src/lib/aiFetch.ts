@@ -1,4 +1,5 @@
 "use client";
+import { claudeRequestStarted, claudeRequestFinished, markDirectAI } from "@/lib/claudePopup";
 
 /**
  * POST para uma rota de IA do HUB que entende a fila do Claude.
@@ -13,11 +14,19 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function aiFetch(url: string, body: any, opts: { maxWaitMs?: number } = {}): Promise<Response> {
   const post = (b: any) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+  claudeRequestStarted(); // abre o pop-up do Claude ainda dentro do clique
+  let queued = false;
+  try {
+    return await run();
+  } finally { claudeRequestFinished(queued); }
+
+  async function run(): Promise<Response> {
   let r = await post(body);
-  if (r.status !== 202) return r;
+  if (r.status !== 202) { if (r.ok) markDirectAI(true); return r; }
   const first = await r.clone().json().catch(() => ({}));
   const id: string = first.request_id, label: string = first.label || "Pedido de IA";
   if (!id) return r;
+  queued = true; markDirectAI(false);
   emit({ id, label, state: "waiting" });
   const until = Date.now() + (opts.maxWaitMs ?? 45 * 60 * 1000);
   while (Date.now() < until) {
@@ -29,4 +38,5 @@ export async function aiFetch(url: string, body: any, opts: { maxWaitMs?: number
   }
   emit({ id, label, state: "gave_up" });
   return new Response(JSON.stringify({ error: "O Claude ainda não respondeu. O pedido continua na fila: responda no painel do HUB no Claude e tente de novo." }), { status: 504, headers: { "content-type": "application/json" } });
+}
 }

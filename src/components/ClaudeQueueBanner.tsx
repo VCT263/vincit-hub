@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AI_QUEUE_EVENT, type AIQueueEvent } from "@/lib/aiFetch";
-import { CLAUDE_PANEL_URL } from "@/components/ClaudeSettings";
+import { openClaudePopup, popupEnabled, popupOpen, setPopupEnabled } from "@/lib/claudePopup";
 
 const PHRASE = "Responda os pedidos de IA do VINCIT HUB";
 
@@ -9,6 +9,9 @@ const PHRASE = "Responda os pedidos de IA do VINCIT HUB";
 export default function ClaudeQueueBanner() {
   const [items, setItems] = useState<AIQueueEvent[]>([]);
   const [copied, setCopied] = useState(false);
+  const [auto, setAuto] = useState(true);
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => { setAuto(popupEnabled()); }, []);
 
   useEffect(() => {
     const on = (e: Event) => {
@@ -17,6 +20,7 @@ export default function ClaudeQueueBanner() {
         const rest = xs.filter((x) => x.id !== d.id);
         return d.state === "waiting" ? [...rest, d] : rest;
       });
+      if (d.state === "waiting") setBlocked(popupEnabled() && !popupOpen());
     };
     window.addEventListener(AI_QUEUE_EVENT, on);
     return () => window.removeEventListener(AI_QUEUE_EVENT, on);
@@ -34,11 +38,19 @@ export default function ClaudeQueueBanner() {
           <p className="text-xs text-fog mt-0.5 truncate">{items.map((i) => i.label).join(" · ")}</p>
         </div>
       </div>
-      <p className="text-xs text-fog leading-relaxed">A IA roda na sua assinatura do Claude. Abra o painel do HUB no Claude e clique em <span className="text-paper">Responder</span>, ou peça no chat: <span className="text-paper">“{PHRASE}”</span>. Deixe esta página aberta: o resultado aparece aqui sozinho.</p>
+      <p className="text-xs text-fog leading-relaxed">
+        {blocked
+          ? <>O navegador bloqueou o pop-up do Claude. Clique em <span className="text-paper">Abrir Claude aqui</span> (ou permita pop-ups deste site) e ele responde sozinho.</>
+          : <>A IA roda na sua assinatura do Claude, numa janelinha por cima do site. Ela responde sozinha e fecha quando termina: continue aqui, o resultado aparece nesta tela.</>}
+      </p>
       <div className="flex flex-wrap gap-2">
-        <a href={CLAUDE_PANEL_URL || "https://claude.ai"} target="_blank" rel="noreferrer" className="btn btn-mint btn-sm">Abrir painel no Claude</a>
+        <button type="button" onClick={() => { if (openClaudePopup()) setBlocked(false); }} className="btn btn-mint btn-sm">Abrir Claude aqui</button>
         <button type="button" onClick={copy} className="btn btn-ghost btn-sm">{copied ? "Frase copiada" : "Copiar frase para o chat"}</button>
       </div>
+      <label className="flex items-center gap-2 text-xs text-fog">
+        <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setPopupEnabled(e.target.checked); }} />
+        Abrir o Claude sozinho quando eu usar um botão de IA
+      </label>
     </div>
   );
 }
