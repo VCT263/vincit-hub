@@ -67,7 +67,7 @@ export const AJUDA: Record<string, Dica> = {
   push: { titulo: "Notificações", texto: "Instale o HUB como app e receba avisos no celular e no computador. Opcional, mas ajuda a não perder prazo." },
   widget: { titulo: "Widget", texto: "Mostra o dia na tela inicial do celular ou do Mac por um calendário assinável. Opcional." },
   marca: { titulo: "Personalização", texto: "Cor e logo da sua marca no sistema. Opcional." },
-  senha: { titulo: "Senha", texto: "Use pelo menos 8 caracteres, uma letra maiúscula e um número. A senha também confirma as exclusões." },
+  senha: { titulo: "Senha", texto: "Use pelo menos 9 caracteres, uma letra maiúscula e um número. A senha também confirma as exclusões." },
   lixeira: { titulo: "Lixeira", texto: "Toda exclusão pede a sua senha e vai para a lixeira por 15 dias, com opção de recuperar." },
 };
 
