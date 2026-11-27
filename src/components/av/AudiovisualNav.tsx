@@ -2,15 +2,13 @@
 import HubNav from "../HubNav";
 import { I } from "../icons";
 
-/* Pré-produção (decupagem, ordem do dia), gravação (Ferramentas, que inclui o teleprompter) e acervo. A pós-produção é feita no Editor do HUB; a página do Premiere saiu do menu (27/11), mas a rota continua. */
+/* Gravação (a decupagem fica na folha do card do Quadro; teleprompter e Recuperador abrem pela visão geral), edição e acervo. A pós-produção é feita no Editor do HUB; a página do Premiere saiu do menu (27/11), mas a rota continua. */
 const items = [
   { href: "/audiovisual", label: "Visão geral", Icon: I.grid },
-  { href: "/audiovisual/decupagem", label: "Decupagem", Icon: I.board, group: "01 · Pré-produção" },
-  { href: "/audiovisual/ordem-do-dia", label: "Ordem do dia", Icon: I.calendar, group: "01 · Pré-produção" },
-  { href: "/audiovisual/ferramentas", label: "Ferramentas", Icon: I.spark, group: "02 · Gravação", also: ["/audiovisual/teleprompter"] },
-  { href: "/audiovisual/editor", label: "Editor", Icon: I.video, group: "03 · Pós-produção" },
-  { href: "/audiovisual/midia", label: "Banco de mídia", Icon: I.folder, group: "04 · Acervo" },
-  { href: "/audiovisual/kit", label: "Kit de estilo", Icon: I.pen, group: "04 · Acervo" },
+  { href: "/audiovisual/ordem-do-dia", label: "Ordem do dia", Icon: I.calendar, group: "01 · Gravação", also: ["/audiovisual/decupagem", "/audiovisual/teleprompter"] },
+  { href: "/audiovisual/editor", label: "Editor", Icon: I.video, group: "02 · Pós-produção" },
+  { href: "/audiovisual/midia", label: "Banco de mídia", Icon: I.folder, group: "03 · Acervo" },
+  { href: "/audiovisual/kit", label: "Kit de estilo", Icon: I.pen, group: "03 · Acervo" },
 ];
 
 export default function AudiovisualNav() {

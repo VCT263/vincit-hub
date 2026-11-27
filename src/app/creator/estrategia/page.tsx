@@ -53,7 +53,7 @@ export default function Estrategia() {
 
   return (
     <>
-      <PageHead kicker="CREATOR · 03 CRESCIMENTO" title="Estratégia de crescimento" desc="Plano de 30/60/90 dias feito a partir do briefing, das métricas e do último Raio-X do perfil: meta, KPIs, alavancas, fases com checklist, cadência e rotina." />
+      <PageHead kicker="CREATOR · RAIO-X E ESTRATÉGIA · ETAPA 2" title="Estratégia de crescimento" desc="Plano de 30/60/90 dias feito a partir do briefing, das métricas e do último Raio-X do perfil: meta, KPIs, alavancas, fases com checklist, cadência e rotina." />
       <div className="card p-4 mb-5 flex flex-wrap items-center gap-3">
         <select className="input !w-auto" value={accId} onChange={(e) => setAccId(e.target.value)}>{accounts.map((a) => <option key={a.id} value={a.id}>@{a.username}</option>)}</select>
         {acc && <span className="text-xs text-fog">{fmt(acc.followers_count)} seguidores · briefing {briefingProgress(acc.briefing)}% {briefingProgress(acc.briefing) < 50 && <Link href="/creator/perfis?tab=briefing" className="text-mint underline ml-1">complete para um plano melhor</Link>}</span>}

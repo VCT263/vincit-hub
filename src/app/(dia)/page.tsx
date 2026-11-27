@@ -171,7 +171,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
       <section className={`grid gap-4 mb-12 ${hasCreator && hasAgency ? "lg:grid-cols-[5fr_4fr_3fr]" : "lg:grid-cols-2"}`}>
         {hasCreator && (
           <div className="card p-5 rise">
-            <div className="flex items-center justify-between mb-3"><p className={kicker}>Conteúdo</p><Link href={statusList ? "/creator/producao" : "/creator/pauta"} className="text-xs text-fog hover:text-mint">{statusList ? "Quadro de produção" : "Planejador"}</Link></div>
+            <div className="flex items-center justify-between mb-3"><p className={kicker}>Conteúdo</p><Link href={statusList ? "/creator/producao" : "/creator/pauta"} className="text-xs text-fog hover:text-mint">Quadro de produção</Link></div>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
               {contentCols.map((c) => <div key={c.l}><p className="text-xs text-fog truncate">{c.l}</p><p className="font-display text-2xl font-bold tabular-nums">{c.n}</p></div>)}
             </div>
