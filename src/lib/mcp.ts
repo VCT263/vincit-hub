@@ -298,7 +298,7 @@ export const TOOLS: Tool[] = [
           resumo: "1 a 3 frases sobre a edição proposta",
           cortes: "[{inicio, fim, motivo}] trechos para remover (respiros, erros, repetições)",
           legendas: "[{inicio, fim, texto, destaque}] frases curtas de 1 a 4 palavras; destaque = palavra a colorir",
-          titulos: "[{inicio, fim, texto, tipo: 'gancho'|'cta'|'lower_third'|'episodio'|'capitulo'|'palavra', linha?}] episodio = abertura da série (linha = 'EP. 03 · 2026'), capitulo = cartela de capítulo (linha = 'Capítulo 2'), palavra = palavra-chave grande na tela; tipos novos valem no Editor do HUB",
+          titulos: "[{inicio, fim, texto, tipo: 'gancho'|'cta'|'lower_third'|'episodio'|'capitulo'|'palavra'|'frase'|'letreiro'|'data'|'lista'|'rec', linha?}] episodio = abertura da série (linha = 'EP. 03 · 2026'); capitulo = roda de capítulos numerada; palavra = palavra-chave na tela; frase = frase de impacto no centro com o quadro escurecido (linha = palavras na cor de destaque); letreiro = palavra gigante espaçada no alto; data = data e lugar do vlog (linha = dia da semana); lista = tela de explicação (linha = itens separados por |); rec = efeito câmera REC em preto e branco. Tipos novos valem no Editor do HUB",
           zooms: "[{inicio, fim, escala}] escala em %, ex.: 110",
           insercoes: "[{inicio, fim, midia, motivo, modo?}] midia = nome do arquivo (no Editor do HUB, um dos B-rolls listados no pedido entra sozinho por cima da fala); modo = 'cheia' | 'esquerda' | 'direita' (cartão lateral)",
           marcadores: "[{inicio, texto}] observações livres para o editor",

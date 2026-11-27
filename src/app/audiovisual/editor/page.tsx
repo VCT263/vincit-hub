@@ -11,6 +11,10 @@ import {
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
 
+const SUB_HINT: Partial<Record<Title["kind"], string>> = {
+  episodio: "Linha de baixo (ex.: EP. 03 · 2026)", capitulo: "Linha pequena (opcional)", lower_third: "Cargo ou @perfil", palavra: "Linha pequena",
+  frase: "Palavras na cor de destaque (ex.: conforto)", data: "Segunda linha (ex.: domingo · Floripa)", lista: "Itens separados por | (ex.: dormir | treinar | escrever)", rec: "Canto de baixo (ex.: 4K UHD)",
+};
 type Preset = { key: string; title: string; desc: string; estilo: string; zoom: boolean; cut: number | false; camera: number; captions: boolean; jump?: number; fade?: boolean; keywords?: boolean; abertura?: boolean };
 const PRESETS_V: Preset[] = [
   { key: "impacto", title: "Corte seco + zoom", desc: "Tira os silêncios, câmera forte que acompanha a fala, punch de 110% nas frases fortes, legenda palavra a palavra.", estilo: "impacto", zoom: true, cut: 0, camera: 3, captions: true },
@@ -269,6 +273,11 @@ export default function Editor() {
       episodio: [c?.title || "Título do episódio", `EP. 01 · ${new Date().getFullYear()}`, 3.5],
       capitulo: ["Título do capítulo", `Capítulo ${n}`, 3],
       palavra: ["Palavra", undefined, 2.2],
+      frase: ["Encontre conforto no desconforto", "conforto", 3],
+      letreiro: ["Malícia", undefined, 2.5],
+      data: [new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }), new Date().toLocaleDateString("pt-BR", { weekday: "long" }), 3],
+      lista: ["O que muda o jogo", "dormir melhor | treinar cedo | escrever o dia", 6],
+      rec: ["REC", "4K UHD", 4],
     };
     const [text, sub, len] = def[kind];
     const start = kind === "cta" ? Math.max(0, total - 3) : kind === "gancho" || kind === "episodio" ? 0 : tRef.current;
@@ -480,13 +489,18 @@ export default function Editor() {
                 <button onClick={() => addTitle("episodio")} className="chip">+ Abertura do episódio</button>
                 <button onClick={() => addTitle("capitulo")} className="chip">+ Capítulo</button>
                 <button onClick={() => addTitle("palavra")} className="chip">+ Palavra-chave</button>
+                <button onClick={() => addTitle("frase")} className="chip">+ Frase de impacto</button>
+                <button onClick={() => addTitle("letreiro")} className="chip">+ Letreiro espaçado</button>
+                <button onClick={() => addTitle("data")} className="chip">+ Data e lugar</button>
+                <button onClick={() => addTitle("lista")} className="chip">+ Tela de explicação</button>
+                <button onClick={() => addTitle("rec")} className="chip">+ Câmera REC</button>
                 <button onClick={() => update((pp) => ({ ...pp, zooms: [...pp.zooms, { id: uid(), start: tRef.current, end: Math.min(total, tRef.current + 1.5), scale: 112 }] }))} className="chip">+ Zoom no cursor</button>
               </div>
               {p.titles.map((tt) => (
                 <div key={tt.id} className="rounded-xl border border-line p-2.5 space-y-2">
                   <div className="flex justify-between text-xs text-fog"><span>{TITLE_LABEL[tt.kind]}</span><button onClick={() => update((pp) => ({ ...pp, titles: pp.titles.filter((x) => x.id !== tt.id) }))} className="text-red-400">Apagar</button></div>
                   <input className="input !py-1.5 text-sm" value={tt.text} onChange={(e) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, text: e.target.value } : x)) }))} />
-                  {["episodio", "capitulo", "lower_third", "palavra"].includes(tt.kind) && <input className="input !py-1 text-xs" placeholder={tt.kind === "episodio" ? "Linha de baixo (ex.: EP. 03 · 2026)" : tt.kind === "capitulo" ? "Linha de cima (ex.: Capítulo 2)" : "Linha pequena"} value={tt.sub || ""} onChange={(e) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, sub: e.target.value || undefined } : x)) }))} />}
+                  {tt.kind in SUB_HINT && <input className="input !py-1 text-xs" placeholder={SUB_HINT[tt.kind]} value={tt.sub || ""} onChange={(e) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, sub: e.target.value || undefined } : x)) }))} />}
                   <div className="grid grid-cols-2 gap-2">
                     <NumIn label="De (s)" value={tt.start} onChange={(v) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, start: v } : x)) }))} />
                     <NumIn label="Até (s)" value={tt.end} onChange={(v) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, end: v } : x)) }))} />

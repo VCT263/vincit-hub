@@ -6,9 +6,12 @@
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
-export type TitleKind = "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra";
-export const TITLE_KINDS: TitleKind[] = ["gancho", "cta", "lower_third", "episodio", "capitulo", "palavra"];
-export const TITLE_LABEL: Record<TitleKind, string> = { gancho: "Gancho", cta: "CTA", lower_third: "Nome na tela", episodio: "Abertura do episódio", capitulo: "Capítulo", palavra: "Palavra-chave" };
+export type TitleKind = "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra" | "frase" | "letreiro" | "data" | "lista" | "rec";
+export const TITLE_KINDS: TitleKind[] = ["gancho", "cta", "lower_third", "episodio", "capitulo", "palavra", "frase", "letreiro", "data", "lista", "rec"];
+export const TITLE_LABEL: Record<TitleKind, string> = {
+  gancho: "Gancho", cta: "CTA", lower_third: "Nome na tela", episodio: "Abertura do episódio", capitulo: "Capítulo (roda)", palavra: "Palavra-chave",
+  frase: "Frase de impacto", letreiro: "Letreiro espaçado", data: "Data e lugar", lista: "Tela de explicação", rec: "Câmera REC",
+};
 /** sub = linha pequena de cima (ex.: "EP. 03 · Nome da série" ou "Capítulo 2") */
 export type Title = { id: string; start: number; end: number; text: string; kind: TitleKind; sub?: string };
 export type Zoom = { id: string; start: number; end: number; scale: number };
@@ -353,7 +356,7 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
   });
 }
 
-export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit) {
+export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit, all: Title[] = []) {
   const fg = kit.cores?.texto || "#fff";
   const hi = kit.cores?.destaque || "#F5C84C";
   const bg = kit.cores?.fundo || "#0c0c0d";
@@ -395,19 +398,99 @@ export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit) {
       ctx.lineWidth = subSize * 0.1; ctx.strokeText(sub, x, y); ctx.fillStyle = hi; ctx.fillText(sub, x, y);
     }
   } else if (tt.kind === "capitulo") {
-    // capítulo: número grande e título à esquerda, sobre uma faixa escura
-    const g = ctx.createLinearGradient(0, 0, W, 0);
-    g.addColorStop(0, "rgba(0,0,0,.8)"); g.addColorStop(wide ? 0.6 : 1, "rgba(0,0,0,.15)");
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    const x = (wide ? 140 : 80) - (1 - k) * 40;
-    const yc = H * (wide ? 0.5 : 0.45);
-    ctx.font = css("JetBrains Mono", wide ? 34 : 38);
-    ctx.fillStyle = hi; ctx.fillText((tt.sub || "Capítulo").toUpperCase(), x, yc - (wide ? 90 : 120));
-    const size = wide ? 96 : 100;
+    // roda de capítulos: números empilhados à esquerda, o atual em destaque e uma linha até o nome
+    const caps = all.filter((x) => x.kind === "capitulo").sort((x, y) => x.start - y.start);
+    const n = Math.max(1, caps.findIndex((x) => x.id === tt.id) + 1);
+    const total = Math.max(caps.length, 12); // como um relógio: depois do último volta ao 01
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(0, 0, W, H);
+    const x0 = wide ? 150 : 90, yc = H * (wide ? 0.42 : 0.38), step = wide ? 100 : 110;
+    const roll = (1 - k) * step; // a roda gira até o número atual
+    for (let d = -3; d <= 3; d++) {
+      const num = ((n - 1 + d) % total + total) % total + 1;
+      const y = yc + d * step + roll;
+      const a = d === 0 ? 1 : Math.max(0, 0.55 - Math.abs(d) * 0.12);
+      ctx.globalAlpha = a * Math.max(0, Math.min(k, out));
+      ctx.font = css("JetBrains Mono", d === 0 ? 64 : 44);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(String(num).padStart(2, "0"), x0 + Math.abs(d) * (wide ? 14 : 10), y);
+    }
+    ctx.globalAlpha = Math.max(0, Math.min(k, out));
+    const lx = x0 + 110, lw = (wide ? W * 0.32 : W * 0.3) * k;
+    ctx.fillStyle = hi; ctx.fillRect(lx, yc - 2, lw, 5);
+    ctx.font = css(kit.fontes?.legenda?.replace(/\s+(Black|ExtraBold|Bold)$/i, "") || "Inter", wide ? 64 : 58);
+    ctx.fillStyle = fg; ctx.fillText(tt.text, lx + lw + 24, yc);
+    if (tt.sub) { ctx.font = css("JetBrains Mono", 28); ctx.fillStyle = hi; ctx.fillText(tt.sub.toUpperCase(), lx + lw + 26, yc + (wide ? 56 : 52)); }
+  } else if (tt.kind === "frase") {
+    // frase de impacto: o quadro escurece e a frase ocupa o centro
+    ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(0, 0, W, H);
+    const size = wide ? 112 : 104;
     ctx.font = css(kit.fontes?.titulo, size);
-    const lines = wrapLines(ctx, tt.text.toUpperCase().split(/\s+/), W * (wide ? 0.5 : 0.84));
-    lines.forEach((line, i) => { ctx.fillStyle = fg; ctx.fillText(line.join(" "), x, yc + i * size * 1.05 - (wide ? 20 : 30)); });
-    ctx.fillStyle = hi; ctx.fillRect(x, yc + lines.length * size * 1.05 - 10, 120 * k, 8);
+    const lines = wrapLines(ctx, tt.text.toUpperCase().split(/\s+/), W * (wide ? 0.62 : 0.84));
+    const lh = size * 1.1;
+    const y0 = H / 2 - ((lines.length - 1) * lh) / 2;
+    const sc = 0.94 + 0.06 * k;
+    ctx.translate(W / 2, H / 2); ctx.scale(sc, sc); ctx.translate(-W / 2, -H / 2);
+    lines.forEach((line, i) => {
+      const words = line;
+      const total = ctx.measureText(words.join(" ")).width;
+      let x = (W - total) / 2;
+      words.forEach((w) => { ctx.fillStyle = tt.sub && tt.sub.toUpperCase().split(/\s+/).includes(w.replace(/[^\p{L}\p{N}]/gu, "")) ? hi : fg; ctx.fillText(w, x, y0 + i * lh); x += ctx.measureText(w + " ").width; });
+    });
+  } else if (tt.kind === "letreiro") {
+    // letreiro: palavra gigante com as letras espaçadas por pontos (M.A.L.Í.C.I.A), no alto do quadro
+    const word = tt.text.toUpperCase().replace(/\s+/g, "").split("").join(".");
+    let size = wide ? 170 : 150;
+    ctx.font = css(kit.fontes?.legenda || "Inter Black", size);
+    const maxW = W * 0.92;
+    const w0 = ctx.measureText(word).width;
+    if (w0 > maxW) { size *= maxW / w0; ctx.font = css(kit.fontes?.legenda || "Inter Black", size); }
+    const tw = ctx.measureText(word).width;
+    ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 30;
+    ctx.fillStyle = fg; ctx.fillText(word, (W - tw) / 2, H * (wide ? 0.13 : 0.12) + (1 - k) * -30);
+  } else if (tt.kind === "data") {
+    // data e lugar do vlog: duas linhas pequenas e limpas no centro
+    ctx.shadowColor = "rgba(0,0,0,.6)"; ctx.shadowBlur = 18;
+    ctx.font = css("Inter Medium", wide ? 56 : 54);
+    const tw = ctx.measureText(tt.text).width;
+    ctx.fillStyle = "#fff"; ctx.fillText(tt.text, (W - tw) / 2, H * 0.24);
+    if (tt.sub) { ctx.font = css("Inter Medium", wide ? 40 : 40); const sw = ctx.measureText(tt.sub).width; ctx.globalAlpha *= 0.85; ctx.fillText(tt.sub, (W - sw) / 2, H * 0.24 + (wide ? 62 : 60)); }
+  } else if (tt.kind === "lista") {
+    // tela de explicação: fundo escuro, título e itens com seta escrita à mão
+    ctx.fillStyle = bg; ctx.globalAlpha = Math.max(0, Math.min(k, out)); ctx.fillRect(0, 0, W, H);
+    const items = (tt.sub || "").split(/\s*[|;\n]\s*/).filter(Boolean);
+    const tsize = wide ? 86 : 80;
+    ctx.font = css(kit.fontes?.titulo, tsize);
+    const tl = wrapLines(ctx, tt.text.split(/\s+/), W * 0.8);
+    const top = H * (wide ? 0.2 : 0.22);
+    tl.forEach((line, i) => { const tx = line.join(" "); ctx.fillStyle = hi; ctx.fillText(tx, (W - ctx.measureText(tx).width) / 2, top + i * tsize * 1.1); });
+    const isize = wide ? 58 : 54;
+    const y1 = top + tl.length * tsize * 1.1 + isize;
+    const xL = wide ? W * 0.3 : W * 0.14;
+    items.forEach((it, i) => {
+      const show = Math.min(1, Math.max(0, (t - tt.start - 0.35 - i * 0.45) / 0.3));
+      if (show <= 0) return;
+      ctx.globalAlpha = show * Math.max(0, out);
+      const y = y1 + i * isize * 1.6;
+      ctx.strokeStyle = fg; ctx.lineWidth = 6; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(xL, y + 6); ctx.quadraticCurveTo(xL + 60, y - 14, xL + 120 * show, y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(xL + 120 * show - 18, y - 16); ctx.lineTo(xL + 120 * show, y); ctx.lineTo(xL + 120 * show - 20, y + 14); ctx.stroke();
+      ctx.font = css("Instrument Serif", isize); ctx.fillStyle = fg; ctx.fillText(it, xL + 150, y);
+    });
+  } else if (tt.kind === "rec") {
+    // câmera REC: preto e branco, cantoneiras, ponto vermelho piscando e timecode
+    ctx.save(); ctx.globalAlpha = 1; ctx.filter = "grayscale(1) contrast(1.1)"; ctx.drawImage(ctx.canvas as CanvasImageSource, 0, 0, W, H); ctx.restore();
+    const m = wide ? 70 : 60, L = wide ? 110 : 90;
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 6;
+    const corners: [number, number, number, number][] = [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]];
+    corners.forEach(([x, y, dx, dy]) => { ctx.beginPath(); ctx.moveTo(x, y + dy * L); ctx.lineTo(x, y); ctx.lineTo(x + dx * L, y); ctx.stroke(); });
+    ctx.font = css("JetBrains Mono", 40); ctx.fillStyle = "#fff";
+    if (Math.floor((t - tt.start) * 2) % 2 === 0) { ctx.fillStyle = "#e5242b"; ctx.beginPath(); ctx.arc(m + 50, m + 60, 16, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = "#fff"; ctx.fillText(tt.text || "REC", m + 80, m + 62);
+    const el = Math.max(0, t - tt.start);
+    const tc = `00:${String(Math.floor(el / 60)).padStart(2, "0")}:${String(Math.floor(el % 60)).padStart(2, "0")}:${String(Math.floor((el % 1) * 30)).padStart(2, "0")}`;
+    ctx.font = css("JetBrains Mono", 30); const tcw = ctx.measureText(tc).width;
+    ctx.fillText(tc, (W - tcw) / 2, H - m - 40);
+    ctx.fillText(tt.sub || "4K UHD", m + 30, H - m - 40);
   } else if (tt.kind === "palavra") {
     // palavra-chave que aparece do lado de quem fala (horizontal) ou no alto (vertical)
     const size = wide ? 120 : 120;
@@ -482,7 +565,9 @@ export function drawFade(ctx: Ctx, p: Project, t: number) {
 
 /** tudo que vai por cima do vídeo no tempo t */
 export function drawOverlays(ctx: Ctx, p: Project, screens: ReturnType<typeof captionScreens>, t: number, kit: Kit) {
-  for (const tt of p.titles) if (t >= tt.start && t < tt.end) drawTitle(ctx, tt, t, kit);
+  // REC e frase mexem no quadro inteiro: vão antes dos outros textos
+  const on = p.titles.filter((tt) => t >= tt.start && t < tt.end).sort((a, b) => (a.kind === "rec" ? -1 : 0) - (b.kind === "rec" ? -1 : 0));
+  for (const tt of on) drawTitle(ctx, tt, t, kit, p.titles);
   if (p.captionsOn) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kit);
   drawFade(ctx, p, t);
 }
