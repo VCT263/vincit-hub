@@ -183,12 +183,15 @@ export const TOOLS: Tool[] = [
     name: "listar_conteudos",
     title: "Listar conteúdos do quadro",
     description: "Lista os conteúdos do Quadro de produção (mais recentes primeiro), com filtro opcional por perfil.",
-    inputSchema: { type: "object", properties: { perfil_id: accountId, limite: { type: "integer", minimum: 1, maximum: 50, default: 20 } } },
+    inputSchema: { type: "object", properties: { perfil_id: accountId, limite: { type: "integer", minimum: 1, maximum: 50, default: 20 }, de: { type: "string", description: "Só conteúdos com data a partir deste dia (AAAA-MM-DD). Opcional; com de/ate a lista vem em ordem de data." }, ate: { type: "string", description: "Só conteúdos com data até este dia (AAAA-MM-DD). Opcional." } } },
     readOnly: true,
     needs: "creator",
     run: async (ctx, a) => {
-      let q = ctx.sb.from("content_ideas").select("id, title, kind, format, pillar, hook, planned_for, created_at, content_statuses(name, stage)").is("archived_at", null).order("created_at", { ascending: false }).limit(Math.min(50, Number(a.limite) || 20));
+      const periodo = Boolean(a.de || a.ate);
+      let q = ctx.sb.from("content_ideas").select("id, title, kind, format, pillar, hook, planned_for, created_at, content_statuses(name, stage)").is("archived_at", null).order(periodo ? "planned_for" : "created_at", { ascending: periodo }).limit(Math.min(50, Number(a.limite) || 20));
       if (a.perfil_id) q = q.eq("account_id", a.perfil_id);
+      if (a.de) q = q.gte("planned_for", a.de);
+      if (a.ate) q = q.lte("planned_for", a.ate);
       const { data, error } = await q;
       if (error) fail(error.message);
       return { conteudos: (data || []).map((x: any) => ({ id: x.id, titulo: x.title, tipo: x.kind, formato: x.format, pilar: x.pillar, gancho: x.hook, data: x.planned_for, status: x.content_statuses?.name || null, criado_em: x.created_at })) };
@@ -234,20 +237,35 @@ export const TOOLS: Tool[] = [
   {
     name: "enviar_roteiro",
     title: "Enviar roteiro",
-    description: "Grava um roteiro de vídeo no Quadro de produção, na etapa Roteiro (gancho, roteiro com cenas e texto de teleprompter, legenda).",
+    description: "Grava um roteiro de vídeo no Quadro de produção, na etapa Roteiro (gancho, roteiro com cenas e texto de teleprompter, legenda). Com conteudo_id, completa um card que já existe (por exemplo, um post da campanha) e o move para Roteiro, sem criar card novo.",
     inputSchema: {
       type: "object", required: ["titulo", "roteiro"],
-      properties: { perfil_id: accountId, titulo: { type: "string" }, formato: { type: "string", enum: ["Reels", "Carrossel", "Stories", "Foto", "YouTube", "Live"] }, gancho: { type: "string" }, roteiro: { type: "string", description: "Cenas, falas e texto do teleprompter" }, legenda: { type: "string" }, data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
+      properties: { conteudo_id: { type: "string", description: "id de um card do Quadro (de listar_conteudos) para completar em vez de criar outro. Opcional." }, perfil_id: accountId, titulo: { type: "string" }, formato: { type: "string", enum: ["Reels", "Carrossel", "Stories", "Foto", "YouTube", "Live"] }, gancho: { type: "string" }, roteiro: { type: "string", description: "Cenas, falas e texto do teleprompter" }, legenda: { type: "string" }, data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
     },
     needs: "creator:producao",
     run: async (ctx, a) => {
       await account(ctx, a.perfil_id);
       const status_id = await statusFor(ctx, "roteiro");
       const est = estiloByNum(a.estilo);
+      const body = `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${a.roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}${est ? `\n\n**Estilo de edição:** ${est.num} · ${est.nome}` : ""}\n\n_${ORIGIN}_`;
+      if (a.conteudo_id) {
+        const { data: atual } = await ctx.sb.from("content_ideas").select("id, account_id, format, planned_for, pillar, hook").eq("id", a.conteudo_id).maybeSingle();
+        if (!atual) fail("Card não encontrado. Use listar_conteudos para ver os ids.");
+        const patch: Record<string, any> = {
+          title: clip(a.titulo, 120), body, kind: "copy",
+          format: a.formato || atual!.format || "Reels", hook: clip(a.gancho, 300) || atual!.hook,
+          planned_for: a.data || atual!.planned_for, pillar: clip(a.pilar, 80) || atual!.pillar,
+        };
+        if (a.legenda) patch.caption = a.legenda;
+        if (a.perfil_id) patch.account_id = a.perfil_id;
+        if (status_id) patch.status_id = status_id;
+        const { error } = await ctx.sb.from("content_ideas").update(patch).eq("id", a.conteudo_id);
+        if (error) fail(error.message);
+        return { ok: true, id: a.conteudo_id, atualizado: true, onde: "CREATOR › Quadro de produção (etapa Roteiro)" };
+      }
       const { data, error } = await ctx.sb.from("content_ideas").insert({
         account_id: a.perfil_id || null, kind: "copy", status_id, title: clip(a.titulo, 120), format: a.formato || "Reels", hook: clip(a.gancho, 300), planned_for: a.data || null, pillar: clip(a.pilar, 80),
-        body: `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${a.roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}${est ? `\n\n**Estilo de edição:** ${est.num} · ${est.nome}` : ""}\n\n_${ORIGIN}_`,
-        caption: a.legenda || null,
+        body, caption: a.legenda || null,
       }).select("id").single();
       if (error) fail(error.message);
       return { ok: true, id: data?.id, onde: "CREATOR › Quadro de produção (etapa Roteiro)" };
