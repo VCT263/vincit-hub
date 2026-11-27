@@ -95,9 +95,30 @@ export default function ManualStep({ d, id }: StepProps) {
           </div>
         </Pad>
 
+        {/* 02b manifesto e voz (do documento mestre) */}
+        {(b.frase_mae || b.manifesto || b.arquetipo || b.matriz_tom) && (
+          <Pad bg={C["Escuro"]}>
+            <div className="flex items-baseline gap-3 mb-5"><span className="font-mono text-xs" style={{ color: C["Primária"] }}>02</span><h2 className="text-3xl" style={{ fontFamily: `"${t.title}"`, fontWeight: t.tw, color: C["Claro"] }}>Manifesto e voz</h2></div>
+            <div className="grid grid-cols-5 gap-[4%] flex-1 min-h-0 text-[12px]" style={{ fontFamily: `"${t.body}"`, color: C["Claro"] }}>
+              <div className="col-span-3 min-h-0 overflow-hidden">
+                {b.frase_mae && <p className="text-xl leading-snug mb-4" style={{ fontFamily: `"${t.title}"`, fontWeight: t.tw, color: C["Primária"] }}>{b.frase_mae}</p>}
+                {b.manifesto && <p className="whitespace-pre-line leading-snug opacity-80 text-[11px] columns-2 gap-6">{b.manifesto}</p>}
+              </div>
+              <div className="col-span-2 space-y-3 min-h-0 overflow-hidden">
+                {b.arquetipo && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Arquétipo</p><p className="mt-1">{b.arquetipo}</p></div>}
+                {b.territorio && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Território</p><p className="mt-1">{b.territorio}</p></div>}
+                {b.matriz_tom && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Tom de voz</p><p className="mt-1 whitespace-pre-line">{b.matriz_tom}</p></div>}
+                {!!b.nao_e?.length && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">A marca não é</p><p className="mt-1">{b.nao_e.join(" · ")}</p></div>}
+                {!!b.proibido?.length && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Nunca dizer</p><p className="mt-1">{b.proibido.join(" · ")}</p></div>}
+                {!!b.regras_ouro?.length && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Regras de ouro</p><p className="mt-1">{b.regras_ouro.join(" · ")}</p></div>}
+              </div>
+            </div>
+          </Pad>
+        )}
+
         {/* 03 logo */}
         <Pad>
-          <H n="02">Logo</H>
+          <H n="03">Logo</H>
           <div className="grid grid-cols-3 gap-4 flex-1">
             <div className="col-span-2 rounded-xl grid place-items-center relative" style={{ background: C["Claro"] }}>
               <div className="relative p-[6%] border border-dashed" style={{ borderColor: C["Primária"] }}><L h="h-24 w-72" /><span className="absolute -top-5 left-1/2 -translate-x-1/2 font-mono text-[10px]" style={{ color: C["Primária"] }}>área de proteção = x</span></div>
@@ -113,7 +134,7 @@ export default function ManualStep({ d, id }: StepProps) {
 
         {/* 04 cores */}
         <Pad>
-          <H n="03">Cores</H>
+          <H n="04">Cores</H>
           <div className="grid grid-cols-5 gap-3 flex-1">
             {(pal.length ? pal : Object.entries(C).map(([role, hex]) => ({ role, hex }))).map((s) => { const [r, g, bb] = hexToRgb(s.hex); return (
               <div key={s.role + s.hex} className="rounded-xl overflow-hidden flex flex-col border border-black/10">
@@ -123,12 +144,12 @@ export default function ManualStep({ d, id }: StepProps) {
             ); })}
           </div>
           <div className="flex h-3 rounded-full overflow-hidden mt-4"><span style={{ width: "60%", background: C["Claro"] }} className="border border-black/10" /><span style={{ width: "30%", background: C["Primária"] }} /><span style={{ width: "10%", background: C["Destaque"] }} /></div>
-          <p className="text-xs mt-2 opacity-70">Proporção: 60% neutros, 30% primária e apoio, 10% destaque. CMYK é aproximado; confirme com a gráfica.</p>
+          <p className="text-xs mt-2 opacity-70">Proporção: {b.proporcao || "60% neutros, 30% primária e apoio, 10% destaque"}. {!!b.regras_visuais?.length && <>Regras: {b.regras_visuais.join(" · ")}. </>}CMYK é aproximado; confirme com a gráfica.</p>
         </Pad>
 
         {/* 05 tipografia */}
         <Pad>
-          <H n="04">Tipografia</H>
+          <H n="05">Tipografia</H>
           <div className="grid grid-cols-2 gap-[5%] flex-1">
             <div>
               <p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Títulos · {t.title} {t.tw}</p>
@@ -146,7 +167,7 @@ export default function ManualStep({ d, id }: StepProps) {
 
         {/* 06 aplicações */}
         <Pad bg={C["Claro"]}>
-          <H n="05">Aplicações</H>
+          <H n="06">Aplicações</H>
           <div className="grid grid-cols-4 gap-4 flex-1 items-center">
             <div className="aspect-[4/5] rounded-xl p-4 flex flex-col justify-end" style={{ background: C["Primária"], color: readableOn(C["Primária"]) }}>
               <p className="font-mono text-[9px] tracking-widest">NOVIDADE</p><p className="text-xl leading-tight mt-1" style={{ fontFamily: `"${t.title}"`, fontWeight: t.tw }}>{b.slogan || "Chegou a coleção nova"}</p>
@@ -159,7 +180,7 @@ export default function ManualStep({ d, id }: StepProps) {
 
         {/* 07 não fazer */}
         <Pad>
-          <H n="06">Não fazer</H>
+          <H n="07">Não fazer</H>
           <div className="grid grid-cols-4 gap-4 flex-1">
             {[["Distorcer", { transform: "scaleX(1.5)" }], ["Girar", { transform: "rotate(-18deg)" }], ["Trocar as cores", { filter: "hue-rotate(140deg)" }], ["Fundo sem contraste", { opacity: .25 }]].map(([l, st]) => (
               <div key={l as string} className="flex flex-col">
