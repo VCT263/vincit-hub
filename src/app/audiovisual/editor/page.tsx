@@ -8,6 +8,7 @@ import {
   type Format, type Kit, type Media, type Overlay, type OverlayMode, type Project, type Title, type Zoom,
 } from "@/lib/editor/model";
 import { CAMADA_LABEL, sugerir, type Sugestao } from "@/lib/editor/sugestoes";
+import { planoPremiere } from "@/lib/editor/premiere";
 import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from "@/lib/editor/styles";
 
 type Busy = { f: number; msg: string } | null;
@@ -245,6 +246,7 @@ export default function Editor() {
       lista: ["O que muda o jogo", "dormir melhor | treinar cedo | escrever o dia", 6],
       rec: ["REC", "4K UHD", 4],
       vazado: ["vendas", "sem anúncio", 2.4],
+      riscado: ["tática", "estratégia", 2.4],
       numero: ["70%", "das vendas", 2.6], grafico: ["Vendas", "em 3 meses", 2.8], checklist: ["3 ajustes", "foto | preço | descrição", 3.4],
       seta: ["olha aqui", "baixo", 2], relogio: ["30 min", "por dia", 2.6], progresso: ["70", "da meta", 2.6],
     };
@@ -325,6 +327,26 @@ export default function Editor() {
     setBusy(null);
   }
 
+  /** segunda saída: manda a edição montada aqui para o painel VINCIT HUB no Premiere */
+  const [prSent, setPrSent] = useState<string | null>(null);
+  async function sendPremiere() {
+    if (!p.segments.length) { setMsg("Adicione o vídeo antes de mandar para o Premiere."); return; }
+    const est = estiloByNum(preset || baseKit?.estilo);
+    const x = planoPremiere(p, media, kit, screens, est ? { num: est.num, nome: est.nome } : null);
+    const s = createClient();
+    const row = {
+      content_id: contentId || null, kit_id: kitId || null, project_name: "Editor do HUB → Premiere",
+      sequence_name: contents.find((c) => c.id === contentId)?.title || x.arquivos.join(", ") || "Edição do HUB",
+      fps: 30, duration_sec: x.duracao, timeline: x.timeline, transcript: x.transcript,
+      request: `Enviado do Editor do HUB. No Premiere, coloque ${x.arquivos.length > 1 ? "os arquivos " + x.arquivos.join(", ") + " em V1, um depois do outro," : "o arquivo " + (x.arquivos[0] || "original") + " em V1"} a partir do 0.`,
+      status: "plano_pronto", plan: x.plan, plan_note: "Montado no Editor do HUB",
+    };
+    const { data, error } = await s.from("av_edit_sessions").insert(row).select("id").single();
+    if (error) { setMsg(error.message); return; }
+    setPrSent(data.id);
+    setMsg(`Enviado ao Premiere: ${x.plan.resumo} Abra o painel VINCIT HUB no Premiere e clique em Aplicar.`);
+  }
+
   async function askClaude() {
     if (!words.length) { setMsg("Gere a legenda antes: o Claude usa a fala para montar o plano."); return; }
     const s = createClient();
@@ -333,7 +355,7 @@ export default function Editor() {
       fps: 30, duration_sec: +total.toFixed(2),
       timeline: layout(p).map((l) => ({ faixa: "V1", nome: media.find((m) => m.id === l.seg.mediaId)?.name, inicio: +l.start.toFixed(2), fim: +l.end.toFixed(2) })),
       transcript: words.map((w) => ({ inicio: +w.start.toFixed(2), fim: +w.end.toFixed(2), texto: w.t })),
-      request: [ask.trim(), wide ? "Plano para o editor do HUB (vídeo horizontal 16:9 para YouTube, formato série). Cortes são aplicados direto na timeline. B-rolls disponíveis: " + (media.filter((m) => m.broll).map((m) => m.name).join(", ") || "nenhum") : "Plano para o editor do HUB (vídeo vertical 9:16). Cortes são aplicados direto na timeline.", preset || baseKit?.estilo ? `Estilo escolhido: ${preset || baseKit?.estilo} (pode sugerir outro do catálogo em "estilo")` : "Sugira um estilo do catálogo (01 a 12) em \"estilo\""].filter(Boolean).join(" · "),
+      request: [ask.trim(), wide ? "Plano para o editor do HUB (vídeo horizontal 16:9 para YouTube, formato série). Cortes são aplicados direto na timeline. B-rolls disponíveis: " + (media.filter((m) => m.broll).map((m) => m.name).join(", ") || "nenhum") : "Plano para o editor do HUB (vídeo vertical 9:16). Cortes são aplicados direto na timeline.", preset || baseKit?.estilo ? `Estilo escolhido: ${preset || baseKit?.estilo} (pode sugerir outro do catálogo em "estilo")` : "Sugira um estilo do catálogo (01 a 14) em \"estilo\""].filter(Boolean).join(" · "),
     };
     const { data, error } = await s.from("av_edit_sessions").insert(row).select("id,status").single();
     if (error) { setMsg(error.message); return; }
@@ -661,6 +683,15 @@ export default function Editor() {
             </div>
             <label className="flex items-center gap-1.5 text-xs mt-1.5"><input type="checkbox" checked={!!p.grao} onChange={(e) => update((pp) => ({ ...pp, grao: e.target.checked }))} />Grão de filme</label>
             {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
+          </div>
+          <div className="rounded-xl border border-sky-400/30 bg-sky-400/5 p-3 text-xs text-soft">
+            <p className="font-semibold text-sky-300">Levar para o Premiere</p>
+            <p className="mt-1">Manda esta edição (cortes, legendas, letterings, motion, câmera e imagens) para o painel VINCIT HUB no Premiere, para acabar à mão com mais recursos. Lá, use o arquivo original em V1 a partir do 0.</p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <button disabled={!media.length || !!busy} onClick={sendPremiere} className="px-3 py-1.5 rounded-lg border border-sky-400/50 text-sky-300 font-semibold disabled:opacity-40">Enviar para o Premiere</button>
+              <Link href="/audiovisual/premiere" className="text-fog underline">Como usar</Link>
+            </div>
+            {prSent && <p className="mt-1.5 text-mint">Enviado. No Premiere: Janela › Extensões › VINCIT HUB.</p>}
           </div>
           <div className="rounded-xl border border-purple-400/30 bg-purple-400/5 p-3 text-xs text-soft">
             <p className="font-semibold text-purple-300">Plano do Claude</p>

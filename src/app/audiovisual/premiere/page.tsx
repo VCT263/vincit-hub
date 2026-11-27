@@ -31,17 +31,19 @@ export default function Premiere() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const counts = (p: any) => ["cortes", "legendas", "titulos", "zooms", "insercoes", "marcadores"].map((k) => [k, (p?.[k] || []).length]).filter(([, n]) => n);
+  const counts = (p: any) => ["cortes", "legendas", "titulos", "motion", "zooms", "insercoes", "marcadores"].map((k) => [k, (p?.[k] || []).length]).filter(([, n]) => n);
 
   return (
     <>
       <PageHead kicker="AUDIOVISUAL · PÓS-PRODUÇÃO" title="Premiere com o Claude"
-        desc="O painel VINCIT HUB no Premiere manda a sequência (clipes e transcrição) para o Claude. O Claude devolve o plano de edição no estilo do kit do cliente e você aplica com um clique, revisando tudo no Premiere." />
+        desc="Segunda saída do Editor: quando o vídeo pede mais acabamento manual, leve a edição para o Premiere. O painel VINCIT HUB aplica cortes, legendas, letterings, motion, câmera e imagens, com os MOGRTs do kit." />
 
       <div className="grid lg:grid-cols-3 gap-4">
         <section className="card p-5 lg:col-span-1">
           <p className="font-display text-lg font-extrabold">Como usar</p>
-          <ol className="text-sm text-fog mt-3 space-y-3 list-decimal pl-4">
+          <p className="text-sm mt-3"><b className="text-paper">Do Editor do HUB:</b> monte a edição no <Link href="/audiovisual/editor" className="underline">Editor</Link> e clique em <b className="text-paper">Enviar para o Premiere</b>. No Premiere, coloque o arquivo original em V1 a partir do 0, abra o painel e clique em Aplicar. Os tempos já vêm no tempo do arquivo original.</p>
+          <p className="text-sm mt-3"><b className="text-paper">Direto do Premiere, com o Claude:</b></p>
+          <ol className="text-sm text-fog mt-2 space-y-3 list-decimal pl-4">
             <li>Baixe o plugin e dê dois cliques no arquivo. O Creative Cloud instala. Precisa do Premiere Pro 25.6 ou mais novo.
               <a href="/downloads/vincit-hub-premiere.ccx" className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-mint text-ink"><I.arrow className="w-4 h-4" />Baixar plugin (.ccx)</a>
             </li>
@@ -50,7 +52,7 @@ export default function Premiere() {
             <li>No Claude (com o conector VINCIT HUB), peça: <i className="text-paper">&quot;faça o plano da edição do Premiere&quot;</i>.</li>
             <li>O plano aparece no painel em segundos. Escolha o que aplicar. Cmd+Z desfaz tudo de uma vez.</li>
           </ol>
-          <p className="text-xs text-fog mt-4">O que já entra direto: marcadores, legendas e títulos com os MOGRTs do kit, zoom por keyframe e B-roll que já está no projeto. Os cortes entram como marcadores para você conferir e cortar.</p>
+          <p className="text-xs text-fog mt-4">O que já entra direto: legendas, letterings e motion com os MOGRTs do kit (cada tipo pode ter o seu, na aba Premiere do kit), zoom por keyframe no tipo do movimento (punch, push, pull, chicote) e B-roll que já está no projeto. Os cortes entram como marcadores para você conferir e cortar; o que não tem MOGRT vira marcador com o texto.</p>
         </section>
 
         <section className="card p-5 lg:col-span-2 min-w-0">
