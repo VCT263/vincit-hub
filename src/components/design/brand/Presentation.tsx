@@ -9,7 +9,7 @@ import { MockupCover, byGroup, type Mockup } from "./MockupView";
 import { brandVoice } from "./MockupArt";
 import { brandPrompt } from "@/lib/brandPrompt";
 import { createPortal } from "react-dom";
-import { useNear, usePrintAll } from "./lazy";
+import { useLite, useNear, usePrintAll } from "./lazy";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
@@ -539,7 +539,7 @@ export function ScaledSlide({ x, s, n, total }: { x: Ctx; s: SlideDef; n: number
     const ro = new ResizeObserver(() => setK(el.clientWidth / x.W)); ro.observe(el); setK(el.clientWidth / x.W);
     return () => ro.disconnect();
   }, [x.W]);
-  const near = useNear(ref);
+  const near = useNear(ref, useLite() ? "40% 0px" : "100% 0px");
   return (
     <div ref={ref} className="deck-wrap w-full relative overflow-hidden rounded-lg shadow-2xl bg-panel2" style={{ height: x.H * k }}>
       {near && <div className="deck-scale" style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>

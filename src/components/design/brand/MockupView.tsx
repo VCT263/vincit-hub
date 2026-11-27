@@ -6,6 +6,7 @@ import { sceneKit } from "./Scenes";
 import { LAYOUTS, LayoutArt, autoLayout, brandVoice, type Voice } from "./MockupArt";
 import { loadFonts } from "@/lib/design";
 import { SvgView } from "../ui";
+import { useLite, useSmall } from "./lazy";
 
 /* Mockup fotográfico (PSD do mockups-design.com preparado pelo importador):
    foto com a área em preto (K) + arte da marca em perspectiva × mapa de luz (L), somados.
@@ -69,26 +70,38 @@ function Art({ d, v, m, i, kind, w, h }: { d: any; v: Voice; m: Mockup; i: numbe
   return <div style={box}><div style={{ width: w * .62, height: h * .42 }}><SvgView svg={k.logo(fg)} className="w-full h-full" /></div></div>;
 }
 
-/** o mockup inteiro, desenhado em pixels nativos; quem usa escala por fora */
+/** o mockup inteiro, no tamanho nativo por fora; quem usa escala por fora.
+   No celular, por dentro ele é desenhado em meia resolução (fotos reduzidas e camadas de luz
+   menores), senão o Safari do iPhone fica sem memória e recarrega a página. */
 export function MockupStage({ d, m, arts }: { d: any; m: Mockup; arts?: string[] }) {
   const v = useMemo(() => brandVoice(d), [d]);
   const t = d.type || {};
   useEffect(() => { loadFonts([t.title, t.body, t.accent].filter(Boolean)); }, [t.title, t.body, t.accent]);
+  const lite = useLite();
+  const r = lite ? .5 : 1;
+  const maxW = lite ? Math.round(m.width * r) : 0;
   return (
-    <div style={{ position: "absolute", left: 0, top: 0, width: m.width, height: m.height, isolation: "isolate", background: "#000" }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={m.base_url} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-      {m.slots.map((s, i) => (
-        <div key={i} style={{ position: "absolute", inset: 0, mixBlendMode: "plus-lighter", isolation: "isolate" }}>
-          <div style={{ position: "absolute", left: 0, top: 0, width: s.w, height: s.h, transformOrigin: "0 0", transform: quadMatrix(s.w, s.h, s.quad) }}>
-            <Art d={d} v={v} m={m} i={i} kind={(arts && arts[i]) || "auto"} w={s.w} h={s.h} />
+    <div style={{ position: "absolute", left: 0, top: 0, width: m.width, height: m.height, background: "#000", overflow: "hidden" }}>
+      <div style={{ position: "absolute", left: 0, top: 0, width: m.width * r, height: m.height * r, isolation: "isolate", transformOrigin: "0 0", transform: r === 1 ? undefined : `scale(${1 / r})` }}>
+        <Photo url={m.base_url} maxW={maxW} />
+        {m.slots.map((s, i) => (
+          <div key={i} style={{ position: "absolute", inset: 0, mixBlendMode: "plus-lighter", isolation: "isolate" }}>
+            <div style={{ position: "absolute", left: 0, top: 0, width: s.w, height: s.h, transformOrigin: "0 0", transform: quadMatrix(s.w, s.h, r === 1 ? s.quad : s.quad.map((q) => q * r)) }}>
+              <Art d={d} v={v} m={m} i={i} kind={(arts && arts[i]) || "auto"} w={s.w} h={s.h} />
+            </div>
+            <Photo url={s.light_url} maxW={maxW} blend />
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={s.light_url} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", mixBlendMode: "multiply" }} />
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
+}
+
+function Photo({ url, maxW, blend }: { url: string; maxW: number; blend?: boolean }) {
+  const src = useSmall(url, maxW);
+  if (!src) return <div style={{ position: "absolute", inset: 0, background: blend ? "#000" : "#111" }} />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" crossOrigin={src.startsWith("blob:") ? undefined : "anonymous"} decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", mixBlendMode: blend ? "multiply" : undefined }} />;
 }
 
 /** encaixa o mockup numa caixa W×H cobrindo (como object-fit: cover) */
