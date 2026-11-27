@@ -9,6 +9,7 @@ import { useMockups } from "./MockupView";
 import { I } from "@/components/icons";
 import type { StepProps } from "./types";
 import LinkApresentacao from "../briefing/LinkApresentacao";
+import BrandAIPanel from "./BrandAIPanel";
 
 /* processo de entrega (Design Academy): escopo, apresentação e aprovação, entrega dos arquivos */
 const ENTREGAVEIS = ["Logo principal (SVG e PNG)", "Versões e assinaturas", "Monograma e favicon", "Paleta com HEX, RGB e CMYK", "Fontes e onde baixar", "Grafismo", "Apresentação em PDF", "Logo animado (vídeo)"];
@@ -74,6 +75,8 @@ export default function ManualStep({ d, id, set }: StepProps) {
       </div>
 
       <LinkApresentacao id={id} d={d} set={set} />
+
+      <BrandAIPanel d={d} set={set} />
 
       <LogoMotion d={d} name={name} />
 

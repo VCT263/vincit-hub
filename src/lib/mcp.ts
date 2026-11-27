@@ -1,3 +1,4 @@
+import { brandPrompt } from "@/lib/brandPrompt";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, hubAllowed, type Access } from "@/lib/access";
 import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
@@ -60,7 +61,7 @@ export const TOOLS: Tool[] = [
   {
     name: "listar_perfis",
     title: "Listar perfis",
-    description: "Lista os perfis de Instagram da pessoa no HUB, com nicho, objetivos, voz da marca e briefing. Use antes de criar conteúdo para respeitar a marca.",
+    description: "Lista os perfis de Instagram da pessoa no HUB, com nicho, objetivos, voz da marca, briefing e, quando houver, o direcionamento_marca (manual da marca do Design: voz, frases, proibidas, cores, letras, regras de post e de vídeo). Use antes de criar conteúdo e siga a marca à risca.",
     inputSchema: { type: "object", properties: {} },
     readOnly: true,
     needs: "creator",
@@ -69,7 +70,10 @@ export const TOOLS: Tool[] = [
         .select("id, username, name, niche, goals, brand_voice, briefing, followers_count, follows_count, media_count, connected, last_synced_at")
         .order("created_at");
       if (error) fail(error.message);
-      return { perfis: data || [] };
+      // marca do Design ligada a cada perfil: o direcionamento completo para a IA
+      const { data: marcas } = await ctx.sb.from("design_projects").select("data").eq("kind", "marca").is("archived_at", null).not("data->>perfil_id", "is", null);
+      const porPerfil = new Map((marcas || []).map((m: any) => [m.data?.perfil_id, m.data]));
+      return { perfis: (data || []).map((p: any) => (porPerfil.has(p.id) ? { ...p, direcionamento_marca: brandPrompt(porPerfil.get(p.id)) } : p)) };
     },
   },
   {

@@ -1,4 +1,5 @@
 "use client";
+import { brandPrompt } from "@/lib/brandPrompt";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -6,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAI } from "@/lib/useAI";
 import { I } from "@/components/icons";
 import Modal from "@/components/agency/Modal";
-import { DEFAULT_KIT, SIZES, briefText, canvaNew, download, drawSlide, kitFrom, loadFonts, shrink, uid, type Kit, type Slide } from "@/lib/design";
+import { DEFAULT_KIT, SIZES, canvaNew, download, drawSlide, kitFrom, loadFonts, shrink, uid, type Kit, type Slide } from "@/lib/design";
 
 const LAYOUTS: [Slide["layout"], string][] = [["capa", "Capa"], ["texto", "Texto"], ["lista", "Lista"], ["citacao", "Frase"], ["cta", "Chamada"]];
 const BGS: [Slide["bg"], string][] = [["primaria", "Primária"], ["escuro", "Escuro"], ["claro", "Claro"], ["destaque", "Destaque"], ["imagem", "Foto"]];
@@ -84,7 +85,7 @@ export default function PieceEditor() {
   };
 
   async function askClaude() {
-    const r: any = await run("carousel_copy", { tema, pages: p.kind === "peca" ? 1 : Math.max(4, Math.min(10, slides.length || 6)), brand: brand ? `${brand.data?.brief?.nome || brand.title}\n${briefText(brand.data?.brief)}` : "", kind: p.kind });
+    const r: any = await run("carousel_copy", { tema, pages: p.kind === "peca" ? 1 : Math.max(4, Math.min(10, slides.length || 6)), brand: brand ? brandPrompt(brand.data || {}) : "", kind: p.kind });
     if (!r?.slides?.length) return;
     const okL = LAYOUTS.map((x) => x[0]), okB = BGS.map((x) => x[0]);
     setSlides(r.slides.map((x: any, i: number) => ({ id: uid(), layout: okL.includes(x.layout) ? x.layout : i === 0 ? "capa" : "texto", kicker: x.kicker || "", title: x.title || "", body: x.body || "", bg: okB.includes(x.bg) && x.bg !== "imagem" ? x.bg : i === 0 ? "primaria" : "claro" })));

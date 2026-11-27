@@ -5,6 +5,7 @@ import { FORMATS, CATS, MIDIAS, FORMAT_MIDIA, formatBrief } from "@/lib/formats"
 import { EXAMPLES } from "@/lib/formats-examples";
 import { BRIEFING, briefingText } from "@/lib/briefing";
 import { createClient } from "@/lib/supabase/server";
+import { brandPrompt } from "@/lib/brandPrompt";
 import { knowledgeText, TYPE_SYSTEMS } from "@/lib/brand-knowledge";
 
 export const maxDuration = 300;
@@ -19,7 +20,10 @@ async function handle(req: Request) {
   try {
     const { task, data } = await req.json();
     if (await aiQuotaExceeded(await createClient())) return NextResponse.json({ error: QUOTA_MSG }, { status: 429 });
-    const ctx = data?.account ? `Perfil: @${data.account.username}${data.account.niche ? ` | Nicho: ${data.account.niche}` : ""}${data.account.goals ? ` | Objetivos: ${data.account.goals}` : ""}${data.account.followers_count ? ` | Seguidores: ${data.account.followers_count}` : ""}${data.account.brand_voice ? `\nVoz da marca: ${data.account.brand_voice}` : ""}${data.account.briefing ? `\n${briefingText(data.account.briefing)}` : ""}` : "";
+    // marca do Design ligada ao perfil: o direcionamento vai junto de todo pedido (27/11)
+    const marca = data?.account?.id ? (await (await createClient()).from("design_projects").select("data").eq("kind", "marca").is("archived_at", null).eq("data->>perfil_id", data.account.id).limit(1).maybeSingle()).data : null;
+    const ctxMarca = marca?.data ? `\n\n${brandPrompt(marca.data)}\n` : "";
+    const ctx = (data?.account ? `Perfil: @${data.account.username}${data.account.niche ? ` | Nicho: ${data.account.niche}` : ""}${data.account.goals ? ` | Objetivos: ${data.account.goals}` : ""}${data.account.followers_count ? ` | Seguidores: ${data.account.followers_count}` : ""}${data.account.brand_voice ? `\nVoz da marca: ${data.account.brand_voice}` : ""}${data.account.briefing ? `\n${briefingText(data.account.briefing)}` : ""}` : "") + ctxMarca;
 
     if (task === "profile_diagnosis") {
       const text = await callClaude({
@@ -238,7 +242,7 @@ Responda SOMENTE com JSON: {"conceitos":[{"nome":"nome curto do caminho","ideia"
       const text = await callClaude({
         maxTokens: 2500,
         prompt: `Escreva ${n === 1 ? "o texto de uma peça estática" : `um carrossel de Instagram com ${n} páginas`} sobre: ${(data.tema || "").slice(0, 600)}
-${data.brand ? `Marca e briefing:\n${String(data.brand).slice(0, 3000)}\n` : ""}Regras:
+${data.brand ? `Marca e briefing:\n${String(data.brand).slice(0, 9000)}\n` : ""}Regras:
 - ${n === 1 ? "Uma página só, com chamada forte." : "Página 1 é a capa com gancho de até 10 palavras; a última é a chamada (um único CTA); as do meio entregam o conteúdo, uma ideia por página."}
 - Título com no máximo 60 caracteres, texto com no máximo 160. Kicker curto em caixa alta (ex.: 01, DICA, ERRO COMUM) ou vazio.
 - layout: capa, texto, lista (itens separados por \n no body), citacao ou cta. bg: primaria, escuro, claro ou destaque, alternando para dar ritmo.

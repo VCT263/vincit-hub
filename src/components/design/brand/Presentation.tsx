@@ -7,6 +7,7 @@ import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
 import { MockupCover, byGroup, type Mockup } from "./MockupView";
 import { brandVoice } from "./MockupArt";
+import { brandPrompt } from "@/lib/brandPrompt";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
@@ -462,6 +463,19 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       </div>
     );
   } });
+
+  /* direcionamento para a IA: o mesmo texto que vai junto dos pedidos de post e edição */
+  const prompt = brandPrompt(d);
+  S.push({ key: "ia", tone: "dark", section: "Direcionamento para IA", body: (x) => (
+    <div style={{ position: "absolute", inset: 0, padding: "56px 64px", display: "grid", gridTemplateColumns: "1fr 2.4fr", gap: 48 }}>
+      <div>
+        <Label x={x} style={{ color: x.acc }}>Direcionamento para IA</Label>
+        <p style={x.T({ fontSize: x.H * .07, color: x.paper, marginTop: 18, lineHeight: 1 })}>A marca explicada para a máquina.</p>
+        <p style={x.B({ fontSize: 15, lineHeight: 1.6, color: x.paper, opacity: .7, marginTop: 22 })}>Este texto vai junto de todo pedido de post, carrossel, roteiro e edição de vídeo no HUB e no Claude. Copie na etapa Manual para usar em qualquer IA.</p>
+      </div>
+      <div style={x.B({ columnCount: 3, columnGap: 28, fontSize: 9.5, lineHeight: 1.45, color: x.paper, opacity: .85, whiteSpace: "pre-wrap", overflow: "hidden" })}>{prompt.replace(/^# .*\n\n/, "")}</div>
+    </div>
+  ) });
 
   // encerramento
   S.push({ key: "fim", tone: "dark", section: "", bare: true, body: (x) => (
