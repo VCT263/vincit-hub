@@ -4,10 +4,11 @@ import { loadFonts } from "@/lib/design";
 import { FONT_CATS, FONT_LIB, fontDef, fontsOfCat, type FontCat } from "@/lib/fonts";
 import { TYPE_GROUPS, TYPE_GUIDE, TYPE_AXES, TASTE_AXES, TASTE_WEIGHTS, tasteText } from "@/lib/brand-knowledge";
 import type { StepProps } from "./types";
+import LinkGosto from "./LinkGosto";
 
 /** Pré-projeto: o mostruário para descobrir o gosto do cliente antes de desenhar.
     Cada letra tem código (T01, T02…) para o cliente responder pelo WhatsApp. */
-export default function TasteStep({ d, set }: StepProps) {
+export default function TasteStep({ d, set, id }: StepProps) {
   const g = d.gosto || {};
   const name = d.brief?.nome || "Sua marca";
   const up = (patch: any) => set({ gosto: { ...g, ...patch } });
@@ -26,8 +27,10 @@ export default function TasteStep({ d, set }: StepProps) {
     <div className="space-y-5">
       <section className="card p-5 rise">
         <p className="font-mono text-[10px] uppercase tracking-widest text-fog">Como usar</p>
-        <p className="text-sm mt-2 max-w-3xl">Este é o mostruário do pré-projeto. Mostre ao cliente na reunião ou mande o código das letras pelo WhatsApp. Marque o que ele gostou e o que não quer: o resultado aparece no resumo abaixo e acompanha as próximas etapas, inclusive a Tipografia e os pedidos ao Claude.</p>
+        <p className="text-sm mt-2 max-w-3xl">Este é o mostruário do pré-projeto. Mostre ao cliente na reunião, mande o código das letras pelo WhatsApp ou crie o link abaixo para ele marcar sozinho. Marque o que ele gostou e o que não quer: o resultado aparece no resumo abaixo e acompanha as próximas etapas, inclusive a Tipografia e os pedidos ao Claude.</p>
       </section>
+
+      <LinkGosto id={id} d={d} set={set} />
 
       <section className="card p-5">
         <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">01 · Os tipos de letra</p>
