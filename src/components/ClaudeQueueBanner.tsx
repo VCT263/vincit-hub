@@ -26,7 +26,7 @@ export default function ClaudeQueueBanner() {
   async function copy() { try { await navigator.clipboard.writeText(PHRASE); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {} }
 
   return (
-    <div role="status" aria-live="polite" className="fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] card p-4 shadow-2xl border border-mint/40 space-y-3">
+    <div role="status" aria-live="polite" className="print:hidden fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] card p-4 shadow-2xl border border-mint/40 space-y-3">
       <div className="flex items-start gap-3">
         <span className="mt-1.5 w-2 h-2 rounded-full bg-mint animate-pulse shrink-0" aria-hidden />
         <div className="min-w-0">

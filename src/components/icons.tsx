@@ -35,4 +35,9 @@ export const I = {
   bag: (p: P) => (<svg {...base} className={p.className}><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>),
   target: (p: P) => (<svg {...base} className={p.className}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>),
   calendar: (p: P) => (<svg {...base} className={p.className}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>),
+  palette: (p: P) => (<svg {...base} className={p.className}><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="7" r="1" fill="currentColor"/><circle cx="14.5" cy="7" r="1" fill="currentColor"/></svg>),
+  type: (p: P) => (<svg {...base} className={p.className}><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>),
+  shapes: (p: P) => (<svg {...base} className={p.className}><circle cx="7.5" cy="7.5" r="4.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M17 3l4 7h-8z"/></svg>),
+  download: (p: P) => (<svg {...base} className={p.className}><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>),
+  lock: (p: P) => (<svg {...base} className={p.className}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>),
 };

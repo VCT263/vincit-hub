@@ -17,6 +17,7 @@ const tabs = [
   { href: "/creator", label: "Creator", Icon: I.camera, hub: "creator" as const },
   { href: "/agency", label: "Gestor", Icon: I.briefcase, hub: "agency" as const },
   { href: "/audiovisual", label: "Audiovisual", Icon: I.video, hub: "audiovisual" as const },
+  { href: "/design", label: "Design", Icon: I.palette, hub: "design" as const },
   { href: "/ecommerce", label: "E-commerce", Icon: I.bag, hub: "ecommerce" as const },
 ];
 
@@ -26,17 +27,17 @@ export default function TopBar() {
   const visible = tabs.filter((t) => !t.hub || !acc || hubAllowed(acc.tools, t.hub));
   const isActive = (h: string) => (h === "/" ? path === "/" || DIA.some((d) => path === d || path.startsWith(d + "/")) : path.startsWith(h));
   const nav = (
-    <nav className="flex gap-1 bg-panel border border-line rounded-xl p-1">
+    <nav className="flex gap-1 bg-panel border border-line rounded-xl p-1 overflow-x-auto scroll-thin">
       {visible.map(({ href, label, Icon }) => (
         <Link key={href} href={href}
-          className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors ${isActive(href) ? "bg-mint text-[var(--color-on-mint,#06140e)]" : "text-fog hover:text-paper hover:bg-panel2"}`}>
+          className={`flex-1 shrink-0 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors ${isActive(href) ? "bg-mint text-[var(--color-on-mint,#06140e)]" : "text-fog hover:text-paper hover:bg-panel2"}`}>
           <Icon className="w-4 h-4" /> {label}
         </Link>
       ))}
     </nav>
   );
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
+    <header className="print:hidden sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
       <div className="h-16 flex items-center gap-6 px-4 md:px-6">
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           <Logo className="h-5" />

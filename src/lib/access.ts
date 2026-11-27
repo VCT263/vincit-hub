@@ -1,5 +1,5 @@
 /** Catálogo de ferramentas liberáveis por plano/usuário */
-export type Tool = { key: string; label: string; hub: "creator" | "agency" | "audiovisual" | "ecommerce" | "geral"; path?: string };
+export type Tool = { key: string; label: string; hub: "creator" | "agency" | "audiovisual" | "ecommerce" | "design" | "geral"; path?: string };
 
 export const TOOLS: Tool[] = [
   { key: "creator:perfis", label: "Perfis & marca", hub: "creator", path: "/creator/perfis" },
@@ -29,6 +29,8 @@ export const TOOLS: Tool[] = [
   { key: "ecommerce:acoes", label: "Calendário de ações e campanhas", hub: "ecommerce", path: "/ecommerce/acoes" },
   { key: "ecommerce:lancamento", label: "Lançamento da loja online", hub: "ecommerce", path: "/ecommerce/lancamento" },
   { key: "ecommerce:inteligencia", label: "Inteligência do negócio", hub: "ecommerce", path: "/ecommerce/inteligencia" },
+  { key: "design:marca", label: "Criação de marca (briefing, logo, cores, tipografia, manual)", hub: "design", path: "/design/marcas" },
+  { key: "design:pecas", label: "Carrosséis e peças estáticas", hub: "design", path: "/design/pecas" },
   { key: "ia", label: "Inteligência artificial (agentes, roteiros, análises)", hub: "geral" },
 ];
 
@@ -38,7 +40,7 @@ const ALIAS: [string, string][] = [["/creator/diagnostico", "creator:estrategia"
 export type Access = { role: "superadmin" | "user"; status: "ativo" | "pendente" | "suspenso" | "expirado"; tools: string[]; plan?: string | null; expires_at?: string | null; name?: string | null };
 
 export const can = (tools: string[] | undefined, key: string) => !!tools && (tools.includes("*") || tools.includes(key));
-export type Hub = "creator" | "agency" | "audiovisual" | "ecommerce";
+export type Hub = "creator" | "agency" | "audiovisual" | "ecommerce" | "design";
 export const hubAllowed = (tools: string[] | undefined, hub: Hub) => !!tools && (tools.includes("*") || tools.some((t) => t.startsWith(hub + ":")));
 
 /** ferramenta exigida por um caminho (undefined = livre para usuários ativos) */

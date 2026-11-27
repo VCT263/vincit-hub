@@ -189,6 +189,42 @@ Use só esses números; quando faltar um dado, diga que falta. Responda em markd
       return NextResponse.json({ text });
     }
 
+    if (task === "brand_concepts") {
+      const fonts = (data.fonts || []).join(", ");
+      const text = await callClaude({
+        maxTokens: 6000,
+        prompt: `Você é diretor de arte de um estúdio de branding. A partir do briefing, proponha 3 caminhos de logo bem diferentes entre si: 1) tipográfico (só o nome, com um detalhe próprio), 2) símbolo + nome, 3) monograma ou selo.
+Marca: ${data.nome}
+Briefing:
+${(data.brief || "").slice(0, 4000)}
+${data.refs?.length ? `Notas do moodboard:\n${data.refs.join("\n")}\n` : ""}
+Regras do SVG:
+- Um <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 240"> por conceito, sem width/height.
+- Só path, rect, circle, ellipse, polygon, line, g e text. Sem imagem, script, filtro, link ou fonte externa.
+- O nome escrito exatamente "${data.nome}" em <text> com font-family de UMA destas fontes do Google: ${fonts}.
+- Símbolos simples, geométricos, que funcionem pequenos e em uma cor. No máximo 3 cores por logo, sobre fundo claro (não desenhe o fundo).
+- Nada de clichê do nicho (lâmpada, globo, engrenagem) a não ser que o briefing peça.
+Para cada conceito dê também uma paleta de 5 cores em hexadecimal nesta ordem: primária, apoio, destaque, escuro (quase preto), claro (quase branco), e um par de fontes da lista.
+Responda SOMENTE com JSON: {"conceitos":[{"nome":"nome curto do caminho","ideia":"o conceito em 1-2 frases, ligando ao briefing","svg":"<svg ...>...</svg>","paleta":["#hex","#hex","#hex","#hex","#hex"],"fontes":{"titulo":"fonte","texto":"fonte"}}]}`,
+      });
+      return NextResponse.json(extractJson(text));
+    }
+
+    if (task === "carousel_copy") {
+      const n = data.kind === "peca" ? 1 : Math.max(3, Math.min(10, Number(data.pages) || 6));
+      const text = await callClaude({
+        maxTokens: 2500,
+        prompt: `Escreva ${n === 1 ? "o texto de uma peça estática" : `um carrossel de Instagram com ${n} páginas`} sobre: ${(data.tema || "").slice(0, 600)}
+${data.brand ? `Marca e briefing:\n${String(data.brand).slice(0, 3000)}\n` : ""}Regras:
+- ${n === 1 ? "Uma página só, com chamada forte." : "Página 1 é a capa com gancho de até 10 palavras; a última é a chamada (um único CTA); as do meio entregam o conteúdo, uma ideia por página."}
+- Título com no máximo 60 caracteres, texto com no máximo 160. Kicker curto em caixa alta (ex.: 01, DICA, ERRO COMUM) ou vazio.
+- layout: capa, texto, lista (itens separados por \n no body), citacao ou cta. bg: primaria, escuro, claro ou destaque, alternando para dar ritmo.
+- Nada de números, depoimentos ou resultados inventados; use {{marcador}} quando faltar dado. Sem clichês de IA.
+Responda SOMENTE com JSON: {"slides":[{"layout":"capa","kicker":"","title":"","body":"","bg":"primaria"}],"legenda":"legenda pronta, primeira linha até 125 caracteres, até 5 hashtags"}`,
+      });
+      return NextResponse.json(extractJson(text));
+    }
+
     return NextResponse.json({ error: "Tarefa desconhecida" }, { status: 400 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Erro" }, { status: 500 });
