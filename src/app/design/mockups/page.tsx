@@ -5,7 +5,8 @@ import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { processPsd } from "@/lib/mockupPsd";
 import { layerPixels, maskPixels, prepareLayer, readPsd } from "@/lib/psdRead";
-import { CATS, byGroup, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
+import { CATS, MockupCover, byGroup, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
+import { useRef } from "react";
 
 /* Biblioteca de mockups fotográficos. Importar: cola o link de um mockup grátis do mockups-design.com;
    o Supabase baixa o .zip (função mockup-fetch), o navegador lê cada PSD, separa foto e mapa de luz da área
@@ -46,6 +47,10 @@ export default function MockupsPage() {
   const [title, setTitle] = useState("");
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [brandId, setBrandId] = useState("");
+  const brand = brands.find((b) => b.id === brandId);
+  useEffect(() => { createClient().from("design_projects").select("id,title,data").eq("kind", "marca").is("archived_at", null).order("updated_at", { ascending: false }).then(({ data }) => setBrands(data || [])); }, []);
   const load = () => createClient().from("design_mockups").select("*").order("category").order("sort").then(({ data }) => setRows((data as Mockup[]) || []));
   useEffect(() => { load(); }, []);
   const say = (m: string) => setLog((l) => [...l.slice(-12), m]);
@@ -103,6 +108,11 @@ export default function MockupsPage() {
         {!!log.length && <div className="font-mono text-[11px] text-fog space-y-0.5">{log.map((l, i) => <p key={i}>{l}</p>)}</div>}
         </div>
       </details>
+      {!!brands.length && <div className="flex flex-wrap items-center gap-2 mb-5">
+        <span className="text-sm text-fog">Ver com a marca</span>
+        <button onClick={() => setBrandId("")} className={`chip !px-3 !py-1 ${!brandId ? "chip-mint" : ""}`}>Em branco</button>
+        {brands.map((b) => <button key={b.id} onClick={() => setBrandId(b.id)} className={`chip !px-3 !py-1 ${brandId === b.id ? "chip-mint" : ""}`}>{b.title}</button>)}
+      </div>}
       {rows === null ? <div className="card h-40 animate-pulse" /> : (
         <div className="space-y-8">
         {byGroup(rows).map(({ g, items }) => (
@@ -114,8 +124,9 @@ export default function MockupsPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {items.map((m) => (
             <div key={m.id} className={`card overflow-hidden ${m.active ? "" : "opacity-50"}`}>
+              {brand ? <Preview d={brand.data || {}} m={m} /> : <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img loading="lazy" decoding="async" src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" />
+              <img loading="lazy" decoding="async" src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" /></>}
               <div className="p-3 space-y-1.5">
                 <p className="text-sm font-semibold truncate">{m.title}</p>
                 <p className="text-[11px] text-fog">{m.slots.length} {m.slots.length === 1 ? "área" : "áreas"} · {m.width}×{m.height}</p>
@@ -133,6 +144,20 @@ export default function MockupsPage() {
       )}
     </>
   );
+}
+
+/** prévia do mockup com a marca escolhida; só monta quando chega perto da tela (memória do celular) */
+function Preview({ d, m }: { d: any; m: Mockup }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth)); ro.observe(el);
+    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { rootMargin: "300px" }); io.observe(el);
+    return () => { ro.disconnect(); io.disconnect(); };
+  }, []);
+  return <div ref={ref} className="relative w-full aspect-[4/3] bg-panel2 overflow-hidden">{on && w > 0 && <MockupCover d={d} m={m} W={w} H={w * .75} />}</div>;
 }
 
 function flatten(list: any[]): any[] { return list.flatMap((l) => (l.children ? [l, ...flatten(l.children)] : [l])); }

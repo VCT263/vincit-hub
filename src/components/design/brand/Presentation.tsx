@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { AXES, LOCKUPS, cmyk, hexToRgb, loadFonts, lockupSvg, patternSvg, primaryLogo, readableOn, svgParts, type Pattern, type Swatch } from "@/lib/design";
+import { AXES, LOCKUPS, cmyk, contrast, hexToRgb, loadFonts, lockupSvg, patternSvg, primaryLogo, readableOn, svgParts, type Pattern, type Swatch } from "@/lib/design";
 import { ARCHETYPES, MAP_AXES, NICHES, SCALES, archetypeMix } from "@/lib/brand-strategy";
 import { SvgView } from "../ui";
 import Mockups from "./Mockups";
@@ -217,7 +217,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       <div style={{ flex: 1, display: "grid", placeItems: "center" }}><Logo svg={primaryLogo(d, x.paper)} x={x} color={x.paper} style={{ width: "62%", height: x.H * .36 }} /></div>
       <Rule c={x.paper} style={{ margin: "0 -72px 22px" }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <h1 style={x.T({ fontSize: 64, textTransform: "uppercase", color: x.acc, position: "relative" })}>Apresentação<br />de marca{x.hasG && <span style={x.G({ position: "absolute", left: "62%", top: "-38%", fontSize: 72, color: x.paper, textTransform: "none", transform: "rotate(-7deg)", whiteSpace: "nowrap" })}>{x.name.toLowerCase()}</span>}</h1>
+        <h1 style={x.T({ fontSize: 64, textTransform: "uppercase", color: contrast(x.acc, x.ink) >= 3 ? x.acc : x.paper })}>Apresentação<br />de marca{x.hasG && <span style={x.G({ display: "inline-block", marginLeft: 18, fontSize: 64, color: x.paper, textTransform: "none", transform: "rotate(-7deg)", whiteSpace: "nowrap", verticalAlign: "-0.15em" })}>{x.name.toLowerCase()}</span>}</h1>
         <div style={x.B({ fontSize: 16, textAlign: "right", lineHeight: 1.7, opacity: .8 })}><p>Cliente: <b>{x.name}</b></p><p>Projeto: VINCIT</p></div>
       </div>
     </div>
@@ -693,10 +693,17 @@ export function Presenter({ x, slides, start, onClose }: { x: Ctx; slides: Slide
     document.documentElement.requestFullscreen?.().catch(() => {});
     return () => { window.removeEventListener("resize", fit); window.removeEventListener("keydown", key); if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); };
   }, []); // eslint-disable-line
-  const k = Math.min(vp.w / x.W, vp.h / x.H);
+  // celular em pé com slide deitado: gira o slide para ocupar a tela inteira (como virar o aparelho)
+  const rot = vp.h > vp.w && x.W > x.H;
+  const k = rot ? Math.min(vp.h / x.W, vp.w / x.H) : Math.min(vp.w / x.W, vp.h / x.H);
+  const swipe = useRef<number | null>(null);
+  const go = (fwd: boolean) => setI((v) => (fwd ? Math.min(slides.length - 1, v + 1) : Math.max(0, v - 1)));
   return (
-    <div className="fixed inset-0 z-[100] bg-black grid place-items-center print:hidden" onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setI((v) => (e.clientX - r.left > r.width / 2 ? Math.min(slides.length - 1, v + 1) : Math.max(0, v - 1))); }}>
-      <div style={{ width: x.W * k, height: x.H * k }}><div style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}><Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame></div></div>
+    <div className="fixed inset-0 z-[100] bg-black grid place-items-center print:hidden touch-none"
+      onTouchStart={(e) => { swipe.current = rot ? e.touches[0].clientY : e.touches[0].clientX; }}
+      onTouchEnd={(e) => { const a = swipe.current; swipe.current = null; if (a == null) return; const b = rot ? e.changedTouches[0].clientY : e.changedTouches[0].clientX; if (Math.abs(b - a) > 40) { e.preventDefault(); go(b < a); } }}
+      onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); go(rot ? e.clientY - r.top > r.height / 2 : e.clientX - r.left > r.width / 2); }}>
+      <div style={{ width: (rot ? x.H : x.W) * k, height: (rot ? x.W : x.H) * k }}><div style={{ transform: rot ? `translateX(${x.H * k}px) rotate(90deg) scale(${k})` : `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}><Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame></div></div>
       <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white/60 hover:text-white text-sm font-mono">Esc · sair</button>
       <span className="absolute bottom-4 right-4 text-white/50 text-xs font-mono">{i + 1} / {slides.length}</span>
     </div>

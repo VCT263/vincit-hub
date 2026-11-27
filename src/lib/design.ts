@@ -287,8 +287,8 @@ export const SIZES = [
   { k: "1x1", l: "Quadrado 1:1", w: 1080, h: 1080 },
   { k: "9x16", l: "Stories 9:16", w: 1080, h: 1920 },
 ];
-export type Slide = { id: string; layout: "capa" | "texto" | "lista" | "citacao" | "cta"; kicker?: string; title: string; body?: string; img?: string; bg: "primaria" | "escuro" | "claro" | "imagem" | "destaque" };
-export type Kit = { colors: Record<string, string>; title: string; body: string; tw: number; logo?: string; logoSvg?: string; name?: string };
+export type Slide = { id: string; layout: "capa" | "texto" | "lista" | "citacao" | "cta"; kicker?: string; title: string; body?: string; img?: string; bg: "primaria" | "escuro" | "claro" | "imagem" | "destaque"; grafismo?: boolean };
+export type Kit = { colors: Record<string, string>; title: string; body: string; tw: number; logo?: string; logoSvg?: string; name?: string; pattern?: { d: any; p: Pattern } };
 
 export const DEFAULT_KIT: Kit = { colors: { Primária: "#6eefb6", Apoio: "#3d525a", Destaque: "#f5c84c", Escuro: "#0c0c0d", Claro: "#f1f1f1" }, title: "Bricolage Grotesque", body: "Inter", tw: 800, name: "VINCIT" };
 
@@ -300,7 +300,9 @@ export function kitFrom(brand: any): Kit {
   const fav = ((d.logos || []) as Logo[]).find((l) => l.id === d.logo_id) || ((d.logos || []) as Logo[]).find((l) => l.fav);
   // logotipo da v2 (vetor desenhado) vale mais que o logo antigo da v1; nas peças ele ganha a cor do texto
   const lt = d.logotype?.svg as string | undefined;
-  return { colors, title: pair.title || DEFAULT_KIT.title, body: pair.body || DEFAULT_KIT.body, tw: pair.tw || 800, logo: lt ? svgUrl(lt) : fav?.svg ? svgUrl(fav.svg) : fav?.img, logoSvg: lt || fav?.svg, name: d.brief?.nome || brand?.title };
+  return { colors, title: pair.title || DEFAULT_KIT.title, body: pair.body || DEFAULT_KIT.body, tw: pair.tw || 800, logo: lt ? svgUrl(lt) : fav?.svg ? svgUrl(fav.svg) : fav?.img, logoSvg: lt || fav?.svg, name: d.brief?.nome || brand?.title,
+    // grafismo da etapa Grafismos (ex.: losango do i da ISYS): vai nas peças como textura
+    pattern: d.pattern ? { d, p: { source: d.monogram ? "monograma" : "simbolo", scale: 120, gap: 60, rotate: 0, offset: true, opacity: 1, bg: "#000", fg: "#000", ...d.pattern } } : undefined };
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -371,6 +373,15 @@ export async function drawSlide(cv: HTMLCanvasElement, s: Slide, kit: Kit, size:
     } catch {}
   }
   const accent = s.bg === "primaria" || s.bg === "destaque" ? fg : C["Primária"] === bg ? C["Destaque"] : C["Primária"];
+  // grafismo da marca: ligado por padrão na capa e na chamada final, desligável por página
+  if (kit.pattern && s.bg !== "imagem" && (s.grafismo ?? (s.layout === "capa" || s.layout === "cta"))) {
+    try {
+      const sc = W / 1080;
+      const svg = patternSvg(kit.pattern.d, { ...kit.pattern.p, bg: "none", fg, scale: kit.pattern.p.scale * sc, gap: kit.pattern.p.gap * sc }, W, H);
+      const pi = await loadImg(svgUrl(svg));
+      ctx.globalAlpha = .13; ctx.drawImage(pi, 0, 0, W, H); ctx.globalAlpha = 1;
+    } catch {}
+  }
   ctx.textBaseline = "alphabetic";
   const maxW = W - P * 2;
   const tSize = s.layout === "capa" ? W * .1 : s.layout === "citacao" ? W * .075 : W * .078;
