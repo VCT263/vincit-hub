@@ -5,56 +5,99 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <b>VINCIT HUB</b>
-    <span id="who" class="muted"></span>
+  <header class="top">
+    <img src="logo.png" class="logo" alt="VINCIT">
+    <span class="badge">HUB</span>
+    <span class="grow"></span>
+    <span id="who" class="who"></span>
+    <div id="btnLogout" class="icon-btn" title="Sair" hidden>Sair</div>
   </header>
 
   <!-- login -->
-  <section id="login" hidden>
-    <p class="muted">Entre com o mesmo e-mail e senha do HUB.</p>
-    <label>E-mail<input id="email" type="email"></label>
-    <label>Senha<input id="password" type="password"></label>
-    <button id="btnLogin" class="primary">Entrar</button>
+  <section id="login" class="card" hidden>
+    <div class="kicker">Entrar</div>
+    <p class="title">Conecte o Premiere ao HUB</p>
+    <p class="muted">Use o mesmo e-mail e senha do VINCIT HUB.</p>
+    <div class="field"><div class="lab">E-mail</div><input id="email" type="email" placeholder="voce@email.com"></div>
+    <div class="field"><div class="lab">Senha</div><input id="password" type="password" placeholder="••••••••"></div>
+    <div id="btnLogin" class="btn primary block">Entrar</div>
+    <p id="loginMsg" class="msg"></p>
   </section>
 
   <!-- painel -->
   <section id="main" hidden>
-    <div class="box">
-      <div class="lab">Sequência ativa</div>
-      <div id="seqName" class="big">—</div>
-      <div id="seqInfo" class="muted"></div>
-    </div>
-
-    <label>Conteúdo do HUB (roteiro e decupagem)
-      <select id="content"><option value="">Nenhum</option></select>
-    </label>
-    <label>Kit de estilo
-      <select id="kit"><option value="">Sem kit</option></select>
-    </label>
-    <label>O que você quer do Claude
-      <textarea id="request" rows="3" placeholder="Ex.: estilo impacto, cortar respiros, B-roll onde falar de anúncio, gancho nos 2 primeiros segundos"></textarea>
-    </label>
-    <div class="row">
-      <button id="btnTranscribe">Transcrever clipes</button>
-      <button id="btnSend" class="primary">Enviar ao Claude</button>
-    </div>
-    <p id="status" class="muted"></p>
-
-    <div id="planBox" class="box" hidden>
-      <div class="lab">Plano do Claude</div>
-      <p id="planSummary"></p>
-      <div id="planItems"></div>
-      <div class="row">
-        <button id="btnApply" class="primary">Aplicar selecionados</button>
-        <button id="btnDiscard">Descartar</button>
+    <!-- sequência -->
+    <div class="seq">
+      <div id="seqDot" class="dot"></div>
+      <div class="seq-text">
+        <div id="seqName" class="seq-name">Procurando a sequência…</div>
+        <div id="seqInfo" class="muted small"></div>
       </div>
-      <p class="muted small">Tudo entra como uma única ação. Ctrl+Z / Cmd+Z desfaz.</p>
+      <div id="btnRefresh" class="icon-btn" title="Ler de novo">Atualizar</div>
     </div>
+
+    <!-- plano pronto (do Editor do HUB ou do Claude) -->
+    <div id="planBox" class="card plan" hidden>
+      <div class="row-between">
+        <div class="kicker">Plano pronto</div>
+        <span id="planOrigin" class="tag"></span>
+      </div>
+      <p id="planSummary" class="plan-sum"></p>
+      <div id="planItems" class="items"></div>
+      <div class="row">
+        <div id="btnApply" class="btn primary grow">Aplicar no Premiere</div>
+        <div id="btnDiscard" class="btn ghost">Descartar</div>
+      </div>
+      <p class="muted small">Entra como uma ação só. Cmd+Z desfaz tudo.</p>
+    </div>
+
+    <!-- esperando o Claude -->
+    <div id="waitBox" class="card wait" hidden>
+      <div class="spinner"></div>
+      <div>
+        <div class="seq-name">Esperando o plano do Claude</div>
+        <div class="muted small">No Claude, peça: “faça o plano da edição do Premiere”.</div>
+      </div>
+    </div>
+
+    <!-- etapas -->
+    <div class="step">
+      <div class="num">1</div>
+      <div class="step-body">
+        <div class="step-title">Transcrever</div>
+        <div class="muted small">O Premiere transcreve os clipes de V1 e A1. Faça uma vez por sequência.</div>
+        <div id="btnTranscribe" class="btn ghost">Transcrever clipes</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">2</div>
+      <div class="step-body">
+        <div class="step-title">Enviar ao Claude</div>
+        <div class="lab">Conteúdo do HUB</div>
+        <input id="contentSearch" type="text" placeholder="Buscar roteiro…">
+        <div id="contentList" class="list"></div>
+        <div class="lab">Kit de estilo</div>
+        <div id="kitList" class="chips"></div>
+        <div class="lab">O que você quer</div>
+        <textarea id="request" placeholder="Ex.: ritmo rápido, cortar respiros, gancho nos 2 primeiros segundos"></textarea>
+        <div id="btnSend" class="btn primary block">Enviar ao Claude</div>
+      </div>
+    </div>
+
+    <div class="step last">
+      <div class="num">3</div>
+      <div class="step-body">
+        <div class="step-title">Aplicar</div>
+        <div class="muted small">O plano aparece no topo. Edições enviadas pelo Editor do HUB também chegam aqui.</div>
+      </div>
+    </div>
+
+    <p id="status" class="msg"></p>
 
     <div class="foot">
-      <a id="lnkHub" href="https://vincit-hub.vercel.app/audiovisual/premiere">Abrir no HUB</a>
-      <button id="btnLogout" class="link">Sair</button>
+      <span id="lnkHub" class="link">Abrir o HUB</span>
+      <span class="muted small">v0.3</span>
     </div>
   </section>
   <script src="hub.js"></script>
