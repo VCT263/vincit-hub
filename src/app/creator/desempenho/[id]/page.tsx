@@ -10,6 +10,7 @@ import { I } from "@/components/icons";
 import { pct, taxas } from "@/lib/mixModa";
 import { AreaChart, Spark, SignalColumns, HBar, LILAS, num } from "@/components/creator/Graficos";
 import { apagarComLixeira } from "@/lib/lixeira";
+import CompartilharPerfil from "@/components/creator/CompartilharPerfil";
 
 const FORMATOS: Record<string, string> = { REELS: "Reels", CAROUSEL_ALBUM: "Carrossel", IMAGE: "Foto", VIDEO: "Vídeo" };
 const formato = (t?: string) => FORMATOS[t || ""] || t || "Outro";
@@ -407,6 +408,7 @@ export default function Perfil() {
           ) : <p className="text-sm whitespace-pre-wrap line-clamp-6">{acc.brand_voice || <span className="text-fog">Ainda não definida. Com ela, legendas, roteiros e respostas saem com o jeito da marca.</span>}</p>}
         </section>
       </div>
+      <div className="mt-3"><CompartilharPerfil accountId={acc.id} ownerId={acc.owner_id} /></div>
     </>
   );
 }
