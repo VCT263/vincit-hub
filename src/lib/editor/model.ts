@@ -6,15 +6,36 @@
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
-export type TitleKind = "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra" | "frase" | "letreiro" | "data" | "lista" | "rec";
-export const TITLE_KINDS: TitleKind[] = ["gancho", "cta", "lower_third", "episodio", "capitulo", "palavra", "frase", "letreiro", "data", "lista", "rec"];
+export type TitleKind = "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra" | "frase" | "letreiro" | "data" | "lista" | "rec" | "vazado"
+  | "numero" | "grafico" | "checklist" | "seta" | "relogio" | "progresso";
+/** lettering: textos de destaque que entram e saem em momentos da fala */
+export const LETTERING_KINDS: TitleKind[] = ["gancho", "palavra", "vazado", "frase", "letreiro", "lower_third", "cta", "episodio", "capitulo", "data", "lista", "rec"];
+/** motion: animações desenhadas no próprio HUB, nas cores do kit (alternativa à imagem de inserção) */
+export const MOTION_KINDS: TitleKind[] = ["numero", "grafico", "checklist", "seta", "relogio", "progresso"];
+export const TITLE_KINDS: TitleKind[] = [...LETTERING_KINDS, ...MOTION_KINDS];
 export const TITLE_LABEL: Record<TitleKind, string> = {
   gancho: "Gancho", cta: "CTA", lower_third: "Nome na tela", episodio: "Abertura do episódio", capitulo: "Capítulo (roda)", palavra: "Palavra-chave",
-  frase: "Frase de impacto", letreiro: "Letreiro espaçado", data: "Data e lugar", lista: "Tela de explicação", rec: "Câmera REC",
+  frase: "Frase de impacto", letreiro: "Letreiro espaçado", data: "Data e lugar", lista: "Tela de explicação", rec: "Câmera REC", vazado: "Texto vazado (no espaço vazio)",
+  numero: "Número subindo", grafico: "Gráfico crescendo", checklist: "Checklist", seta: "Seta desenhada", relogio: "Relógio", progresso: "Barra de progresso",
+};
+/** o que cada texto/motion espera em "sub" */
+export const TITLE_SUB_HINT: Partial<Record<TitleKind, string>> = {
+  episodio: "Linha de baixo (ex.: EP. 03 · 2026)", capitulo: "Linha pequena (opcional)", lower_third: "Cargo ou @perfil", palavra: "Linha pequena",
+  frase: "Palavras na cor de destaque (ex.: conforto)", data: "Segunda linha (ex.: domingo · Floripa)", lista: "Itens separados por | (ex.: dormir | treinar | escrever)", rec: "Canto de baixo (ex.: 4K UHD)",
+  vazado: "Segunda linha, em itálico (ex.: no CapCut)", numero: "Legenda do número (ex.: das vendas)", grafico: "Legenda (ex.: faturamento em 3 meses)",
+  checklist: "Itens separados por |", seta: "Para onde aponta: esquerda, direita, cima ou baixo", relogio: "Legenda (ex.: por dia)", progresso: "Legenda (ex.: da meta)",
 };
 /** sub = linha pequena de cima (ex.: "EP. 03 · Nome da série" ou "Capítulo 2") */
 export type Title = { id: string; start: number; end: number; text: string; kind: TitleKind; sub?: string };
-export type Zoom = { id: string; start: number; end: number; scale: number };
+/** tipo: punch (entra rápido), push (aproxima devagar), pull (afasta devagar), tremida (impacto), chicote (passa rápido para o lado) */
+export type Zoom = { id: string; start: number; end: number; scale: number; tipo?: string };
+export const CAMERA_MOVES: [string, string, string][] = [
+  ["punch", "Punch-in", "Aproxima rápido e segura. Para frases fortes."],
+  ["push", "Aproximação lenta", "Vai chegando perto devagar. Para histórias e momentos sérios."],
+  ["pull", "Afastamento lento", "Abre o quadro devagar. Para conclusões e respiros."],
+  ["tremida", "Tremida de impacto", "Treme por meio segundo. Para números e revelações."],
+  ["chicote", "Chicote", "Passa rápido para o lado com desfoque. Para viradas de assunto."],
+];
 /** camera: 0 desligada, 1 suave, 2 média, 3 forte (sem valor, vale o do kit) */
 export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; captionsOn: boolean; edits: Record<string, string>; camera?: number; format?: Format;
   overlays?: Overlay[];
@@ -32,15 +53,22 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   estilo?: string;
 };
 /** B-roll por cima da fala: o vídeo/imagem cobre a tela (cheia) ou entra num cartão do lado; o som continua o da fala */
-export type OverlayMode = "cheia" | "esquerda" | "direita";
+export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade";
+export const OVERLAY_MODES: [OverlayMode, string][] = [["cheia", "Tela cheia"], ["esquerda", "Cartão à esquerda"], ["direita", "Cartão à direita"], ["polaroid", "Polaroid inclinada"], ["circulo", "Círculo"], ["metade", "Metade de cima"]];
 export type Overlay = { id: string; mediaId: string; start: number; end: number; in: number; mode: OverlayMode };
 
 export type Kit = {
   cores?: { destaque?: string; texto?: string; fundo?: string };
   fontes?: { titulo?: string; legenda?: string };
-  legenda?: { estilo?: string; palavras_por_tela?: number; caixa_alta?: boolean; altura?: number; altura_h?: number };
+  /** animacao: como cada tela de legenda entra; posicao: fixa ou muda a cada frase */
+  legenda?: { estilo?: string; palavras_por_tela?: number; caixa_alta?: boolean; altura?: number; altura_h?: number; animacao?: string; posicao?: string };
   regras?: { corte_max_s?: number; silencio_ms?: number; trilha_db?: number };
-  camera?: { intensidade?: number };
+  /** movimentos: quais movimentos o Editor pode sugerir */
+  camera?: { intensidade?: number; movimentos?: string[] };
+  /** camadas que o Editor sugere a partir da fala: quais tipos e com que frequência (pouco, medio, muito) */
+  lettering?: { tipos?: string[]; frequencia?: string };
+  insercao?: { modo?: string; frequencia?: string };
+  motion?: { tipos?: string[]; frequencia?: string };
   /** estilo padrão do cliente no catálogo numerado */
   estilo?: string;
   mogrts?: Record<string, string>;
@@ -64,7 +92,10 @@ export const DEFAULT_KIT: Kit = {
   fontes: { titulo: "Anton", legenda: "Inter Black" },
   legenda: { estilo: "impacto", palavras_por_tela: 3, caixa_alta: true, altura: 0.64 },
   regras: { corte_max_s: 4, silencio_ms: 350, trilha_db: -18 },
-  camera: { intensidade: 2 },
+  camera: { intensidade: 2, movimentos: ["punch", "push", "tremida"] },
+  lettering: { tipos: ["gancho", "palavra", "vazado", "frase", "cta"], frequencia: "medio" },
+  insercao: { modo: "cheia", frequencia: "medio" },
+  motion: { tipos: ["numero", "grafico", "checklist", "relogio", "progresso"], frequencia: "medio" },
 };
 
 export function mergeKit(k?: Kit | null): Kit {
@@ -75,6 +106,9 @@ export function mergeKit(k?: Kit | null): Kit {
     legenda: { ...d.legenda, ...(k?.legenda || {}) },
     regras: { ...d.regras, ...(k?.regras || {}) },
     camera: { ...d.camera, ...(k?.camera || {}) },
+    lettering: { ...d.lettering, ...(k?.lettering || {}) },
+    insercao: { ...d.insercao, ...(k?.insercao || {}) },
+    motion: { ...d.motion, ...(k?.motion || {}) },
     estilo: k?.estilo,
     mogrts: k?.mogrts,
   };
@@ -263,8 +297,12 @@ export function zoomAt(p: Project, t: number, cam: Camera = NO_CAMERA) {
   let punch = 1;
   for (const z of p.zooms) {
     if (t < z.start || t > z.end) continue;
-    const k = Math.min(1, (t - z.start) / 0.12, (z.end - t) / 0.12);
-    punch = 1 + (z.scale / 100 - 1) * Math.max(0, k);
+    const amt = z.scale / 100 - 1;
+    const len = Math.max(0.1, z.end - z.start);
+    if (z.tipo === "push") punch = 1 + amt * ease((t - z.start) / len);
+    else if (z.tipo === "pull") punch = 1 + amt * (1 - ease((t - z.start) / len));
+    else if (z.tipo === "tremida" || z.tipo === "chicote") punch = 1 + amt * 0.5 * Math.max(0, 1 - (t - z.start) / 0.5);
+    else punch = 1 + amt * Math.max(0, Math.min(1, (t - z.start) / 0.12, (z.end - t) / 0.12));
     break;
   }
   let jump = 1;
@@ -276,11 +314,28 @@ export function zoomAt(p: Project, t: number, cam: Camera = NO_CAMERA) {
   return punch * jump * transitionZoom(p, t) * cameraAt(cam, t);
 }
 
+/** deslocamento da câmera (tremida e chicote) no tempo t */
+export function shakeAt(p: Project, t: number) {
+  for (const z of p.zooms) {
+    if (t < z.start || t > z.end) continue;
+    const e = t - z.start;
+    if (z.tipo === "tremida" && e < 0.5) { const a = 26 * U * (1 - e / 0.5); return { x: Math.sin(e * 90) * a, y: Math.cos(e * 70) * a * 0.7, blur: 0 }; }
+    if (z.tipo === "chicote" && e < 0.35) { const k = Math.sin((e / 0.35) * Math.PI); return { x: k * W * 0.08, y: 0, blur: Math.round(k * 22) }; }
+  }
+  return { x: 0, y: 0, blur: 0 };
+}
+
 /** desenha a imagem cobrindo o quadro, com zoom no centro; take vertical em saída horizontal entra inteiro sobre um fundo desfocado */
-export function drawCover(ctx: Ctx, src: CanvasImageSource, sw: number, sh: number, zoom = 1, already916 = false) {
+export function drawCover(ctx: Ctx, src: CanvasImageSource, sw: number, sh: number, zoom = 1, already916 = false, fx?: { x: number; y: number; blur: number }) {
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, W, H);
   if (!sw || !sh) return;
+  if (fx && (fx.x || fx.y || fx.blur)) {
+    ctx.save(); ctx.translate(fx.x, fx.y); if (fx.blur) ctx.filter = `blur(${fx.blur}px)`;
+    drawCover(ctx, src, sw, sh, zoom * (fx.x || fx.y ? 1.06 : 1), already916);
+    ctx.restore();
+    return;
+  }
   if (isWide() && sw / sh < 1) {
     const cs = Math.max(W / sw, H / sh) * 1.08;
     ctx.save();
@@ -315,6 +370,10 @@ function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: numb
 
 /** estilos de legenda disponíveis (o catálogo numerado combina estes com cortes, câmera, transição e cor) */
 export const CAPTION_STYLES: [string, string][] = [
+  ["mix", "Mix tipográfico (bold condensada + itálica em destaque, muda de lugar a cada frase)"],
+  ["palavra", "Uma palavra por vez (pequena, no centro, estilo talking head)"],
+  ["bold", "Bold (branca pesada com sombra, palavra-chave colorida)"],
+  ["hormozi", "Hormozi (caixa alta, contorno, palavra dita em destaque e números em verde)"],
   ["impacto", "Impacto (caixa alta, contorno, palavra dita em destaque)"],
   ["karaoke", "Karaokê (a cor varre a palavra enquanto ela é dita)"],
   ["caixa", "Caixa colorida atrás da palavra"],
@@ -324,22 +383,51 @@ export const CAPTION_STYLES: [string, string][] = [
   ["neon", "Neon (brilho na cor de destaque)"],
   ["editorial", "Editorial (serifada, discreta)"],
   ["documental", "Documental (faixa simples embaixo)"],
+  ["classico", "Clássico (branca sobre faixa translúcida)"],
+  ["maquina", "Máquina de escrever (letra a letra, monoespaçada)"],
 ];
+export const CAPTION_ANIMS: [string, string][] = [["pop", "Pop (cresce e assenta)"], ["sobe", "Sobe (entra de baixo)"], ["desfoque", "Desfoque (entra nítida)"], ["nenhuma", "Sem animação"]];
 
 /** legenda da tela atual no estilo do kit */
 export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number] | undefined, t: number, kit: Kit) {
   if (!screen) return;
   const st = kit.legenda?.estilo || "impacto";
+  if (st === "palavra") {
+    // só a palavra que está sendo dita (ou a última dita)
+    const said = screen.words.filter((w) => t >= w.start);
+    const cur = said[said.length - 1] || screen.words[0];
+    screen = { ...screen, words: [cur] };
+  }
+  const idx = Math.round(screen.start * 7) % 3;
+  const anim = kit.legenda?.animacao || "pop";
+  const e = Math.max(0, Math.min(1, (t - screen.start) / 0.18));
+  ctx.save();
+  if (anim !== "nenhuma" && e < 1) {
+    const cy = H * (kit.legenda?.altura || 0.64);
+    if (anim === "pop") { const sc = 0.82 + 0.18 * (1 - Math.pow(1 - e, 3)) + 0.04 * Math.sin(e * Math.PI); ctx.translate(W / 2, cy); ctx.scale(sc, sc); ctx.translate(-W / 2, -cy); }
+    else if (anim === "sobe") { ctx.translate(0, (1 - e) * 60 * U); ctx.globalAlpha = e; }
+    else if (anim === "desfoque") { ctx.filter = `blur(${Math.round((1 - e) * 14)}px)`; ctx.globalAlpha = 0.3 + 0.7 * e; }
+  }
+  if (st === "mix") { drawMixCaption(ctx, screen, t, kit, idx); ctx.restore(); return; }
+  if (st === "maquina") { drawTypewriter(ctx, screen, t, kit); ctx.restore(); return; }
+  drawCaptionInner(ctx, screen, t, kit, st, idx);
+  ctx.restore();
+}
+
+function drawCaptionInner(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number], t: number, kit: Kit, st: string, idx: number) {
   const hi = kit.cores?.destaque || "#F5C84C";
   const fg = kit.cores?.texto || "#FFFFFF";
   const bg = kit.cores?.fundo || "#0c0c0d";
-  const upper = !!kit.legenda?.caixa_alta && !["editorial", "minimal", "serifa"].includes(st);
-  const y0 = H * (isWide() ? kit.legenda?.altura_h || 0.84 : kit.legenda?.altura || 0.64);
-  const base = { editorial: 92, documental: 54, caixa: 70, minimal: 52, serifa: 74, bloco: 72, neon: 80, karaoke: 84 }[st] ?? 84;
+  const upper = (!!kit.legenda?.caixa_alta && !["editorial", "minimal", "serifa", "palavra"].includes(st)) || st === "hormozi";
+  let y0 = H * (isWide() ? kit.legenda?.altura_h || 0.84 : kit.legenda?.altura || 0.64);
+  if (kit.legenda?.posicao === "variavel" && !isWide()) y0 = H * [0.62, 0.42, 0.72][idx];
+  if (st === "palavra") y0 = H * (isWide() ? 0.5 : 0.5);
+  const base = ({ editorial: 92, documental: 54, caixa: 70, minimal: 52, serifa: 74, bloco: 72, neon: 80, karaoke: 84, palavra: 58, bold: 82, hormozi: 86, classico: 56 } as Record<string, number>)[st] ?? 84;
   const size = U * base;
   const fontOf = (raw: string) => {
     if (st === "editorial") return css("Instrument Serif", size, true);
-    if (st === "minimal") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Medium", size);
+    if (st === "minimal" || st === "classico") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Medium", size);
+    if (st === "palavra") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Bold", size);
     if (st === "serifa" && isHot(raw)) return css("Instrument Serif", size * 1.25, true);
     return css(kit.fontes?.legenda, size);
   };
@@ -402,6 +490,22 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
         ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 14;
         ctx.fillStyle = fg; ctx.globalAlpha = said ? 1 : 0.4;
         ctx.fillText(w, x, y);
+      } else if (st === "palavra") {
+        ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 18;
+        ctx.fillStyle = isHot(word.t) ? hi : fg; ctx.fillText(w, x, y);
+      } else if (st === "bold") {
+        ctx.shadowColor = "rgba(0,0,0,.75)"; ctx.shadowBlur = 22; ctx.shadowOffsetY = 6;
+        ctx.fillStyle = isHot(word.t) && said ? hi : fg; ctx.globalAlpha = said ? 1 : 0.6;
+        ctx.fillText(w, x, y);
+      } else if (st === "hormozi") {
+        const pop = active ? 1 + 0.1 * Math.max(0, 1 - (t - word.start) / 0.12) : 1;
+        ctx.translate(x + ww / 2, y); ctx.scale(pop, pop); ctx.translate(-(x + ww / 2), -y);
+        ctx.lineJoin = "round"; ctx.lineWidth = size * 0.18; ctx.strokeStyle = "#000"; ctx.strokeText(w, x, y);
+        ctx.fillStyle = /\d/.test(word.t) ? "#3DDC84" : active ? hi : fg;
+        ctx.fillText(w, x, y);
+      } else if (st === "classico") {
+        ctx.fillStyle = "rgba(0,0,0,.6)"; roundRect(ctx, x - 10, y - size * 0.66, ww + 20, size * 1.32, 8); ctx.fill();
+        ctx.fillStyle = fg; ctx.fillText(w, x, y);
       } else if (st === "neon") {
         ctx.globalAlpha = said ? 1 : 0.35;
         ctx.shadowColor = hi; ctx.shadowBlur = active ? 40 : 22;
@@ -418,6 +522,65 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
       ctx.restore();
       x += ww + space;
     });
+  });
+}
+
+/** mix tipográfico: palavras comuns em bold condensada, as fortes em serifa itálica na cor de destaque, empilhadas; o bloco muda de lugar a cada frase */
+function drawMixCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number], t: number, kit: Kit, idx: number) {
+  const hi = kit.cores?.destaque || "#F5C84C", fg = kit.cores?.texto || "#fff";
+  const said = screen.words.filter((w) => t >= w.start - 0.02);
+  if (!said.length) return;
+  const wide = isWide();
+  const size = wide ? 80 : 128;
+  const hotIdx = screen.words.findIndex((w) => isHot(w.t));
+  const accent = hotIdx >= 0 ? hotIdx : screen.words.length - 1;
+  // linhas: até o destaque numa linha, o destaque (itálico) noutra, o resto noutra
+  const parts: { txt: string; italic: boolean; w: (typeof said)[number][] }[] = [];
+  const before = screen.words.slice(0, accent), acc = screen.words[accent], after = screen.words.slice(accent + 1);
+  if (before.length) parts.push({ txt: before.map((w) => w.t).join(" "), italic: false, w: before });
+  parts.push({ txt: acc.t, italic: true, w: [acc] });
+  if (after.length) parts.push({ txt: after.map((w) => w.t).join(" "), italic: false, w: after });
+  const cx = wide ? [W * 0.28, W * 0.72, W * 0.5][idx] : W / 2;
+  const cy = wide ? H * 0.72 : H * [0.66, 0.3, 0.5][idx];
+  const lh = size * 0.98;
+  ctx.textBaseline = "middle";
+  parts.forEach((pt, i) => {
+    if (!pt.w.some((w) => t >= w.start - 0.02)) return;
+    const txt = pt.italic ? pt.txt.toLowerCase().replace(/[.,!?]+$/, "") : pt.txt.toUpperCase();
+    ctx.font = pt.italic ? css("Instrument Serif", size * 1.15, true) : css(kit.fontes?.titulo || "Anton", size * 0.86);
+    const tw = ctx.measureText(txt).width;
+    const sc = Math.min(1, (W * (wide ? 0.4 : 0.86)) / tw);
+    const y = cy + (i - (parts.length - 1) / 2) * lh;
+    const k = Math.min(1, (t - pt.w[0].start) / 0.16);
+    ctx.save();
+    ctx.globalAlpha *= Math.max(0, k);
+    ctx.translate(cx, y + (1 - k) * 18); ctx.scale(sc, sc);
+    ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 24;
+    ctx.fillStyle = pt.italic ? hi : fg;
+    ctx.fillText(txt, -tw / 2, 0);
+    ctx.restore();
+  });
+}
+
+/** máquina de escrever: as letras aparecem uma a uma, com cursor */
+function drawTypewriter(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number], t: number, kit: Kit) {
+  const fg = kit.cores?.texto || "#fff", hi = kit.cores?.destaque || "#F5C84C";
+  const full = screen.words.map((w) => w.t).join(" ").toLowerCase();
+  const dur = Math.max(0.2, (screen.words[screen.words.length - 1].end - screen.start) * 0.85);
+  const n = Math.round(full.length * Math.min(1, (t - screen.start) / dur));
+  const size = 58 * U;
+  ctx.font = css("JetBrains Mono", size);
+  ctx.textBaseline = "middle";
+  const lines = wrapLines(ctx, full.slice(0, n).split(" "), W * 0.8);
+  const y0 = H * (isWide() ? 0.84 : kit.legenda?.altura || 0.64);
+  lines.forEach((ln, i) => {
+    const tx = ln.join(" ");
+    const tw = ctx.measureText(tx).width;
+    const x = (W - ctx.measureText(full.slice(0, Math.min(full.length, 34))).width) / 2;
+    const y = y0 + (i - (lines.length - 1) / 2) * size * 1.3;
+    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(x - 14, y - size * 0.7, tw + 28 + (i === lines.length - 1 ? size * 0.7 : 0), size * 1.4);
+    ctx.fillStyle = fg; ctx.fillText(tx, x, y);
+    if (i === lines.length - 1 && Math.floor(t * 3) % 2 === 0) { ctx.fillStyle = hi; ctx.fillRect(x + tw + 6, y - size * 0.5, size * 0.5, size); }
   });
 }
 
@@ -630,6 +793,20 @@ export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit, all: Title[]
     ctx.font = css("JetBrains Mono", 30); const tcw = ctx.measureText(tc).width;
     ctx.fillText(tc, (W - tcw) / 2, H - m - 40);
     ctx.fillText(tt.sub || "4K UHD", m + 30, H - m - 40);
+  } else if (tt.kind === "vazado") {
+    // texto vazado: grande, meio transparente, no espaço vazio ao lado de quem fala; 1ª linha bold, 2ª em itálico
+    const big = (wide ? 190 : 210) * (tt.text.length > 9 ? 9 / tt.text.length : 1);
+    const left = Math.round(tt.start * 3) % 2 === 0;
+    const x0 = wide ? (left ? W * 0.06 : W * 0.52) : W * 0.07;
+    const y0 = wide ? H * 0.36 : H * 0.2;
+    const blur = Math.round((1 - k) * 16);
+    if (blur) ctx.filter = `blur(${blur}px)`;
+    ctx.globalAlpha = 0.82 * Math.max(0, Math.min(k, out));
+    ctx.font = css(kit.fontes?.titulo, big);
+    ctx.fillStyle = fg; ctx.fillText(tt.text.toLowerCase(), x0, y0 + (1 - k) * 40);
+    if (tt.sub) { ctx.font = css("Instrument Serif", big * 0.78, true); ctx.fillStyle = hi; ctx.fillText(tt.sub.toLowerCase(), x0 + big * 0.35, y0 + big * 0.86 + (1 - k) * 60); }
+  } else if (MOTION_KINDS.includes(tt.kind)) {
+    drawMotion(ctx, tt, t, kit, Math.max(0, Math.min(k, out)));
   } else if (tt.kind === "palavra") {
     // palavra-chave que aparece do lado de quem fala (horizontal) ou no alto (vertical)
     const size = wide ? 120 : 120;
@@ -662,11 +839,148 @@ export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit, all: Title[]
   ctx.restore();
 }
 
+/** motion: fundo do próprio quadro desfocado e escurecido, e a animação no centro nas cores do kit */
+function drawMotion(ctx: Ctx, tt: Title, t: number, kit: Kit, a: number) {
+  const fg = kit.cores?.texto || "#fff", hi = kit.cores?.destaque || "#F5C84C";
+  const wide = isWide();
+  const e = Math.max(0, t - tt.start);
+  const len = Math.max(0.6, tt.end - tt.start);
+  const p = ease(Math.min(1, e / Math.min(1.4, len * 0.6))); // progresso da animação
+  ctx.save(); ctx.globalAlpha = a; ctx.filter = "blur(26px) brightness(.45)"; ctx.drawImage(ctx.canvas as CanvasImageSource, 0, 0, W, H); ctx.restore();
+  ctx.globalAlpha = a;
+  const cx = W / 2, cy = H * (wide ? 0.46 : 0.44);
+  const label = (txt: string | undefined, y: number, size = 52) => {
+    if (!txt) return;
+    ctx.font = css(kit.fontes?.legenda?.replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Bold", size * U * (wide ? 1.1 : 1));
+    const w = ctx.measureText(txt).width; ctx.fillStyle = fg; ctx.fillText(txt, cx - w / 2, y);
+  };
+  ctx.textBaseline = "middle";
+  if (tt.kind === "numero") {
+    // número subindo até o valor (mantém R$, %, x, k)
+    const m = tt.text.match(/^(\D*?)([\d.,]+)(.*)$/);
+    const pre = m?.[1] || "", raw = m?.[2] || "0", suf = m?.[3] || "";
+    const val = parseFloat(raw.replace(/\./g, "").replace(",", ".")) || 0;
+    const dec = raw.includes(",") ? (raw.split(",")[1] || "").length : 0;
+    const cur = (val * p).toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const size = (wide ? 230 : 250) * (1 + 0.06 * Math.max(0, 1 - Math.abs(p - 1) * 8));
+    ctx.font = css(kit.fontes?.titulo, size);
+    const txt = pre + cur + suf; const w = ctx.measureText(txt).width;
+    ctx.shadowColor = hi; ctx.shadowBlur = 40 * p; ctx.fillStyle = hi; ctx.fillText(txt, cx - w / 2, cy);
+    ctx.shadowBlur = 0;
+    label(tt.sub, cy + size * 0.72);
+  } else if (tt.kind === "grafico") {
+    const vals = [0.32, 0.48, 0.62, 1];
+    const bw = (wide ? 120 : 130) * U * (wide ? 1.4 : 1), gap = bw * 0.45, hmax = H * (wide ? 0.42 : 0.28);
+    const x0 = cx - (vals.length * bw + (vals.length - 1) * gap) / 2, yb = cy + hmax / 2;
+    vals.forEach((v, i) => {
+      const pi = ease(Math.min(1, Math.max(0, (e - i * 0.18) / 0.6)));
+      const h = hmax * v * pi;
+      ctx.fillStyle = i === vals.length - 1 ? hi : "rgba(255,255,255,.35)";
+      roundRect(ctx, x0 + i * (bw + gap), yb - h, bw, h, 14); ctx.fill();
+    });
+    // seta subindo
+    const pa = ease(Math.min(1, Math.max(0, (e - 0.6) / 0.6)));
+    if (pa > 0) {
+      ctx.strokeStyle = fg; ctx.lineWidth = 10 * U; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      const ax = x0 - bw * 0.2, ay = yb - hmax * 0.25, bx = x0 + vals.length * (bw + gap) - gap + bw * 0.1, by = yb - hmax * 1.05;
+      const ex = ax + (bx - ax) * pa, ey = ay + (by - ay) * pa;
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
+      const ang = Math.atan2(by - ay, bx - ax), hl = 40 * U;
+      ctx.beginPath(); ctx.moveTo(ex - hl * Math.cos(ang - 0.5), ey - hl * Math.sin(ang - 0.5)); ctx.lineTo(ex, ey); ctx.lineTo(ex - hl * Math.cos(ang + 0.5), ey - hl * Math.sin(ang + 0.5)); ctx.stroke();
+    }
+    ctx.font = css(kit.fontes?.titulo, 96 * U * (wide ? 1.2 : 1)); const tw = ctx.measureText(tt.text).width; ctx.fillStyle = fg; ctx.fillText(tt.text, cx - tw / 2, yb - hmax - 110 * U);
+    label(tt.sub, yb + 80 * U, 44);
+  } else if (tt.kind === "checklist") {
+    const items = (tt.sub || tt.text).split(/\s*[|;\n]\s*/).filter(Boolean).slice(0, 5);
+    const size = 62 * U * (wide ? 1.2 : 1), step = size * 1.9;
+    const x0 = wide ? W * 0.34 : W * 0.14, y0 = cy - ((items.length - 1) * step) / 2 + (tt.sub ? size * 0.6 : 0);
+    if (tt.sub) { ctx.font = css(kit.fontes?.titulo, size * 1.2); ctx.fillStyle = hi; ctx.fillText(tt.text, x0, y0 - step * 1.1); }
+    items.forEach((it, i) => {
+      const pi = Math.min(1, Math.max(0, (e - 0.2 - i * 0.45) / 0.3));
+      if (pi <= 0) return;
+      const y = y0 + i * step, bx = x0, s = size * 1.05;
+      ctx.globalAlpha = a * pi;
+      ctx.strokeStyle = fg; ctx.lineWidth = 6 * U; roundRect(ctx, bx, y - s / 2, s, s, 12); ctx.stroke();
+      const pc = Math.min(1, Math.max(0, (e - 0.35 - i * 0.45) / 0.25));
+      if (pc > 0) {
+        ctx.strokeStyle = hi; ctx.lineWidth = 10 * U; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(bx + s * 0.2, y); ctx.lineTo(bx + s * 0.42, y + s * 0.22 * Math.min(1, pc * 2));
+        if (pc > 0.5) ctx.lineTo(bx + s * 0.42 + s * 0.42 * (pc - 0.5) * 2, y + s * 0.22 - s * 0.5 * (pc - 0.5) * 2);
+        ctx.stroke();
+      }
+      ctx.font = css(kit.fontes?.legenda, size); ctx.fillStyle = fg; ctx.fillText(it, bx + s * 1.5, y);
+    });
+  } else if (tt.kind === "seta") {
+    const dir = (tt.sub || "baixo").toLowerCase();
+    const size = 90 * U * (wide ? 1.2 : 1);
+    ctx.font = css("Instrument Serif", size, true);
+    const tw = ctx.measureText(tt.text).width;
+    ctx.fillStyle = hi; ctx.fillText(tt.text, cx - tw / 2, cy - size);
+    const L = (wide ? 260 : 300) * U * p;
+    const dx = dir.startsWith("esq") ? -1 : dir.startsWith("dir") ? 1 : 0, dy = dir.startsWith("cim") ? -1 : dx ? 0.35 : 1;
+    const sx = cx, sy = cy - size * 0.2;
+    const ex = sx + dx * L, ey = sy + dy * L * (dx ? 1 : 1);
+    ctx.strokeStyle = fg; ctx.lineWidth = 12 * U; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dx * L * 0.2 + 60 * U, sy + dy * L * 0.5, ex, ey); ctx.stroke();
+    if (p > 0.9) { const ang = Math.atan2(ey - sy, ex - sx); const hl = 46 * U; ctx.beginPath(); ctx.moveTo(ex - hl * Math.cos(ang - 0.55), ey - hl * Math.sin(ang - 0.55)); ctx.lineTo(ex, ey); ctx.lineTo(ex - hl * Math.cos(ang + 0.55), ey - hl * Math.sin(ang + 0.55)); ctx.stroke(); }
+  } else if (tt.kind === "relogio") {
+    const r = (wide ? 170 : 190) * U * (wide ? 1.3 : 1);
+    ctx.strokeStyle = fg; ctx.lineWidth = 12 * U; ctx.beginPath(); ctx.arc(cx, cy - r * 0.3, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = hi; ctx.globalAlpha = a * 0.25; ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.3); ctx.arc(cx, cy - r * 0.3, r * 0.9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p * 0.75); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = a;
+    const ang = -Math.PI / 2 + e * Math.PI * 2.2;
+    ctx.strokeStyle = hi; ctx.lineWidth = 12 * U; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.3); ctx.lineTo(cx + Math.cos(ang) * r * 0.75, cy - r * 0.3 + Math.sin(ang) * r * 0.75); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.3); ctx.lineTo(cx + Math.cos(ang / 12) * r * 0.45, cy - r * 0.3 + Math.sin(ang / 12) * r * 0.45); ctx.stroke();
+    ctx.font = css(kit.fontes?.titulo, 120 * U * (wide ? 1.2 : 1)); const tw = ctx.measureText(tt.text).width; ctx.fillStyle = fg; ctx.fillText(tt.text, cx - tw / 2, cy + r * 0.7 + 110 * U);
+    label(tt.sub, cy + r * 0.7 + 210 * U, 44);
+  } else if (tt.kind === "progresso") {
+    const val = Math.max(0, Math.min(100, parseFloat(tt.text.replace(",", ".")) || 0));
+    const bw = W * (wide ? 0.5 : 0.76), bh = 54 * U * (wide ? 1.2 : 1), x0 = cx - bw / 2;
+    ctx.fillStyle = "rgba(255,255,255,.18)"; roundRect(ctx, x0, cy - bh / 2, bw, bh, bh / 2); ctx.fill();
+    const fw = Math.max(bh, bw * (val / 100) * p);
+    ctx.fillStyle = hi; roundRect(ctx, x0, cy - bh / 2, fw, bh, bh / 2); ctx.fill();
+    ctx.font = css(kit.fontes?.titulo, 150 * U * (wide ? 1.2 : 1)); const txt = `${Math.round(val * p)}%`; const tw = ctx.measureText(txt).width;
+    ctx.fillStyle = fg; ctx.fillText(txt, cx - tw / 2, cy - bh - 90 * U);
+    label(tt.sub, cy + bh + 60 * U, 46);
+  }
+}
+
 /** B-roll por cima: tela cheia ou cartão lateral arredondado com sombra (estilo print do Strava ao lado) */
 export function drawInsert(ctx: Ctx, ov: Overlay, src: CanvasImageSource, sw: number, sh: number, t: number) {
   if (!sw || !sh) return;
   const k = Math.min(1, (t - ov.start) / 0.25, (ov.end - t) / 0.25);
   ctx.save();
+  if (ov.mode === "polaroid" || ov.mode === "circulo" || ov.mode === "metade") {
+    const wide = isWide();
+    const pop = 0.7 + 0.3 * (1 - Math.pow(1 - Math.max(0, Math.min(1, k)), 3)) + 0.05 * Math.sin(Math.min(1, k) * Math.PI);
+    ctx.globalAlpha = Math.max(0, Math.min(1, k * 1.5));
+    if (ov.mode === "metade") {
+      const h2 = H / 2, s = Math.max(W / sw, h2 / sh);
+      ctx.translate(0, -(1 - Math.max(0, k)) * h2 * 0.3);
+      ctx.beginPath(); ctx.rect(0, 0, W, h2); ctx.clip();
+      ctx.drawImage(src, (W - sw * s) / 2, (h2 - sh * s) / 2, sw * s, sh * s);
+      ctx.restore(); ctx.save(); ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(0, H / 2 - 3, W, 6);
+    } else if (ov.mode === "circulo") {
+      const r = (wide ? H * 0.3 : W * 0.3), cx = wide ? W * 0.75 : W / 2, cy = wide ? H / 2 : H * 0.3;
+      ctx.translate(cx, cy); ctx.scale(pop, pop); ctx.translate(-cx, -cy);
+      ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 40;
+      ctx.beginPath(); ctx.arc(cx, cy, r + 10, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill(); ctx.shadowColor = "transparent";
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      const s = Math.max((2 * r) / sw, (2 * r) / sh); ctx.drawImage(src, cx - (sw * s) / 2, cy - (sh * s) / 2, sw * s, sh * s);
+    } else {
+      const pw = wide ? H * 0.62 : W * 0.66, ph = pw * 1.12, cx = wide ? W * 0.74 : W / 2, cy = wide ? H / 2 : H * 0.32;
+      const rot = (Math.round(ov.start * 5) % 2 ? 1 : -1) * 0.06;
+      ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(pop, pop); ctx.translate(-cx, -cy);
+      ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 50; ctx.shadowOffsetY = 14;
+      ctx.fillStyle = "#f7f5f0"; ctx.fillRect(cx - pw / 2, cy - ph / 2, pw, ph); ctx.shadowColor = "transparent";
+      const m = pw * 0.06, iw = pw - 2 * m, ih = ph - m - pw * 0.22;
+      ctx.beginPath(); ctx.rect(cx - pw / 2 + m, cy - ph / 2 + m, iw, ih); ctx.clip();
+      const s = Math.max(iw / sw, ih / sh); ctx.drawImage(src, cx - pw / 2 + m + (iw - sw * s) / 2, cy - ph / 2 + m + (ih - sh * s) / 2, sw * s, sh * s);
+    }
+    ctx.restore();
+    return;
+  }
   if (ov.mode === "cheia") {
     ctx.globalAlpha = Math.max(0, Math.min(1, k * 1.5));
     const s = Math.max(W / sw, H / sh) * (1 + 0.04 * Math.min(1, (t - ov.start) / Math.max(1, ov.end - ov.start))); // leve aproximação durante o B-roll
@@ -709,7 +1023,9 @@ export function drawOverlays(ctx: Ctx, p: Project, screens: ReturnType<typeof ca
   // REC e frase mexem no quadro inteiro: vão antes dos outros textos
   const on = p.titles.filter((tt) => t >= tt.start && t < tt.end).sort((a, b) => (a.kind === "rec" ? -1 : 0) - (b.kind === "rec" ? -1 : 0));
   for (const tt of on) drawTitle(ctx, tt, t, kit, p.titles);
-  if (p.captionsOn) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kit);
+  // telas cheias (motion, frase, explicação, abertura) tiram a legenda da frente
+  const full = on.some((tt) => MOTION_KINDS.includes(tt.kind) || ["frase", "lista", "episodio", "capitulo"].includes(tt.kind));
+  if (p.captionsOn && !full) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kit);
   drawFade(ctx, p, t);
 }
 
