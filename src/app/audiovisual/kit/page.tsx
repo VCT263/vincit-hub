@@ -5,7 +5,7 @@ import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
-  CAMERA_LEVELS, DEFAULT_KIT, FONTS, FONTS_CSS, H, W, captionScreens, cameraAt, drawOverlays, mergeKit, speechCamera,
+  CAMERA_LEVELS, DEFAULT_KIT, FONTS, FONTS_CSS, H, W, setFormat, captionScreens, cameraAt, drawOverlays, mergeKit, speechCamera,
   type Kit, type Project,
 } from "@/lib/editor/model";
 
@@ -40,7 +40,8 @@ export default function KitPage() {
   const [profiles, setProfiles] = useState<{ id: string; username: string }[]>([]);
   const [edit, setEdit] = useState<Row | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [title, setTitle] = useState<"gancho" | "cta" | "lower_third">("gancho");
+  const [title, setTitle] = useState<"gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra">("gancho");
+  const [wide, setWide] = useState(false);
 
   const load = useCallback(async () => {
     const s = createClient();
@@ -114,7 +115,7 @@ export default function KitPage() {
       )}
 
       {edit && d && (
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
+        <div className={`grid gap-4 ${wide ? "lg:grid-cols-[minmax(0,1fr)_480px]" : "lg:grid-cols-[minmax(0,1fr)_340px]"}`}>
           <section className="card p-5 space-y-5 min-w-0">
             <div className="grid sm:grid-cols-2 gap-3">
               <Field label="Nome do kit"><input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="ISYS · Impacto amarelo" /></Field>
@@ -154,7 +155,9 @@ export default function KitPage() {
               </div>
               <div className="grid grid-cols-3 gap-3 mt-3">
                 <Field label={`Palavras por tela: ${d.legenda?.palavras_por_tela}`}><input type="range" min={1} max={6} value={d.legenda?.palavras_por_tela ?? 3} onChange={(e) => set(["legenda", "palavras_por_tela"], +e.target.value)} className="w-full accent-[var(--color-mint)]" /></Field>
-                <Field label={`Altura: ${Math.round((d.legenda?.altura ?? 0.64) * 100)}%`}><input type="range" min={0.4} max={0.85} step={0.01} value={d.legenda?.altura ?? 0.64} onChange={(e) => set(["legenda", "altura"], +e.target.value)} className="w-full accent-[var(--color-mint)]" /></Field>
+                {wide
+                  ? <Field label={`Altura no 16:9: ${Math.round((d.legenda?.altura_h ?? 0.84) * 100)}%`}><input type="range" min={0.5} max={0.92} step={0.01} value={d.legenda?.altura_h ?? 0.84} onChange={(e) => set(["legenda", "altura_h"], +e.target.value)} className="w-full accent-[var(--color-mint)]" /></Field>
+                  : <Field label={`Altura no 9:16: ${Math.round((d.legenda?.altura ?? 0.64) * 100)}%`}><input type="range" min={0.4} max={0.85} step={0.01} value={d.legenda?.altura ?? 0.64} onChange={(e) => set(["legenda", "altura"], +e.target.value)} className="w-full accent-[var(--color-mint)]" /></Field>}
                 <Field label="Caixa alta"><select className="input" value={d.legenda?.caixa_alta ? "1" : "0"} onChange={(e) => set(["legenda", "caixa_alta"], e.target.value === "1")}><option value="1">Sim</option><option value="0">Não</option></select></Field>
               </div>
             </Group>
@@ -192,10 +195,15 @@ export default function KitPage() {
           </section>
 
           <aside className="card p-4 lg:sticky lg:top-4 self-start">
-            <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Prévia ao vivo</p>
-            <Preview kit={d} title={title} />
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Prévia ao vivo</p>
+              <div className="flex rounded-lg border border-line overflow-hidden text-[11px]">
+                {[[false, "9:16"], [true, "16:9"]].map(([v, l]) => <button key={String(v)} onClick={() => setWide(v as boolean)} className={`px-2 py-1 font-semibold ${wide === v ? "bg-mint/10 text-mint" : "text-fog"}`}>{l as string}</button>)}
+              </div>
+            </div>
+            <Preview kit={d} title={title} wide={wide} />
             <div className="grid grid-cols-3 gap-1 mt-2">
-              {([["gancho", "Gancho"], ["cta", "CTA"], ["lower_third", "Lower-third"]] as const).map(([v, l]) => (
+              {([["gancho", "Gancho"], ["cta", "CTA"], ["lower_third", "Lower-third"], ["episodio", "Abertura"], ["capitulo", "Capítulo"], ["palavra", "Palavra"]] as const).map(([v, l]) => (
                 <button key={v} onClick={() => setTitle(v)} className={`rounded-lg border px-1 py-1.5 text-[11px] font-semibold ${title === v ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
               ))}
             </div>
@@ -207,16 +215,19 @@ export default function KitPage() {
 }
 
 /** prévia 9:16 animada: fundo com o gradiente do kit, título, legenda e a câmera da fala */
-function Preview({ kit, title }: { kit: Kit; title: "gancho" | "cta" | "lower_third" }) {
+function Preview({ kit, title, wide }: { kit: Kit; title: "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra"; wide: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  setFormat(wide ? "16:9" : "9:16");
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
+    setFormat(wide ? "16:9" : "9:16");
     const ctx = c.getContext("2d")!;
     const screens = captionScreens(sampleWords, kit.legenda?.palavras_por_tela || 3);
     const cam = speechCamera(sampleWords, kit.camera?.intensidade ?? 0);
-    const text = title === "gancho" ? "O erro que trava suas vendas" : title === "cta" ? "Comenta EU QUERO" : "Vinícius · VINCIT";
-    const p: Project = { segments: [], titles: [{ id: "t", start: 0, end: SAMPLE_LEN, text, kind: title }], zooms: [], captionsOn: true, edits: {} };
+    const T: Record<string, [string, string?]> = { gancho: ["O erro que trava suas vendas"], cta: ["Comenta EU QUERO"], lower_third: ["Vinícius Gontijo", "VINCIT"], episodio: ["21KM em Floripa", "2026"], capitulo: ["A largada", "Capítulo 2"], palavra: ["Consistência"] };
+    const [text, sub] = T[title];
+    const p: Project = { segments: [], titles: [{ id: "t", start: 0, end: SAMPLE_LEN + 1, text, sub, kind: title }], zooms: [], captionsOn: title !== "episodio", edits: {} };
     let raf = 0;
     const t0 = performance.now();
     const frame = () => {
@@ -239,8 +250,8 @@ function Preview({ kit, title }: { kit: Kit; title: "gancho" | "cta" | "lower_th
     };
     frame();
     return () => cancelAnimationFrame(raf);
-  }, [kit, title]);
-  return <canvas ref={ref} width={W} height={H} className="w-full aspect-[9/16] rounded-xl mt-2 bg-ink" />;
+  }, [kit, title, wide]);
+  return <canvas key={wide ? "h" : "v"} ref={ref} width={W} height={H} className={`w-full rounded-xl mt-2 bg-ink ${wide ? "aspect-video" : "aspect-[9/16]"}`} />;
 }
 
 function KitThumb({ kit }: { kit: Kit }) {
