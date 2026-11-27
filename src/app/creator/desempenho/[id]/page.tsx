@@ -231,14 +231,14 @@ export default function Perfil() {
         <h2 className="font-display text-xl font-bold">Compartilhamentos e salvamentos por alcance</h2>
         <p className="text-sm text-fog mb-3 max-w-2xl">O Instagram hoje pesa mais compartilhamentos, salvamentos, tempo assistido e views do que curtidas e seguidores. Média dos últimos {posts.length} posts sincronizados.</p>
 
-        <div className="grid lg:grid-cols-3 gap-3">
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+        <div className="grid gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Big label="Compartilhamentos" value={pct(compartMed, 2)} hint="por pessoa alcançada" dot="var(--color-mint)" />
             <Big label="Salvamentos" value={pct(salvosMed, 2)} hint="por pessoa alcançada" dot={LILAS} />
             <Big label="Alcance médio" value={num(avgReach && Math.round(avgReach))} hint="pessoas por post" />
-            <Big label="Views médias" value={num(avgViews && Math.round(avgViews))} hint={`engajamento ${engRate != null ? (engRate * 100).toFixed(1) + "%" : "–"} por seguidor (pesa menos)`} />
+            <Big label="Views médias" value={num(avgViews && Math.round(avgViews))} hint={`engajamento ${pct(engRate)} por seguidor (pesa menos)`} />
           </div>
-          <div className="card p-4 md:p-5 lg:col-span-2 flex flex-col">
+          <div className="card p-4 md:p-5 flex flex-col">
             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
               <div><p className="font-display font-bold">Post a post</p><p className="text-xs text-fog">Cada coluna é um post, do mais antigo ao mais recente. Passe o dedo ou o mouse para ver.</p></div>
               <div className="flex gap-3 text-xs text-fog">
@@ -262,7 +262,7 @@ export default function Perfil() {
                 <li key={r.k}>
                   <div className="flex items-baseline gap-3 mb-1.5">
                     <span className={`font-display text-lg font-extrabold w-6 ${i === 0 ? "text-mint" : "text-fog"}`}>{i + 1}</span>
-                    <span className="font-semibold flex-1">{formato(r.k)} <span className="text-fog text-xs font-normal">· {r.n} {r.n === 1 ? "post" : "posts"}{r.reach != null ? ` · ${num(Math.round(r.reach))} de alcance médio` : ""}</span></span>
+                    <span className="font-semibold flex-1 min-w-0">{formato(r.k)}<span className="block text-fog text-[11px] font-normal">{r.n} {r.n === 1 ? "post" : "posts"}{r.reach != null ? ` · alcance médio ${num(Math.round(r.reach))}` : ""}</span></span>
                     <span className="font-semibold text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>{useRate ? pct(r.val, 2) : num(Math.round(r.val))}</span>
                   </div>
                   <div className="pl-9"><HBar value={r.val} max={ranking[0].val} color={i === 0 ? "var(--color-mint)" : "var(--color-slate)"} /></div>
@@ -284,7 +284,7 @@ export default function Perfil() {
                 return (
                   <a key={p.id} href={p.permalink} target="_blank" className="group rounded-[12px] overflow-hidden bg-panel2 border border-line hover:border-mint transition-colors">
                     <div className="relative aspect-[4/5] bg-ink">
-                      {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform" /> : null}
+                      {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform" /> : <p className="absolute inset-x-3 top-10 text-xs text-fog line-clamp-5">{p.caption || "(sem legenda)"}</p>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                       <span className="absolute top-2 left-2 font-display font-extrabold text-sm bg-black/60 text-paper rounded-md px-1.5">#{i + 1}</span>
                       {xm != null && <span className={`absolute top-2 right-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${xm >= 2 ? "bg-mint text-[#06140e]" : "bg-black/60 text-paper"}`}>{xm.toFixed(1)}x mediana</span>}
@@ -398,12 +398,14 @@ function Cell({ v, max, color }: { v: number | null; max: number; color: string 
   );
 }
 
+const UF: Record<string, string> = { Acre: "AC", Alagoas: "AL", "Amapá": "AP", Amazonas: "AM", Bahia: "BA", "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES", "Goiás": "GO", "Maranhão": "MA", "Mato Grosso": "MT", "Mato Grosso do Sul": "MS", "Minas Gerais": "MG", "Pará": "PA", "Paraíba": "PB", "Paraná": "PR", Pernambuco: "PE", "Piauí": "PI", "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN", "Rio Grande do Sul": "RS", "Rondônia": "RO", Roraima: "RR", "Santa Catarina": "SC", "São Paulo": "SP", Sergipe: "SE", Tocantins: "TO" };
+const cidade = (c: string) => { const [n, e = ""] = c.split(", "); const est = e.replace(/ \(state\)$/, ""); return est ? `${n}, ${UF[est] || est}` : n; };
 const FAIXAS = ["13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
 function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age: { k: string[]; v: number }[] | null; city: { k: string[]; v: number }[] | null; total?: number } }) {
-  const g = a.gender || [];
+  const g = (a.gender || []).filter((x) => x.k[0] === "F" || x.k[0] === "M");
   const gt = g.reduce((s, x) => s + x.v, 0) || 1;
   const gv = (c: string) => g.filter((x) => x.k[0] === c).reduce((s, x) => s + x.v, 0) / gt;
-  const ages = (a.age || []).filter((x) => FAIXAS.includes(x.k[0])).sort((x, y) => FAIXAS.indexOf(x.k[0]) - FAIXAS.indexOf(y.k[0]));
+  const ages = (a.age || []).filter((x) => FAIXAS.includes(x.k[0]) && (x.k[0] !== "13-17" || x.v > 0)).sort((x, y) => FAIXAS.indexOf(x.k[0]) - FAIXAS.indexOf(y.k[0]));
   const at = ages.reduce((s, x) => s + x.v, 0) || 1;
   const amax = Math.max(...ages.map((x) => x.v), 1);
   const city = a.city || [];
@@ -421,7 +423,8 @@ function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age:
             <div className="flex gap-[2px] h-7 rounded-[4px] overflow-hidden" role="img" aria-label={segs.map((s) => `${s.l} ${(s.v * 100).toFixed(1)}%`).join(", ")}>
               {segs.map((s) => <div key={s.k} className="h-full rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e]" style={{ width: `${s.v * 100}%`, background: s.c }}>{s.v > 0.15 ? `${(s.v * 100).toFixed(0)}%` : ""}</div>)}
             </div>
-            <div className="flex gap-4 mt-3 text-xs text-fog">{segs.map((s) => <span key={s.k} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} />{s.l}</span>)}</div>
+            <div className="grid grid-cols-2 gap-3 mt-5">{segs.map((s) => <div key={s.k}><p className="text-xs text-fog flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} />{s.l}</p><p className="font-display text-3xl font-bold mt-1">{pct(s.v, 1)}</p></div>)}</div>
+            <p className="text-[11px] text-fog mt-4">Entre quem informou o gênero.</p>
           </div>
         )}
         {ages.length > 0 && (
@@ -430,7 +433,7 @@ function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age:
             <div className="flex items-end gap-2 h-32">
               {ages.map((x) => (
                 <div key={x.k[0]} className="flex-1 flex flex-col items-center justify-end h-full gap-1" title={`${x.k[0]}: ${((x.v / at) * 100).toFixed(1)}%`}>
-                  <span className="text-[10px] text-fog">{((x.v / at) * 100).toFixed(0)}%</span>
+                  <span className="text-[10px] text-fog">{Math.round((x.v / at) * 100)}%</span>
                   <div className="w-full max-w-[24px] rounded-t-[4px]" style={{ height: `${(x.v / amax) * 100}%`, background: x.v === amax ? "var(--color-mint)" : "var(--color-slate)" }} />
                 </div>
               ))}
@@ -444,7 +447,7 @@ function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age:
             <ul className="space-y-2.5">
               {city.slice(0, 6).map((c) => (
                 <li key={c.k[0]}>
-                  <div className="flex justify-between text-xs mb-1"><span className="truncate">{c.k[0]}</span><span className="text-fog">{((c.v / ct) * 100).toFixed(1)}%</span></div>
+                  <div className="flex justify-between text-xs mb-1"><span className="truncate">{cidade(c.k[0])}</span><span className="text-fog">{pct(c.v / ct, 1)}</span></div>
                   <HBar value={c.v} max={cmax} color={c.v === cmax ? "var(--color-mint)" : "var(--color-slate)"} />
                 </li>
               ))}
