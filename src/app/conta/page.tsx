@@ -17,10 +17,12 @@ import { useAccess } from "@/lib/useAccess";
 import { hubAllowed } from "@/lib/access";
 import Ajuda from "@/components/ajuda/Ajuda";
 import { refazerTour } from "@/components/ajuda/Tour";
+import { SENHA_AVISO, SENHA_MIN, erroSenha, senhaOk } from "@/lib/senha";
 
 export default function Conta() {
   const [p, setP] = useState<any>(null);
   const [plan, setPlan] = useState<string | null>(null);
+  const [atual, setAtual] = useState("");
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [show, setShow] = useState(false);
@@ -40,11 +42,18 @@ export default function Conta() {
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (pw.length < 8 || !/[A-Z]/.test(pw) || !/\d/.test(pw)) return setMsg({ t: "A senha precisa de 8 caracteres, uma letra maiúscula e um número." });
+    if (!atual) return setMsg({ t: "Digite a senha atual. Se não lembra, saia e use Esqueci minha senha." });
+    if (!senhaOk(pw)) return setMsg({ t: SENHA_AVISO });
     if (pw !== pw2) return setMsg({ t: "As senhas não conferem." });
-    const { error } = await createClient().auth.updateUser({ password: pw });
-    setMsg(error ? { t: error.message } : { t: "Senha atualizada.", ok: true });
-    if (!error) { setPw(""); setPw2(""); }
+    const s = createClient();
+    const { data } = await s.auth.getUser();
+    if (!data.user?.email) return setMsg({ t: "Entre de novo e tente outra vez." });
+    // o Supabase pede login recente para trocar a senha: confirmar a atual renova a sessão
+    const { error: e1 } = await s.auth.signInWithPassword({ email: data.user.email, password: atual });
+    if (e1) return setMsg({ t: "Senha atual incorreta." });
+    const { error } = await s.auth.updateUser({ password: pw });
+    setMsg(error ? { t: erroSenha(error) } : { t: "Senha atualizada.", ok: true });
+    if (!error) { setAtual(""); setPw(""); setPw2(""); }
   }
 
   return (
@@ -85,7 +94,8 @@ export default function Conta() {
         <WidgetSettings />
         <form onSubmit={save} className="card p-5 space-y-3">
           <p className="font-display font-bold flex items-center gap-2">Alterar senha <Ajuda id="senha" /></p>
-          <div className="relative"><input className="input pr-11" type={show ? "text" : "password"} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" />
+          <input className="input" type={show ? "text" : "password"} value={atual} onChange={(e) => setAtual(e.target.value)} placeholder="Senha atual" autoComplete="current-password" />
+          <div className="relative"><input className="input pr-11" type={show ? "text" : "password"} minLength={SENHA_MIN} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" />
             <button type="button" onClick={() => setShow(!show)} className="absolute right-0 top-0 h-full px-3.5 text-fog hover:text-paper text-xs">{show ? "Ocultar" : "Mostrar"}</button></div>
           <input className="input" type={show ? "text" : "password"} value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Repita a nova senha" autoComplete="new-password" />
           <button className="btn btn-mint w-full">Salvar nova senha</button>
