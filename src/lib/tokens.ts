@@ -21,3 +21,9 @@ export async function googleCfg(s: SupabaseClient): Promise<any> {
   const { data } = await createServiceClient().rpc("google_tokens_for", { p_owner: owner });
   return data;
 }
+
+/** token do Instagram para um dono já autenticado por outro meio (ex.: conector MCP) */
+export async function igTokenForOwner(accountId: string, owner: string): Promise<string | null> {
+  const { data } = await createServiceClient().rpc("ig_token_for", { p_account_id: accountId, p_owner: owner });
+  return (data as string) || null;
+}
