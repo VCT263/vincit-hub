@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { BrandCard } from "@/components/design/ui";
+import Solicitacoes from "@/components/design/briefing/Solicitacoes";
 
 export default function Marcas() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function Marcas() {
       <PageHead kicker="Design · 01 Marca" title="Criação de marca" desc="Cada marca passa por briefing, referências, logo, cores, tipografia e manual. Tudo salva sozinho e você pode voltar a qualquer etapa.">
         <button onClick={novo} disabled={busy} className="btn btn-mint"><I.plus className="w-4 h-4" />{busy ? "Criando…" : "Nova marca"}</button>
       </PageHead>
+      <Solicitacoes />
       {!!rows?.length && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar marca" className="input max-w-64 mb-4 !py-1.5 text-sm" />}
       {rows === null ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2].map((i) => <div key={i} className="card h-48 animate-pulse" />)}</div>
