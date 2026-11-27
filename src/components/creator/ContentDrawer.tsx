@@ -89,6 +89,17 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
     await navigator.clipboard?.writeText(`${location.origin}/r/conteudo/${token}`).catch(() => {});
     setCopied(true); setTimeout(() => setCopied(false), 2500); onSaved();
   }
+  // excluir de vez: só para card arquivado, em 2 etapas (abrir o aviso e digitar EXCLUIR)
+  const [del, setDel] = useState<0 | 1>(0);
+  const [delWord, setDelWord] = useState("");
+  const [delErr, setDelErr] = useState<string | null>(null);
+  async function destroy() {
+    if (delWord.trim().toUpperCase() !== "EXCLUIR") return;
+    setDelErr(null);
+    const { error } = await s().from("content_ideas").delete().eq("id", item.id);
+    if (error) { setDelErr("Não deu para excluir: " + error.message); return; }
+    onSaved(); onClose();
+  }
   async function archive() {
     await s().from("content_ideas").update({ archived_at: f.archived_at ? null : new Date().toISOString() }).eq("id", item.id);
     onSaved(); onClose();
@@ -210,8 +221,24 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           </details>
         )}
 
+        {del === 1 && (
+          <div className="mt-6 rounded-xl border border-danger/50 bg-danger/5 p-4 space-y-3">
+            <p className="text-sm font-semibold text-danger">Excluir “{f.title || "sem título"}” de vez?</p>
+            <p className="text-xs text-fog">Some o card, o roteiro, a decupagem e o histórico. Não dá para desfazer. Para confirmar, digite <b className="text-paper">EXCLUIR</b>.</p>
+            <input className="input" value={delWord} onChange={(e) => setDelWord(e.target.value)} placeholder="EXCLUIR" autoFocus aria-label="Digite EXCLUIR para confirmar" />
+            {delErr && <p className="text-xs text-danger">{delErr}</p>}
+            <div className="flex justify-between">
+              <button type="button" onClick={() => { setDel(0); setDelWord(""); setDelErr(null); }} className="btn btn-ghost btn-sm">Cancelar</button>
+              <button type="button" disabled={delWord.trim().toUpperCase() !== "EXCLUIR"} onClick={destroy} className="btn btn-sm bg-danger text-ink disabled:opacity-40">Excluir de vez</button>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between mt-6 pt-4 border-t border-line">
-          <button onClick={archive} className="btn btn-ghost">{f.archived_at ? "Restaurar" : "Arquivar"}</button>
+          <div className="flex gap-2">
+            <button onClick={archive} className="btn btn-ghost">{f.archived_at ? "Restaurar" : "Arquivar"}</button>
+            {f.archived_at && item?.id && del === 0 && <button type="button" onClick={() => setDel(1)} className="btn btn-ghost text-danger">Excluir</button>}
+          </div>
           <button disabled={busy} onClick={() => save()} className="btn btn-mint">Salvar</button>
         </div>
       </div>
