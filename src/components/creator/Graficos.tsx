@@ -1,6 +1,16 @@
 "use client";
 /** Gráficos leves em SVG para Desempenho & insights (sem biblioteca): área com cursor, sparkline e colunas empilhadas. */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/** largura do desenho: menor no celular, para as letras dos eixos ficarem legíveis */
+function useW() {
+  const [w, setW] = useState(720);
+  useEffect(() => {
+    const f = () => setW(window.innerWidth < 640 ? 380 : 720);
+    f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
+  }, []);
+  return w;
+}
 
 const MINT = "var(--color-mint)";
 export const LILAS = "#c084fc";
@@ -27,7 +37,7 @@ function ticks(max: number) {
 export function AreaChart({ data, label, fmtV = (v: number) => num(v), height = 220 }: { data: { date: string; v: number | null }[]; label: string; fmtV?: (v: number) => string; height?: number }) {
   const ref = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const W = 720, H = height, L = 44, R = 12, T = 12, B = 26;
+  const W = useW(), H = W < 500 ? Math.round(height * 0.8) : height, L = 44, R = 12, T = 12, B = 26;
   const vals = data.map((d) => d.v ?? 0);
   const tk = ticks(Math.max(...vals, 0));
   const max = tk[tk.length - 1] || 1;
@@ -36,7 +46,7 @@ export function AreaChart({ data, label, fmtV = (v: number) => num(v), height = 
   const y = (v: number) => T + (1 - v / max) * (H - T - B);
   const line = data.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(d.v ?? 0).toFixed(1)}`).join("");
   const area = `${line}L${x(n - 1)},${y(0)}L${x(0)},${y(0)}Z`;
-  const step = Math.max(1, Math.ceil(n / 6));
+  const step = Math.max(1, Math.ceil(n / (W < 500 ? 4 : 6)));
   const peak = vals.indexOf(Math.max(...vals));
 
   function move(e: React.PointerEvent) {
@@ -101,7 +111,7 @@ export function Spark({ values, active }: { values: (number | null)[]; active?: 
 /** colunas empilhadas (compartilhamentos + salvamentos por alcance), uma por post, em ordem de data */
 export function SignalColumns({ posts, onPick }: { posts: { id: string; date: string; a: number; b: number; caption?: string; thumb?: string; tipo: string }[]; onPick?: (id: string) => void }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 720, H = 200, L = 40, R = 8, T = 10, B = 22;
+  const W = useW(), H = W < 500 ? 180 : 200, L = 40, R = 8, T = 10, B = 22;
   const tk = ticks(Math.max(...posts.map((p) => p.a + p.b), 0.0001) * 100).map((t) => t / 100);
   const max = tk[tk.length - 1] || 1;
   const n = posts.length || 1;
