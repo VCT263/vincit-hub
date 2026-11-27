@@ -375,5 +375,12 @@
     return { nome, pedacos: n, antes: tl.duration, depois: r2(t), avisos };
   }
 
-  window.PR = { readTimeline, readTranscript, transcribe, applyPlan, cutSequence };
+  /** leva a agulha do Premiere até o ponto (Conferir um a um) */
+  async function seek(seconds) {
+    const { seq } = await ctx();
+    if (typeof seq.setPlayerPosition !== "function") throw new Error("esta versão do Premiere não deixa mover a agulha pelo painel");
+    await seq.setPlayerPosition(T(seconds));
+  }
+
+  window.PR = { readTimeline, readTranscript, transcribe, applyPlan, cutSequence, seek };
 })();
