@@ -3,9 +3,10 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { printAll } from "@/components/design/brand/lazy";
-import { FORMATS, Presenter, PrintDeck, ScaledSlide, useDeck, type Format } from "@/components/design/brand/Presentation";
+import { FORMATS, Presenter, PrintDeck, useDeck, type Format } from "@/components/design/brand/Presentation";
 import Logo from "@/components/Logo";
 import { VideoControls } from "@/components/design/brand/Motion";
+import { Reader } from "@/components/design/brand/Reader";
 
 /* Apresentação pública da marca (link do projeto): o cliente vê os slides, apresenta em tela cheia,
    baixa o PDF e aprova ou pede ajuste. Sempre mostra a versão salva mais recente do projeto. */
@@ -48,7 +49,7 @@ function Deck({ token, p }: { token: string; p: any }) {
       <header className="max-w-6xl mx-auto px-4 md:px-8 pt-6 md:pt-10 print:hidden">
         <div className="flex items-center justify-between"><Logo className="h-6" vincitOnly /><span className="font-mono text-[11px] text-fog tracking-widest uppercase">Identidade de marca</span></div>
         <h1 className="font-display text-4xl md:text-6xl font-extrabold tracking-tight mt-10 leading-[1.02]">{nome}</h1>
-        <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma. No celular, toque num slide para abrir em tela cheia e deslize para passar.</p>
+        <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma. Na barra das páginas, escolha uma página, duas lado a lado ou todas em miniatura, e use + e − para o zoom. Toque numa página para abrir em tela cheia.</p>
         <div className="flex flex-wrap gap-2 mt-6">
           <button onClick={() => setShow(0)} className="btn btn-mint">▶ Apresentar em tela cheia</button>
           <button onClick={printAll} className="btn btn-ghost">Baixar PDF</button>
@@ -58,9 +59,7 @@ function Deck({ token, p }: { token: string; p: any }) {
         <p className="text-[11px] text-fog mt-3">{slides.length} páginas · no PDF, escolha “Salvar como PDF” e ative “Gráficos de fundo”.</p>
       </header>
 
-      <div className="deck-list max-w-6xl mx-auto px-3 md:px-8 py-8 space-y-4 md:space-y-6">
-        {slides.map((s, i) => <div key={s.key} onClick={() => setShow(i)} className="cursor-zoom-in"><ScaledSlide x={x} s={s} n={i + 1} total={slides.length} /></div>)}
-      </div>
+      <div className="mt-8"><Reader x={x} slides={slides} onPresent={setShow} active={show === null} /></div>
 
       <section id="retorno" className="max-w-2xl mx-auto px-4 md:px-8 pb-20 print:hidden">
         {aprovado && !mode ? (
