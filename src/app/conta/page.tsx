@@ -11,6 +11,7 @@ import GoogleSettings from "@/components/GoogleSettings";
 import WidgetSettings from "@/components/WidgetSettings";
 import PushSettings from "@/components/PushSettings";
 import ClaudeSettings from "@/components/ClaudeSettings";
+import ResetSettings from "@/components/ResetSettings";
 import { useAccess } from "@/lib/useAccess";
 import { hubAllowed } from "@/lib/access";
 
@@ -76,6 +77,7 @@ export default function Conta() {
           <button className="btn btn-mint w-full">Salvar nova senha</button>
           {msg && <p className={`text-sm ${msg.ok ? "text-mint" : "text-danger"}`}>{msg.t}</p>}
         </form>
+        <ResetSettings gestor={!!acc && hubAllowed(acc.tools, "agency")} />
       </div>
     </main>
   );
