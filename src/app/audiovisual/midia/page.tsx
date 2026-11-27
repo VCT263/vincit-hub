@@ -4,7 +4,7 @@ import PageHead from "@/components/PageHead";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
-import { KINDS, inferKind } from "@/lib/drive";
+import { GROUPS, KINDS, groupOf, inferKind, subPath } from "@/lib/drive";
 
 type St = { configured: boolean; google: boolean; drive: boolean; needsScope?: boolean; email?: string; cfg?: any };
 const AUDIO = (m?: string) => !!m && m.startsWith("audio/");
@@ -13,13 +13,14 @@ const IMAGE = (m?: string) => !!m && m.startsWith("image/");
 const kb = (n?: number | null) => (!n ? "" : n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
 const dur = (ms?: number | null) => { if (!ms) return ""; const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const ago = (iso?: string) => { if (!iso) return "nunca"; const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 1 ? "agora" : m < 60 ? `há ${m} min` : m < 1440 ? `há ${Math.round(m / 60)} h` : new Date(iso).toLocaleDateString("pt-BR"); };
-const KCOLOR: Record<string, string> = { sfx: "chip-mint", trilha: "text-[#f5c84c] border-[#5c4a1a]", insercao: "text-[#7aa7ff] border-[#24365c]", externo: "text-[#f0a35e] border-[#5c3a1a]", interno: "text-[#5ee0c8] border-[#1a4f47]", marca: "text-[#f07ab4] border-[#5c2443]", imagem: "text-[#c084fc] border-[#4a2d5c]", lut: "", modelo: "", referencia: "", outro: "" };
+const KCOLOR: Record<string, string> = { sfx: "chip-mint", trilha: "text-[#f5c84c] border-[#5c4a1a]", insercao: "text-[#7aa7ff] border-[#24365c]", externo: "text-[#f0a35e] border-[#5c3a1a]", interno: "text-[#5ee0c8] border-[#1a4f47]", marca: "text-[#f07ab4] border-[#5c2443]", imagem: "text-[#c084fc] border-[#4a2d5c]", transicao: "text-[#7aa7ff] border-[#24365c]", video: "text-[#5ee0c8] border-[#1a4f47]", take: "text-[#5ee0c8] border-[#1a4f47]", foto: "text-[#f5c84c] border-[#5c4a1a]", lut: "", modelo: "", referencia: "", outro: "" };
 /** bancos gratuitos para buscar fora, por área ({q} vira a busca) */
 const FORA: Record<string, [string, string][]> = {
   sfx: [["Freesound", "https://freesound.org/search/?q={q}"], ["Pixabay", "https://pixabay.com/sound-effects/search/{q}/"]],
   trilha: [["Pixabay Música", "https://pixabay.com/music/search/{q}/"], ["Free Music Archive", "https://freemusicarchive.org/search?quicksearch={q}"]],
   insercao: [["Pexels vídeos", "https://www.pexels.com/search/videos/{q}/"], ["Pixabay vídeos", "https://pixabay.com/videos/search/{q}/"]],
   externo: [["Pexels", "https://www.pexels.com/search/{q}/"], ["Pexels vídeos", "https://www.pexels.com/search/videos/{q}/"], ["Unsplash", "https://unsplash.com/s/photos/{q}"], ["Pixabay", "https://pixabay.com/images/search/{q}/"]],
+  transicao: [["Pixabay vídeos", "https://pixabay.com/videos/search/{q}%20overlay/"], ["Pexels vídeos", "https://www.pexels.com/search/videos/{q}%20overlay/"]],
   imagem: [["Unsplash", "https://unsplash.com/s/photos/{q}"], ["Pixabay PNG", "https://pixabay.com/images/search/{q}%20png/"]],
   referencia: [["Pinterest", "https://br.pinterest.com/search/pins/?q={q}"], ["Behance", "https://www.behance.net/search/projects?search={q}"], ["YouTube", "https://www.youtube.com/results?search_query={q}"]],
 };
@@ -29,7 +30,11 @@ export default function MidiaPage() {
   const [st, setSt] = useState<St | null>(null);
   const [items, setItems] = useState<any[] | null>(null);
   const [clients, setClients] = useState<any[]>([]);
-  const [kind, setKind] = useState("tudo");
+  const [kind, setKindRaw] = useState("tudo");
+  const [side, setSideRaw] = useState<"tecnico" | "meu">("meu");
+  const [path, setPath] = useState<string[]>([]);
+  const setKind = (k: string) => { setKindRaw(k); setPath([]); };
+  const setSide = (g: "tecnico" | "meu") => { setSideRaw(g); setKindRaw("tudo"); setPath([]); };
   const [fora, setFora] = useState("");
   const [reorg, setReorg] = useState(false);
   const [q, setQ] = useState("");
@@ -75,18 +80,24 @@ export default function MidiaPage() {
     })();
   }, [loadItems, sync]);
 
-  const counts = useMemo(() => { const c: Record<string, number> = {}; (items || []).forEach((i) => (c[i.kind] = (c[i.kind] || 0) + 1)); return c; }, [items]);
+  const counts = useMemo(() => { const c: Record<string, number> = {}; (items || []).forEach((i) => { c[i.kind] = (c[i.kind] || 0) + 1; const g = "g:" + groupOf(i.kind); c[g] = (c[g] || 0) + 1; }); return c; }, [items]);
+  // o que está no lado e na área escolhidos, com a subpasta de cada arquivo
+  const inArea = useMemo(() => (items || []).filter((i) => groupOf(i.kind) === side && (kind === "tudo" || i.kind === kind)).map((i) => ({ it: i, sub: kind === "tudo" ? (i.folder || "").split("/").filter(Boolean) : subPath(i.folder || "", i.kind) })), [items, side, kind]);
+  const subfolders = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const { sub } of inArea) if (sub.length > path.length && path.every((p, j) => sub[j] === p)) c.set(sub[path.length], (c.get(sub[path.length]) || 0) + 1);
+    return [...c].sort((a, b) => a[0].localeCompare(b[0], "pt-BR", { numeric: true }));
+  }, [inArea, path]);
   const tags = useMemo(() => { const c: Record<string, number> = {}; (items || []).forEach((i) => (i.tags || []).forEach((t: string) => (c[t] = (c[t] || 0) + 1))); return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([t]) => t); }, [items]);
   const list = useMemo(() => {
-    let l = items || [];
-    if (kind !== "tudo") l = l.filter((i) => i.kind === kind);
+    let l = inArea.filter(({ sub }) => path.every((p, j) => sub[j] === p)).map((x) => x.it);
     if (client) l = l.filter((i) => (client === "geral" ? !i.client_id : i.client_id === client));
     if (q.trim()) {
       const ws = q.toLowerCase().split(/[\s,]+/).filter(Boolean);
       l = l.filter((i) => { const h = `${i.name} ${i.folder || ""} ${(i.tags || []).join(" ")} ${i.notes || ""}`.toLowerCase(); return ws.every((w) => h.includes(w)); });
     }
     return l.slice(0, 400);
-  }, [items, kind, q, client]);
+  }, [inArea, path, q, client]);
 
   function toggleAudio(it: any) {
     if (!audio.current) audio.current = new Audio();
@@ -125,7 +136,7 @@ export default function MidiaPage() {
 
   return (
     <>
-      <PageHead kicker="04 · ACERVO" title="Banco de mídia" desc="Sua pasta do Google Drive vira o banco da produtora, separado por áreas: efeitos sonoros, trilhas, inserções, banco externo, conteúdos internos, marcas, LUTs e modelos.">
+      <PageHead kicker="04 · ACERVO" title="Banco de mídia" desc="Sua pasta do Google Drive vira o banco da produtora, em dois lados: Técnico (efeitos, trilhas, inserções de banco, transições, LUTs, modelos) e Meus conteúdos (fotos, vídeos e inserções que você gravou), cada um com as suas subpastas.">
         {ready && <button onClick={() => setPicker(true)} className="btn btn-ghost"><I.folder className="w-4 h-4" />{st!.cfg.drive_folder_name}</button>}
         {ready && <button onClick={() => sync()} disabled={syncing} className="btn btn-mint"><I.refresh className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />{syncing ? "Lendo o Drive…" : "Sincronizar"}</button>}
       </PageHead>
@@ -139,7 +150,7 @@ export default function MidiaPage() {
           <span className="w-11 h-11 rounded-xl bg-panel2 grid place-items-center text-mint"><I.folder className="w-5 h-5" /></span>
           <h2 className="font-display font-bold text-xl mt-4">Conecte o seu Google Drive</h2>
           <p className="text-sm text-fog mt-2 leading-relaxed">
-            Você escolhe uma pasta (por exemplo “VINCIT Mídia”, com subpastas como Efeitos sonoros, Trilhas, Inserções, Banco externo, Conteúdos internos, Marcas, LUTs e Modelos). O HUB lê os arquivos, mostra a prévia e guarda as etiquetas. Os arquivos continuam no seu Drive: o que você colocar ou apagar lá aparece aqui na próxima sincronização.
+            Você escolhe uma pasta (por exemplo “VINCIT Mídia”, com duas subpastas: “Técnico” e “Meus conteúdos”). O HUB lê os arquivos, mostra a prévia e guarda as etiquetas. Os arquivos continuam no seu Drive: o que você colocar ou apagar lá aparece aqui na próxima sincronização.
           </p>
           {!st.configured ? (
             <p className="text-sm text-danger mt-4">A integração com o Google ainda não foi configurada pelo administrador.</p>
@@ -155,16 +166,25 @@ export default function MidiaPage() {
       {st?.drive && !st.cfg?.drive_folder_id && (
         <section className="card p-6 max-w-2xl">
           <h2 className="font-display font-bold text-xl">Escolha a pasta do banco de mídia</h2>
-          <p className="text-sm text-fog mt-2">Tudo o que estiver dentro dela, inclusive em subpastas, entra no HUB. O nome das subpastas define a área de cada arquivo: efeitos sonoros, trilhas, inserções, banco externo, conteúdos internos, marcas e logos.</p>
+          <p className="text-sm text-fog mt-2">Tudo o que estiver dentro dela, inclusive em subpastas, entra no HUB. Sugestão: dentro dela, uma pasta “Técnico” (Efeitos sonoros, Trilhas, Inserções de banco, Transições, LUTs, Modelos…) e outra “Meus conteúdos” (Fotos, Vídeos, Inserções gravadas, Projetos e entregas). O nome das pastas define a área de cada arquivo.</p>
           <button onClick={() => setPicker(true)} className="btn btn-mint mt-5"><I.folder className="w-4 h-4" />Escolher pasta</button>
         </section>
       )}
 
       {ready && (
         <>
+          <div className="grid grid-cols-2 gap-2 mb-3 max-w-2xl">
+            {GROUPS.slice().reverse().map((g) => (
+              <button key={g.g} onClick={() => setSide(g.g)} title={g.d}
+                className={`text-left rounded-xl border px-4 py-3 transition-colors ${side === g.g ? "border-mint bg-mint/10" : "border-line bg-panel hover:border-slate"}`}>
+                <p className="font-display font-bold">{g.l}</p>
+                <p className="text-[11px] text-fog mt-0.5 leading-snug">{(counts["g:" + g.g] || 0)} arquivos · {g.g === "meu" ? "o que você gravou" : "recursos para editar"}</p>
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
-            {[{ k: "tudo", l: "Tudo", d: "Todas as áreas juntas" }, ...KINDS.filter((k) => k.k !== "outro" || counts.outro)].map((a) => {
-              const n = a.k === "tudo" ? items?.length || 0 : counts[a.k] || 0;
+            {[{ k: "tudo", l: side === "meu" ? "Todos os meus" : "Todo o técnico", d: "Todas as áreas deste lado" }, ...KINDS.filter((k) => k.g === side && (k.k !== "outro" || counts.outro))].map((a) => {
+              const n = a.k === "tudo" ? counts["g:" + side] || 0 : counts[a.k] || 0;
               return (
                 <button key={a.k} onClick={() => setKind(a.k)} title={a.d}
                   className={`text-left rounded-xl border px-3 py-2.5 transition-colors ${kind === a.k ? "border-mint bg-mint/10" : "border-line bg-panel hover:border-slate"} ${!n && a.k !== "tudo" ? "opacity-60" : ""}`}>
@@ -180,7 +200,7 @@ export default function MidiaPage() {
               <div className="card p-4 mt-3 flex flex-col lg:flex-row gap-3 lg:items-center">
                 <div className="flex-1 min-w-0">
                   <p className="font-display font-bold">{a.l}</p>
-                  <p className="text-xs text-fog mt-0.5">{a.d}.{a.pasta ? ` No Drive, guarde em uma subpasta chamada “${a.pasta}” dentro de ${st!.cfg.drive_folder_name || "a pasta do banco"}.` : ""}</p>
+                  <p className="text-xs text-fog mt-0.5">{a.d}.{a.pasta ? ` No Drive: ${st!.cfg.drive_folder_name || "pasta do banco"} › ${GROUPS.find((g) => g.g === a.g)!.pasta} › ${a.pasta}. As subpastas que você criar lá dentro viram categorias aqui.` : ""}</p>
                 </div>
                 {src && (
                   <form className="flex flex-wrap items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); if (fora.trim()) window.open(src[0][1].replace("{q}", encodeURIComponent(fora.trim())), "_blank", "noopener"); }}>
@@ -193,6 +213,22 @@ export default function MidiaPage() {
               </div>
             );
           })()}
+          {(path.length > 0 || subfolders.length > 0) && (
+            <div className="card p-3 mt-3">
+              <div className="flex flex-wrap items-center gap-1 text-xs">
+                <I.folder className="w-3.5 h-3.5 text-fog mr-1" />
+                <button onClick={() => setPath([])} className={path.length ? "text-fog hover:text-paper" : "text-paper font-semibold"}>{kind === "tudo" ? "Todas as pastas" : kl(kind)}</button>
+                {path.map((p, i) => (<span key={i} className="flex items-center gap-1"><span className="text-fog">/</span><button onClick={() => setPath(path.slice(0, i + 1))} className={i === path.length - 1 ? "text-paper font-semibold" : "text-fog hover:text-paper"}>{p}</button></span>))}
+              </div>
+              {subfolders.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {subfolders.map(([f, n]) => (
+                    <button key={f} onClick={() => setPath([...path, f])} className="chip hover:text-paper hover:border-slate"><I.folder className="w-3 h-3" />{f}<span className="text-fog font-mono">{n}</span></button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex flex-col md:flex-row gap-2 md:items-center mt-3">
             <div className="relative md:w-72">
               <I.search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fog" />
@@ -210,7 +246,7 @@ export default function MidiaPage() {
           </div>
           <p className="text-[11px] text-fog mt-2">Última leitura do Drive {ago(st!.cfg.last_sync_at)}{st!.cfg.last_error ? ` · ${st!.cfg.last_error}` : ""}</p>
 
-          {items && !list.length && <p className="text-sm text-fog py-12 text-center">{!items.length ? "A pasta está vazia. Coloque arquivos nela pelo Drive e toque em Sincronizar." : kind !== "tudo" && !counts[kind] && !q && !client ? "Nada nesta área ainda. Coloque os arquivos na subpasta indicada acima e toque em Sincronizar." : "Nada com esses filtros."}</p>}
+          {items && !list.length && <p className="text-sm text-fog py-12 text-center">{!items.length ? "A pasta está vazia. Coloque arquivos nela pelo Drive e toque em Sincronizar." : kind !== "tudo" && !counts[kind] && !q && !client ? "Nada aqui ainda. Coloque os arquivos na pasta indicada acima e toque em Sincronizar." : "Nada com esses filtros."}</p>}
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 mt-4">
             {list.map((it) => (
               <div key={it.id} className={`card p-2.5 cursor-pointer hover:border-fog transition-colors ${sel?.id === it.id ? "!border-mint-dim" : ""}`} onClick={() => setSel(it)}>
@@ -288,7 +324,7 @@ function Detail({ it, clients, save, playing, toggle }: { it: any; clients: any[
       <div className="space-y-3">
         <div>
           <label className="label">Área</label>
-          <select className="input" value={it.kind} onChange={(e) => save({ kind: e.target.value })}>{KINDS.map((k) => <option key={k.k} value={k.k}>{k.l}</option>)}</select>
+          <select className="input" value={it.kind} onChange={(e) => save({ kind: e.target.value })}>{GROUPS.map((g) => <optgroup key={g.g} label={g.l}>{KINDS.filter((k) => k.g === g.g).map((k) => <option key={k.k} value={k.k}>{k.l}</option>)}</optgroup>)}</select>
         </div>
         <div>
           <label className="label">Etiquetas</label>
