@@ -43,6 +43,7 @@ export default function Perfil() {
   const [insErr, setInsErr] = useState<string | null>(null);
   const [insLoading, setInsLoading] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [hist, setHist] = useState<any[]>([]);
   const [rankBy, setRankBy] = useState<"formato" | "pilar">("formato");
   const ai = useAI();
 
@@ -68,6 +69,8 @@ export default function Perfil() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Não foi possível ler os resultados da Meta.");
       setIns(j);
+      const { data: h } = await createClient().from("ig_account_daily").select("day,views,total_interactions,profile_views,follows,profile_links_taps").eq("account_id", id).order("day");
+      setHist(h || []);
     } catch (e: any) { setInsErr(e.message); setIns(null); }
     setInsLoading(false);
   }, [id, days, acc?.connected]);
@@ -231,6 +234,7 @@ export default function Perfil() {
               {ins ? <AreaChart key={metric + days} data={serie(metric)} label={sel.label} /> : <div className="h-[220px] rounded-[10px] bg-panel2/50 animate-pulse" />}
             </div>
             {ins?.follow && <Descoberta f={ins.follow} />}
+            {hist.length > 0 && <MesAMes rows={hist} />}
           </>
         )}
       </section>
@@ -404,6 +408,53 @@ export default function Perfil() {
         </section>
       </div>
     </>
+  );
+}
+
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+/** soma por mês do histórico diário guardado no HUB, em pequenos gráficos (um por métrica, cada um na sua escala) */
+function MesAMes({ rows }: { rows: any[] }) {
+  const m: Record<string, any> = {};
+  for (const r of rows) {
+    const k = String(r.day).slice(0, 7);
+    m[k] ??= { mes: k, dias: 0, views: 0, total_interactions: 0, profile_views: 0, follows: 0 };
+    m[k].dias++;
+    for (const c of ["views", "total_interactions", "profile_views", "follows"]) m[k][c] += Number(r[c]) || 0;
+  }
+  const meses = Object.values(m).sort((a: any, b: any) => a.mes.localeCompare(b.mes)).slice(-6) as any[];
+  const diasNoMes = (k: string) => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate();
+  const nome = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]}${k.slice(0, 4) !== String(new Date().getFullYear()) ? "/" + k.slice(2, 4) : ""}`;
+  const desde = new Date(rows[0].day + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
+  return (
+    <div className="card p-4 md:p-5 mt-3">
+      <div className="mb-4">
+        <p className="font-display font-bold">Mês a mês</p>
+        <p className="text-xs text-fog">O Instagram só mostra 30 dias; o HUB guarda cada dia desde {desde}. Mês com menos dias guardados aparece mais claro.</p>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[["views", "Visualizações"], ["total_interactions", "Interações"], ["profile_views", "Visitas ao perfil"], ["follows", "Novos seguidores"]].map(([k, l]) => {
+          const max = Math.max(...meses.map((x) => x[k]), 1);
+          const last = meses[meses.length - 1], prev = meses[meses.length - 2];
+          return (
+            <div key={k}>
+              <p className="text-xs text-fog">{l}</p>
+              <p className="font-display text-xl font-bold">{num(last?.[k])} <span className="text-[11px] font-normal text-fog">em {nome(last.mes)}{prev ? ` · ${nome(prev.mes)}: ${num(prev[k])}` : ""}</span></p>
+              <div className="flex items-end gap-1.5 h-20 mt-2">
+                {meses.map((x) => {
+                  const parcial = x.dias < diasNoMes(x.mes);
+                  return (
+                    <div key={x.mes} className="flex-1 flex flex-col items-center justify-end h-full" title={`${nome(x.mes)}: ${num(x[k])} (${x.dias} dias guardados)`}>
+                      <div className="w-full max-w-[24px] rounded-t-[4px] bg-mint" style={{ height: `${Math.max(2, (x[k] / max) * 100)}%`, opacity: parcial ? 0.45 : 1 }} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-1.5 mt-1">{meses.map((x) => <span key={x.mes} className="flex-1 text-center text-[10px] text-fog">{nome(x.mes)}</span>)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
