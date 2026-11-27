@@ -5,22 +5,17 @@ import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
-  CAMERA_LEVELS, DEFAULT_KIT, FONTS, FONTS_CSS, H, W, setFormat, captionScreens, cameraAt, drawOverlays, mergeKit, speechCamera,
+  CAMERA_LEVELS, CAPTION_STYLES, DEFAULT_KIT, FONTS, FONTS_CSS, H, W, setFormat, captionScreens, cameraAt, drawOverlays, mergeKit, speechCamera, transitionZoom,
   type Kit, type Project, type TitleKind,
 } from "@/lib/editor/model";
+import { ESTILOS, estiloByNum, estiloTags, kitComEstilo, projetoDoEstilo, type Estilo } from "@/lib/editor/styles";
 
 type Row = { id?: string; name: string; account_id?: string | null; data: Kit };
 
 const EMPTY: Row = { name: "", data: { ...structuredClone(DEFAULT_KIT), mogrts: { legenda: "", gancho: "", cta: "", lower_third: "" } } };
 
-const ESTILOS = [
-  ["impacto", "Impacto", "Caixa alta, palavra que está sendo dita em destaque"],
-  ["caixa", "Caixa", "Caixa colorida atrás da palavra"],
-  ["editorial", "Editorial", "Serifada e discreta"],
-  ["documental", "Documental", "Faixa simples, ritmo calmo"],
-];
 const PESOS = ["", " Bold", " ExtraBold", " Black"];
-const FONTS_LOAD = ['400 40px "Anton"', '900 40px "Inter"', '800 40px "Inter"', '700 40px "Inter"', '400 40px "Archivo Black"', 'italic 400 40px "Instrument Serif"', '400 40px "Bebas Neue"', '900 40px "Montserrat"', '900 40px "Poppins"', '800 40px "Bricolage Grotesque"'];
+const FONTS_LOAD = ['700 40px "Cinzel"', '700 40px "Playfair Display"', '500 40px "JetBrains Mono"', 'italic 400 40px "Instrument Serif"', '400 40px "Instrument Serif"', '400 40px "Anton"', '900 40px "Inter"', '800 40px "Inter"', '700 40px "Inter"', '400 40px "Archivo Black"', 'italic 400 40px "Instrument Serif"', '400 40px "Bebas Neue"', '900 40px "Montserrat"', '900 40px "Poppins"', '800 40px "Bricolage Grotesque"'];
 
 /* frase de exemplo da prévia, com tempo por palavra */
 const SAMPLE = "Você está perdendo 70% das vendas! Sabe por quê? Porque ninguém explicou o produto direito.".split(" ");
@@ -35,6 +30,13 @@ const sampleWords = (() => {
 })();
 const SAMPLE_LEN = sampleWords[sampleWords.length - 1].end + 0.8;
 
+/** texto que melhor mostra o estilo na prévia */
+const tituloDoEstilo = (e?: Estilo): TitleKind | null => {
+  if (!e) return null;
+  const x = e.textos;
+  return x.rec ? "rec" : x.palavras === "letreiro" ? "letreiro" : x.abertura || (x.frase ? "frase" : x.nome ? "lower_third" : x.palavras ? "palavra" : null);
+};
+
 export default function KitPage() {
   const [kits, setKits] = useState<Row[] | null>(null);
   const [profiles, setProfiles] = useState<{ id: string; username: string }[]>([]);
@@ -42,6 +44,7 @@ export default function KitPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [title, setTitle] = useState<TitleKind>("gancho");
   const [wide, setWide] = useState(false);
+  const [ver, setVer] = useState("01");
 
   const load = useCallback(async () => {
     const s = createClient();
@@ -114,6 +117,8 @@ export default function KitPage() {
         </section>
       )}
 
+      {!edit && <Catalogo ver={ver} setVer={setVer} wide={wide} setWide={setWide} kit={mergeKit(kits?.[0]?.data)} kitName={kits?.[0]?.name} />}
+
       {edit && d && (
         <div className={`grid gap-4 ${wide ? "lg:grid-cols-[minmax(0,1fr)_480px]" : "lg:grid-cols-[minmax(0,1fr)_340px]"}`}>
           <section className="card p-5 space-y-5 min-w-0">
@@ -126,6 +131,17 @@ export default function KitPage() {
                 </select>
               </Field>
             </div>
+
+            <Group title="Estilo padrão do cliente">
+              <div className="grid sm:grid-cols-[1fr_auto] gap-2 items-start">
+                <select className="input" value={d.estilo || ""} onChange={(e) => set(["estilo"], e.target.value || undefined)}>
+                  <option value="">Nenhum (escolhe na hora de editar)</option>
+                  {ESTILOS.map((e) => <option key={e.num} value={e.num}>{e.num} · {e.nome}</option>)}
+                </select>
+                {estiloByNum(d.estilo) && <button onClick={() => { const e = estiloByNum(d.estilo)!; set(["legenda"], { ...d.legenda, ...e.legenda }); set(["fontes"], { ...d.fontes, ...e.fontes }); set(["camera", "intensidade"], e.camera); }} className="chip">Copiar lettering e câmera do estilo</button>}
+              </div>
+              <p className="text-xs text-fog mt-1.5">{estiloByNum(d.estilo) ? estiloByNum(d.estilo)!.resumo : "O Editor e o Claude usam este estilo quando nada mais for pedido. As cores continuam as do kit."}</p>
+            </Group>
 
             <Group title="Cores">
               <div className="grid grid-cols-3 gap-3">
@@ -146,8 +162,8 @@ export default function KitPage() {
             </Group>
 
             <Group title="Legenda">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {ESTILOS.map(([v, l, h]) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {CAPTION_STYLES.map(([v, full]) => [v, full.split(" (")[0], (full.match(/\((.*)\)/) || [])[1] || ""]).map(([v, l, h]) => (
                   <button key={v} onClick={() => set(["legenda", "estilo"], v)} className={`text-left rounded-xl border p-2.5 ${d.legenda?.estilo === v ? "border-mint bg-mint/5" : "border-line"}`}>
                     <p className="text-sm font-semibold">{l}</p><p className="text-[11px] text-fog leading-snug mt-0.5">{h}</p>
                   </button>
@@ -201,7 +217,7 @@ export default function KitPage() {
                 {[[false, "9:16"], [true, "16:9"]].map(([v, l]) => <button key={String(v)} onClick={() => setWide(v as boolean)} className={`px-2 py-1 font-semibold ${wide === v ? "bg-mint/10 text-mint" : "text-fog"}`}>{l as string}</button>)}
               </div>
             </div>
-            <Preview kit={d} title={title} wide={wide} />
+            <Preview kit={d} title={title} wide={wide} estilo={estiloByNum(d.estilo)} />
             <div className="grid grid-cols-3 gap-1 mt-2">
               {([["gancho", "Gancho"], ["cta", "CTA"], ["lower_third", "Lower-third"], ["episodio", "Abertura"], ["capitulo", "Capítulo"], ["palavra", "Palavra"], ["frase", "Frase"], ["letreiro", "Letreiro"], ["data", "Data"], ["lista", "Explicação"], ["rec", "REC"]] as const).map(([v, l]) => (
                 <button key={v} onClick={() => setTitle(v)} className={`rounded-lg border px-1 py-1.5 text-[11px] font-semibold ${title === v ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
@@ -215,7 +231,7 @@ export default function KitPage() {
 }
 
 /** prévia 9:16 animada: fundo com o gradiente do kit, título, legenda e a câmera da fala */
-function Preview({ kit, title, wide }: { kit: Kit; title: TitleKind; wide: boolean }) {
+function Preview({ kit, title, wide, estilo }: { kit: Kit; title: TitleKind | null; wide: boolean; estilo?: Estilo }) {
   const ref = useRef<HTMLCanvasElement>(null);
   setFormat(wide ? "16:9" : "9:16");
   useEffect(() => {
@@ -226,17 +242,20 @@ function Preview({ kit, title, wide }: { kit: Kit; title: TitleKind; wide: boole
     const screens = captionScreens(sampleWords, kit.legenda?.palavras_por_tela || 3);
     const cam = speechCamera(sampleWords, kit.camera?.intensidade ?? 0);
     const T: Record<string, [string, string?]> = { gancho: ["O erro que trava suas vendas"], cta: ["Comenta EU QUERO"], lower_third: ["Vinícius Gontijo", "VINCIT"], episodio: ["21KM em Floripa", "2026"], capitulo: ["A largada"], palavra: ["Consistência"], frase: ["Encontre conforto no desconforto", "conforto"], letreiro: ["Malícia"], data: ["16 de agosto de 2026", "domingo"], lista: ["O que muda o jogo", "dormir melhor | treinar cedo | escrever o dia"], rec: ["REC", "4K UHD"] };
-    const [text, sub] = T[title];
-    const p: Project = { segments: [], titles: [{ id: "t", start: 0, end: SAMPLE_LEN + 1, text, sub, kind: title }], zooms: [], captionsOn: title !== "episodio", edits: {} };
+    const [text, sub] = title ? T[title] : [""];
+    // 4 trechos falsos para a transição aparecer nos cortes
+    const q = SAMPLE_LEN / 4;
+    const base: Project = { segments: [0, 1, 2, 3].map((i) => ({ id: `s${i}`, mediaId: "x", in: 0, out: q })), titles: title ? [{ id: "t", start: 0, end: SAMPLE_LEN + 1, text, sub, kind: title }] : [], zooms: [], captionsOn: title !== "episodio", edits: {} };
+    const p: Project = estilo ? { ...projetoDoEstilo(base, estilo), captionsOn: estilo.captions && title !== "episodio" } : base;
     let raf = 0;
     const t0 = performance.now();
     const frame = () => {
       const t = ((performance.now() - t0) / 1000) % SAMPLE_LEN;
-      const z = cameraAt(cam, t);
+      const z = cameraAt(cam, t) * transitionZoom(p, t) * (p.jumpPunch && Math.floor(t / q) % 2 ? p.jumpPunch / 100 : 1);
       ctx.save();
       ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2);
       const g = ctx.createLinearGradient(0, 0, W, H);
-      g.addColorStop(0, "#3a3f44"); g.addColorStop(1, kit.cores?.fundo || "#0c0c0d");
+      g.addColorStop(0, "#8a6a52"); g.addColorStop(0.55, "#3c4650"); g.addColorStop(1, kit.cores?.fundo || "#0c0c0d");
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       // silhueta de quem fala, só para a câmera ter referência
       ctx.fillStyle = "rgba(255,255,255,.07)";
@@ -250,8 +269,47 @@ function Preview({ kit, title, wide }: { kit: Kit; title: TitleKind; wide: boole
     };
     frame();
     return () => cancelAnimationFrame(raf);
-  }, [kit, title, wide]);
+  }, [kit, title, wide, estilo]);
   return <canvas key={wide ? "h" : "v"} ref={ref} width={W} height={H} className={`w-full rounded-xl mt-2 bg-ink ${wide ? "aspect-video" : "aspect-[9/16]"}`} />;
+}
+
+/** catálogo fixo numerado: cada estilo com a definição completa e a prévia */
+function Catalogo({ ver, setVer, wide, setWide, kit, kitName }: { ver: string; setVer: (v: string) => void; wide: boolean; setWide: (v: boolean) => void; kit: Kit; kitName?: string }) {
+  const e = estiloByNum(ver)!;
+  const tt = tituloDoEstilo(e);
+  return (
+    <section id="catalogo" className="card p-5 mt-4">
+      <p className="font-display text-lg font-extrabold">Catálogo de estilos</p>
+      <p className="text-sm text-fog mt-1 max-w-3xl">Estilos fixos e numerados para pedir na hora de criar: &quot;este Reels no estilo 03&quot;. Cada um define lettering, cortes, câmera, transição, cor e textos automáticos. As cores vêm do kit do cliente. Feitos a partir das edições mais elaboradas do Instagram e dos canais do YouTube que você acompanha.</p>
+      <div className={`grid gap-4 mt-4 ${wide ? "lg:grid-cols-[minmax(0,1fr)_480px]" : "lg:grid-cols-[minmax(0,1fr)_320px]"}`}>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 content-start min-w-0">
+          {ESTILOS.map((x) => (
+            <button key={x.num} onClick={() => setVer(x.num)} className={`text-left rounded-xl border p-3 ${ver === x.num ? "border-mint bg-mint/5" : "border-line hover:border-mint-dim"}`}>
+              <p className="flex items-baseline gap-2"><span className="font-mono text-mint text-lg font-semibold">{x.num}</span><span className="font-semibold">{x.nome}</span></p>
+              <p className="text-xs text-fog mt-1 leading-snug">{x.uso}</p>
+            </button>
+          ))}
+        </div>
+        <aside className="lg:sticky lg:top-4 self-start min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold"><span className="font-mono text-mint mr-1.5">{e.num}</span>{e.nome}</p>
+            <div className="flex rounded-lg border border-line overflow-hidden text-[11px] shrink-0">
+              {[[false, "9:16"], [true, "16:9"]].map(([v, l]) => <button key={String(v)} onClick={() => setWide(v as boolean)} className={`px-2 py-1 font-semibold ${wide === v ? "bg-mint/10 text-mint" : "text-fog"}`}>{l as string}</button>)}
+            </div>
+          </div>
+          <Preview kit={kitComEstilo(kit, e)} title={tt} wide={wide} estilo={e} />
+          <p className="text-sm text-soft mt-3">{e.resumo}</p>
+          <div className="flex flex-wrap gap-1 mt-2">{estiloTags(e).map((t) => <span key={t} className="rounded-md border border-line px-1.5 py-0.5 text-[11px] text-fog">{t}</span>)}</div>
+          <dl className="text-xs mt-3 space-y-1">
+            <div><dt className="inline text-fog">Lettering: </dt><dd className="inline">{e.fontes.titulo} nos títulos, {e.fontes.legenda} na legenda, {e.legenda.palavras_por_tela} palavras por tela{e.legenda.caixa_alta ? ", caixa alta" : ""}</dd></div>
+            <div><dt className="inline text-fog">Bom para: </dt><dd className="inline">{e.uso}</dd></div>
+            <div><dt className="inline text-fog">Referência: </dt><dd className="inline">{e.referencia}</dd></div>
+          </dl>
+          <p className="text-[11px] text-fog mt-2">Prévia com as cores do kit {kitName ? `"${kitName}"` : "padrão"}.</p>
+        </aside>
+      </div>
+    </section>
+  );
 }
 
 function KitThumb({ kit }: { kit: Kit }) {

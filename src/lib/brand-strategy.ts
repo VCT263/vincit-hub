@@ -18,21 +18,64 @@ export const NICHES: Niche[] = [
   { k: "varejo", l: "Varejo e loja local", codigos: "Cores fortes de promoção, preço grande, logotipo com sombra.", quebrar: "Sistema limpo e reconhecível, sacola e etiqueta como mídia.", cores: ["#d62828", "#003049", "#fcbf49", "#eae2b7"], fontes: "Grotesca robusta, fácil em fachada.", formas: "Logotipo + selo, padrão para sacola.", busca: ["retail store branding", "boutique identity", "concept store branding"], evitar: "Carrinho de compras, etiqueta de preço como símbolo." },
 ];
 
-/** os 12 arquétipos de marca (Mark & Pearson) */
-export const ARCHETYPES: { k: string; l: string; d: string; visual: string }[] = [
-  { k: "inocente", l: "Inocente", d: "Otimismo, simplicidade, pureza.", visual: "cores claras, formas suaves, muito respiro" },
-  { k: "sabio", l: "Sábio", d: "Conhecimento, verdade, análise.", visual: "serifas, azul profundo, grade rigorosa" },
-  { k: "explorador", l: "Explorador", d: "Liberdade, descoberta, autenticidade.", visual: "tons terrosos, textura, fotografia ao ar livre" },
-  { k: "rebelde", l: "Rebelde", d: "Ruptura, provocação, mudança.", visual: "preto, contraste alto, tipografia experimental" },
-  { k: "mago", l: "Mago", d: "Transformação, visão, encanto.", visual: "roxo, gradiente sutil, formas que se transformam" },
-  { k: "heroi", l: "Herói", d: "Coragem, superação, performance.", visual: "cores fortes, peso tipográfico, ângulos" },
-  { k: "amante", l: "Amante", d: "Desejo, intimidade, sensorialidade.", visual: "tons quentes, serifas de alto contraste, close" },
-  { k: "bobo", l: "Bobo da corte", d: "Humor, leveza, irreverência.", visual: "cores vivas, letreiramento, ilustração" },
-  { k: "cara_comum", l: "Cara comum", d: "Pertencimento, honestidade, proximidade.", visual: "sans amigável, cores acessíveis, foto real" },
-  { k: "cuidador", l: "Cuidador", d: "Proteção, acolhimento, serviço.", visual: "tons suaves, formas arredondadas, humanista" },
-  { k: "governante", l: "Governante", d: "Controle, liderança, exclusividade.", visual: "preto e metálico, simetria, serifa clássica" },
-  { k: "criador", l: "Criador", d: "Imaginação, originalidade, ofício.", visual: "paleta autoral, grafismos, processo à mostra" },
+/** os 12 arquétipos de marca (Mark & Pearson), com como cada um se expressa */
+export type Archetype = {
+  k: string; l: string; d: string; visual: string; grupo: string;
+  narrativa: string; verbal: string; palavras: string[]; nunca: string;
+  forma: string; cores: string[]; fontes: string[]; foto: string; atracao: string; marcas: string; busca: string;
+};
+export const ARCH_GROUPS = [
+  { k: "independencia", l: "Independência", d: "buscar o paraíso" },
+  { k: "mudanca", l: "Mudança", d: "deixar uma marca no mundo" },
+  { k: "pertencimento", l: "Pertencimento", d: "não estar só" },
+  { k: "estabilidade", l: "Estabilidade", d: "dar estrutura ao mundo" },
 ];
+export const ARCHETYPES: Archetype[] = [
+  { k: "inocente", l: "Inocente", grupo: "independencia", d: "Otimismo, simplicidade, pureza.", visual: "cores claras, formas suaves, muito respiro",
+    narrativa: "O mundo pode ser simples e bom; a marca devolve a leveza.", verbal: "Frases curtas, positivas, sem jargão.", palavras: ["simples", "leve", "puro", "bem-estar"], nunca: "Ironia, medo, complicação.",
+    forma: "Curvas abertas, círculos, traço fino.", cores: ["#f7f4ec", "#bfe3d0", "#f2d7b6"], fontes: ["Nunito", "Figtree", "Fraunces"], foto: "Luz natural alta, branco, rostos tranquilos.", atracao: "Quem quer descomplicar.", marcas: "Dove, Natura Tododia", busca: "minimal pastel brand identity" },
+  { k: "sabio", l: "Sábio", grupo: "independencia", d: "Conhecimento, verdade, análise.", visual: "serifas, azul profundo, grade rigorosa",
+    narrativa: "A verdade liberta; a marca ensina a enxergar melhor.", verbal: "Didático, preciso, com dados e fontes.", palavras: ["entenda", "método", "evidência", "clareza"], nunca: "Exagero, promessa sem prova.",
+    forma: "Grade rigorosa, linhas, diagramas.", cores: ["#0f2a44", "#e9e6df", "#c8a24a"], fontes: ["Newsreader", "IBM Plex Sans", "Libre Caslon Text"], foto: "Ambientes de estudo, detalhe, luz lateral.", atracao: "Quem decide com critério.", marcas: "Google, TED, The Economist", busca: "editorial serif brand identity" },
+  { k: "explorador", l: "Explorador", grupo: "independencia", d: "Liberdade, descoberta, autenticidade.", visual: "tons terrosos, textura, fotografia ao ar livre",
+    narrativa: "Há sempre um lugar novo; a marca é o equipamento da jornada.", verbal: "Convidativo, aventureiro, verbos de movimento.", palavras: ["descubra", "caminho", "livre", "rota"], nunca: "Conformismo, rotina, luxo vazio.",
+    forma: "Linhas de horizonte, mapas, selos de expedição.", cores: ["#3f4a3c", "#c27c4e", "#e8dcc4"], fontes: ["Barlow Condensed", "Zilla Slab", "Archivo"], foto: "Ao ar livre, grão, grande angular.", atracao: "Quem não quer ficar parado.", marcas: "Patagonia, Jeep, The North Face", busca: "outdoor brand identity" },
+  { k: "rebelde", l: "Rebelde", grupo: "mudanca", d: "Ruptura, provocação, mudança.", visual: "preto, contraste alto, tipografia experimental",
+    narrativa: "As regras estão erradas; a marca quebra o que não funciona.", verbal: "Direto, provocador, frases de manifesto.", palavras: ["quebre", "sem filtro", "contra", "verdade"], nunca: "Pedir licença, linguagem corporativa.",
+    forma: "Ângulos, cortes, tipografia distorcida, colagem.", cores: ["#0b0b0b", "#e10600", "#f2f2f2"], fontes: ["Anton", "Tanker", "Space Mono"], foto: "Flash duro, preto e branco, rua.", atracao: "Quem se sente de fora.", marcas: "Harley-Davidson, Diesel, Liquid Death", busca: "bold rebel brand identity" },
+  { k: "mago", l: "Mago", grupo: "mudanca", d: "Transformação, visão, encanto.", visual: "roxo, gradiente sutil, formas que se transformam",
+    narrativa: "O impossível acontece; a marca transforma quem chega.", verbal: "Inspirador, sensorial, fala de antes e depois.", palavras: ["transforme", "imagine", "revele", "magia"], nunca: "Literalidade, frieza técnica.",
+    forma: "Formas que se transformam, simetria radial, brilho.", cores: ["#2b1a4a", "#8f6bd8", "#f1d4a8"], fontes: ["Cormorant Garamond", "Syne", "Instrument Serif"], foto: "Luz dramática, reflexos, névoa.", atracao: "Quem busca transformação.", marcas: "Disney, Apple (lançamentos), Dior J'adore", busca: "mystical brand identity" },
+  { k: "heroi", l: "Herói", grupo: "mudanca", d: "Coragem, superação, performance.", visual: "cores fortes, peso tipográfico, ângulos",
+    narrativa: "Todo desafio pode ser vencido; a marca prepara para a vitória.", verbal: "Imperativo, enérgico, frases de ação.", palavras: ["supere", "força", "conquiste", "agora"], nunca: "Hesitação, desculpa, vitimismo.",
+    forma: "Diagonais, setas, peso, simetria forte.", cores: ["#0a1f44", "#ff4d00", "#ffffff"], fontes: ["Big Shoulders Display", "Archivo Black", "Inter"], foto: "Corpo em movimento, suor, contra-plongée.", atracao: "Quem quer provar do que é capaz.", marcas: "Nike, Gatorade, Under Armour", busca: "sport brand identity bold" },
+  { k: "amante", l: "Amante", grupo: "pertencimento", d: "Desejo, intimidade, sensorialidade.", visual: "tons quentes, serifas de alto contraste, close",
+    narrativa: "A vida é para ser sentida; a marca é prazer e cuidado consigo.", verbal: "Sensorial, íntimo, adjetivos de textura.", palavras: ["sinta", "toque", "desejo", "pele"], nunca: "Pressa, frieza, tom técnico.",
+    forma: "Curvas, serifas finas, monograma entrelaçado.", cores: ["#5b1a1a", "#d9a38f", "#f3e7dc"], fontes: ["Bodoni Moda", "Playfair Display", "Italianno"], foto: "Close, pele, luz quente, foco suave.", atracao: "Quem quer se sentir desejado(a).", marcas: "Chanel, Victoria's Secret, Godiva", busca: "luxury sensual brand identity" },
+  { k: "bobo", l: "Bobo da corte", grupo: "pertencimento", d: "Humor, leveza, irreverência.", visual: "cores vivas, letreiramento, ilustração",
+    narrativa: "A vida é curta demais para ser chata; a marca diverte.", verbal: "Bem-humorado, trocadilhos, gírias da comunidade.", palavras: ["bora", "sem drama", "rolê", "zoeira"], nunca: "Formalidade, sermão.",
+    forma: "Formas bobas, personagens, letras dançando.", cores: ["#ffcf00", "#ff5c8a", "#2b59ff"], fontes: ["Dela Gothic One", "Unbounded", "Caveat"], foto: "Cor saturada, flash, poses engraçadas.", atracao: "Quem quer leveza.", marcas: "M&M's, Old Spice, Duolingo", busca: "playful brand identity" },
+  { k: "cara_comum", l: "Cara comum", grupo: "pertencimento", d: "Pertencimento, honestidade, proximidade.", visual: "sans amigável, cores acessíveis, foto real",
+    narrativa: "Gente como a gente; a marca está do seu lado, sem pose.", verbal: "Conversa de vizinho, simples, honesto.", palavras: ["a gente", "de verdade", "junto", "pra todo dia"], nunca: "Arrogância, exclusividade.",
+    forma: "Formas simples, carimbo, letra arredondada.", cores: ["#1f4e79", "#f2b134", "#f5f1e8"], fontes: ["Work Sans", "Poppins", "Roboto Slab"], foto: "Pessoas reais, casa, rua, sem retoque.", atracao: "Quem quer se ver na marca.", marcas: "Havaianas, IKEA, Magalu", busca: "friendly local brand identity" },
+  { k: "cuidador", l: "Cuidador", grupo: "estabilidade", d: "Proteção, acolhimento, serviço.", visual: "tons suaves, formas arredondadas, humanista",
+    narrativa: "Ninguém precisa passar por isso sozinho; a marca cuida.", verbal: "Acolhedor, paciente, empático.", palavras: ["cuidar", "com você", "seguro", "carinho"], nunca: "Frieza, pressa, culpa.",
+    forma: "Abraço, formas arredondadas, contornos que envolvem.", cores: ["#7a8b5c", "#e9d8c4", "#c9895b"], fontes: ["Nunito Sans", "Fraunces", "Mulish"], foto: "Mãos, toque, luz quente, gestos de cuidado.", atracao: "Quem precisa de apoio.", marcas: "Johnson's Baby, Volvo, Natura", busca: "care brand identity warm" },
+  { k: "governante", l: "Governante", grupo: "estabilidade", d: "Controle, liderança, exclusividade.", visual: "preto e metálico, simetria, serifa clássica",
+    narrativa: "A excelência é um padrão; a marca é para quem lidera.", verbal: "Seguro, sóbrio, poucas palavras.", palavras: ["excelência", "padrão", "exclusivo", "legado"], nunca: "Gíria, promoção, improviso.",
+    forma: "Simetria, brasão, monograma, molduras.", cores: ["#0d0d0d", "#b89b5e", "#efece6"], fontes: ["Cormorant Garamond", "Bodoni Moda", "Inter Tight"], foto: "Arquitetura, materiais nobres, composição central.", atracao: "Quem quer status e controle.", marcas: "Rolex, Mercedes-Benz, American Express", busca: "premium luxury brand identity" },
+  { k: "criador", l: "Criador", grupo: "estabilidade", d: "Imaginação, originalidade, ofício.", visual: "paleta autoral, grafismos, processo à mostra",
+    narrativa: "Se pode ser imaginado, pode ser feito; a marca dá ferramenta e palco.", verbal: "Autoral, curioso, mostra o processo.", palavras: ["crie", "feito à mão", "ideia", "autoral"], nunca: "Genérico, cópia, fórmula pronta.",
+    forma: "Grafismos modulares, sistema que se recombina.", cores: ["#1b1b1b", "#ff6b35", "#f4efe6"], fontes: ["Clash Display", "Syne", "General Sans"], foto: "Processo, bancada, detalhe das mãos.", atracao: "Quem quer expressar algo próprio.", marcas: "LEGO, Adobe, Canva", busca: "creative studio brand identity" },
+];
+export const archetypeOf = (k?: string) => ARCHETYPES.find((a) => a.k === k);
+/** hierarquia arquetípica: até 3 com porcentagem (predominante, secundário, apoio) */
+export const ARCH_ROLES = ["Predominante", "Secundário", "Apoio"];
+export function archetypeMix(s: any = {}): { a: Archetype; pct: number; role: string }[] {
+  const ks: string[] = s.arquetipos || [];
+  const def = [50, 30, 20];
+  return ks.slice(0, 3).map((k, i) => ({ a: archetypeOf(k)!, pct: s.pesos?.[i] ?? def[i], role: ARCH_ROLES[i] })).filter((x) => x.a);
+}
 
 export const MAP_AXES: [string, string, string][] = [
   ["preco", "Acessível", "Premium"],
@@ -53,11 +96,12 @@ export function strategyText(d: any = {}) {
   const s = { ...(d.brief || {}), ...(d.strategy || {}) };
   const arr = (v: any) => (Array.isArray(v) ? v : v ? [v] : []);
   const n = NICHES.find((x) => x.k === s.nicho);
-  const a = ARCHETYPES.filter((x) => (s.arquetipos || []).includes(x.k)).map((x) => x.l);
+  const mix = archetypeMix(s);
   const t = (d.territories || []).find((x: any) => x.id === d.territory_id);
   return [
     n && `Nicho: ${n.l}. Códigos do nicho: ${n.codigos} Para se diferenciar: ${n.quebrar} Evitar: ${n.evitar}`,
-    a.length && `Arquétipos: ${a.join(" + ")}`,
+    mix.length && `Arquétipos: ${mix.map((m) => `${m.a.l} ${m.pct}% (${m.role.toLowerCase()})`).join(", ")}. ${mix.map((m) => `${m.a.l}: narrativa "${m.a.narrativa}" verbal "${m.a.verbal}" visual "${m.a.forma} ${m.a.visual}"`).join(" | ")}`,
+    s.ativ_verbal && `Ativação verbal: ${archetypeOf(s.ativ_verbal)?.l}. Ativação visual: ${archetypeOf(s.ativ_visual)?.l || archetypeOf(s.ativ_verbal)?.l}.`,
     s.missao && `Missão: ${s.missao}`,
     arr(s.pilares).length && `Pilares: ${arr(s.pilares).join("; ")}`,
     arr(s.fala).length && `A marca fala: ${arr(s.fala).join("; ")}`,

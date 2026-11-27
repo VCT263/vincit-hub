@@ -59,7 +59,7 @@ export async function mediaRow(m: any, token: string, base: { owner_id: string; 
   const row: any = {
     ...base, ig_media_id: m.id,
     media_type: m.media_product_type === "REELS" ? "REELS" : m.media_type,
-    caption: m.caption, permalink: m.permalink, thumbnail_url: m.thumbnail_url || (m.media_type === "IMAGE" ? m.media_url : null),
+    caption: m.caption, permalink: m.permalink, thumbnail_url: m.thumbnail_url || (m.media_type !== "VIDEO" ? m.media_url : null),
     posted_at: m.timestamp, like_count: m.like_count ?? 0, comments_count: m.comments_count ?? 0,
   };
   // nem todo tipo de mídia aceita todas as métricas: tenta da lista mais completa para a mais curta
