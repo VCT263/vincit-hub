@@ -11,8 +11,9 @@ import {
 import { CAMADA_LABEL, sugerir, type Sugestao } from "@/lib/editor/sugestoes";
 import { planoPremiere } from "@/lib/editor/premiere";
 import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from "@/lib/editor/styles";
-import MotionStudio, { MotionThumb, type MotionDoc } from "@/components/av/MotionStudio";
-import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type MotionSpec } from "@/lib/motion/engine";
+import MotionStudio, { MotionThumb, fileToDataUrl, type MotionDoc } from "@/components/av/MotionStudio";
+import { aiFetch } from "@/lib/aiFetch";
+import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type Cena, type MotionSpec } from "@/lib/motion/engine";
 import { motionEnd, type MotionClip } from "@/lib/editor/model";
 
 type Busy = { f: number; msg: string } | null;
@@ -162,6 +163,46 @@ export default function Editor() {
     const base = specDoModelo("peca", { formato: (p.format || "9:16") as Format, ...coresDoKit(kit), imagem, fundo: imagem ? "imagem" : "gradiente" });
     base.cenas = [{ ...base.cenas[0], texto, sub: undefined }];
     setStudio({ titulo: "Motion do vídeo", spec: base, kit_id: kitId || null, content_id: contentId || null, origem: "editor" });
+  }
+
+  /** pacote de cenas a partir do roteiro: o Claude lê a fala (pela fila) e devolve uma cena editorial para cada ideia forte;
+      cada cena entra por cima, em tela cheia, no momento em que a ideia é dita, nas cores do kit */
+  const [cenasBusy, setCenasBusy] = useState(false);
+  async function pedirCenas() {
+    if (!words.length) { setMsg("Gere a legenda primeiro (aba Legenda): as cenas saem da fala."); return; }
+    setCenasBusy(true); setPlaying(false);
+    setMsg("Pedido de cenas enviado ao Claude. Fica na fila do HUB até ele responder (painel do HUB no Claude).");
+    try {
+      // a fala em frases curtas, com os tempos da saída editada
+      const fala: { inicio: number; fim: number; texto: string }[] = [];
+      let cur: typeof words = [];
+      const flush = () => { if (cur.length) fala.push({ inicio: +cur[0].start.toFixed(2), fim: +cur[cur.length - 1].end.toFixed(2), texto: cur.map((w) => w.t).join(" ") }); cur = []; };
+      words.forEach((w, i) => { if (cur.length >= 16 || (i && w.start - words[i - 1].end > 0.6)) flush(); cur.push(w); if (/[.!?]$/.test(w.t)) flush(); });
+      flush();
+      const fotos = media.filter((m) => m.image).map((m) => ({ id: m.id, nome: m.name }));
+      const c = contents.find((x) => x.id === contentId);
+      const roteiro = c ? [c.title, c.hook, c.body].filter(Boolean).join("\n") : "";
+      const r = await aiFetch("/api/av/cenas", { task: "cenas_roteiro", fala, roteiro, fotos, formato: p.format || "9:16", duracao: total });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Erro ao pedir as cenas");
+      const base = { formato: (p.format || "9:16") as Format, ...coresDoKit(kit), fundo: "solido", transicao: "fade", ritmo: "normal", grafismo: false };
+      const clips: MotionClip[] = [];
+      let livre = 0;
+      for (const it of j.cenas as { inicio: number; cena: Cena; foto: string | null }[]) {
+        const start = Math.max(it.inicio, livre);
+        if (start > total - 1) break;
+        const m = it.foto ? media.find((x) => x.id === it.foto) : null;
+        const imagem = m ? await fileToDataUrl(m.file, 1200).catch(() => undefined) : undefined;
+        const spec = normalizeSpec({ ...base, cenas: [{ ...it.cena, imagem }] });
+        spec.cenas[0].dur = Math.min(spec.cenas[0].dur, Math.max(1, total - start));
+        clips.push({ id: uid(), start, spec, nome: `Cena · ${(it.cena.texto || it.cena.tipo).replace(/\*/g, "").slice(0, 40)}` });
+        livre = start + spec.cenas[0].dur + 0.5;
+      }
+      // um novo pacote troca o anterior; motions feitos à mão ficam
+      update((pp) => ({ ...pp, motions: [...(pp.motions || []).filter((m) => !m.nome.startsWith("Cena · ")), ...clips] }));
+      setMsg(`${clips.length} cenas entraram na fala. Confira na faixa MOTION; edite ou tire cada uma aqui na aba Motion.`);
+    } catch (e: any) { setMsg(e.message); }
+    setCenasBusy(false);
   }
 
   const setOv = (id: string, patch: Partial<Overlay>) => setP((pp) => ({ ...pp, overlays: (pp.overlays || []).map((o) => (o.id === id ? { ...o, ...patch } : o)) }));
@@ -594,7 +635,11 @@ export default function Editor() {
 
           {tab === "motion" && (
             <div className="space-y-3">
-              <button onClick={criarMotion} className="w-full px-3 py-2 rounded-xl bg-mint text-ink text-sm font-semibold inline-flex items-center justify-center gap-2"><I.spark className="w-4 h-4" />Criar motion a partir do vídeo</button>
+              <div className="rounded-xl border border-line p-2.5 space-y-1.5">
+                <button disabled={cenasBusy || !total} onClick={pedirCenas} className="w-full px-3 py-2 rounded-xl bg-mint text-ink text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50"><I.spark className="w-4 h-4" />{cenasBusy ? "Esperando o Claude…" : "Cenas do roteiro (Claude)"}</button>
+                <p className="text-xs text-fog">O Claude lê a fala e o roteiro e monta páginas editoriais (papel, título serifado, foto da peça em cartão), números e listas, cada uma no momento em que a ideia é dita. Fotos adicionadas como B-roll entram nos cartões.</p>
+              </div>
+              <button onClick={criarMotion} className="w-full px-3 py-2 rounded-xl border border-mint-dim text-mint text-sm font-semibold inline-flex items-center justify-center gap-2"><I.spark className="w-4 h-4" />Criar motion a partir do vídeo</button>
               <p className="text-xs text-fog">Usa o quadro do cursor como fundo, o texto do momento e as cores do kit. Também dá para criar e pedir ao Claude em <Link href="/audiovisual/motion" className="text-mint">Motion</Link>.</p>
               {(p.motions || []).length > 0 && (
                 <div className="space-y-2">

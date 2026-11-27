@@ -394,13 +394,20 @@ export const CAPTION_STYLES: [string, string][] = [
   ["maquina", "Máquina de escrever (letra a letra, monoespaçada)"],
   ["revelar", "Revelar (a frase inteira aparece apagada e acende conforme é dita)"],
   ["brilho", "Brilho (branca grande com brilho suave, uma ideia por tela)"],
+  ["chave", "Palavra-chave (uma palavra por vez, pequena; a palavra forte aparece gigante no meio da tela)"],
 ];
 export const CAPTION_ANIMS: [string, string][] = [["pop", "Pop (cresce e assenta)"], ["sobe", "Sobe (entra de baixo)"], ["desfoque", "Desfoque (entra nítida)"], ["flash", "Flash (cada palavra pisca numa caixa branca ao entrar)"], ["nenhuma", "Sem animação"]];
 
 /** legenda da tela atual no estilo do kit */
 export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number] | undefined, t: number, kit: Kit) {
   if (!screen) return;
-  const st = kit.legenda?.estilo || "impacto";
+  let st = kit.legenda?.estilo || "impacto";
+  if (st === "chave") {
+    // palavra-chave: a palavra forte da frase (a última dita) fica gigante e translúcida no meio; a legenda segue pequena, uma por vez
+    const hot = screen.words.filter((w) => t >= w.start && isHot(w.t)).pop();
+    if (hot) drawKeyword(ctx, hot.t, t - hot.start, Math.max(0, screen.end - t), kit);
+    st = "palavra";
+  }
   if (st === "palavra") {
     // só a palavra que está sendo dita (ou a última dita)
     const said = screen.words.filter((w) => t >= w.start);
@@ -424,6 +431,28 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
   if (st === "mix") { drawMixCaption(ctx, screen, t, kit, idx); ctx.restore(); return; }
   if (st === "maquina") { drawTypewriter(ctx, screen, t, kit); ctx.restore(); return; }
   drawCaptionInner(ctx, screen, t, kit, st, idx);
+  ctx.restore();
+}
+
+/** palavra gigante da legenda "chave": entra crescendo e some no fim da frase */
+function drawKeyword(ctx: Ctx, word: string, since: number, left: number, kit: Kit) {
+  const txt = word.replace(/[^\p{L}\p{N}%$]/gu, "").toLowerCase();
+  if (!txt) return;
+  const e = Math.max(0, Math.min(1, since / 0.25)), out = Math.max(0, Math.min(1, left / 0.2));
+  const font = (kit.fontes?.titulo || "Anton");
+  ctx.save();
+  let size = (isWide() ? 260 : 230) * U;
+  ctx.font = css(font, size);
+  const w0 = ctx.measureText(txt).width, maxW = W * 0.92;
+  if (w0 > maxW) { size *= maxW / w0; ctx.font = css(font, size); }
+  const y = H * (isWide() ? 0.42 : 0.4);
+  const sc = 0.86 + 0.14 * (1 - Math.pow(1 - e, 3));
+  ctx.translate(W / 2, y); ctx.scale(sc, sc);
+  ctx.globalAlpha = 0.82 * e * out;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 30;
+  ctx.fillStyle = "rgba(235,235,235,1)";
+  ctx.fillText(txt, 0, 0);
   ctx.restore();
 }
 
