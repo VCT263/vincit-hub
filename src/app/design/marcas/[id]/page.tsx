@@ -18,6 +18,7 @@ import ColorStep from "@/components/design/brand/ColorStep";
 import TypeStep from "@/components/design/brand/TypeStep";
 import ManualStep from "@/components/design/brand/ManualStep";
 import type { StepProps } from "@/components/design/brand/types";
+import ClienteBriefing from "@/components/design/briefing/ClienteBriefing";
 
 
 export default function BrandWorkspace() {
@@ -74,6 +75,8 @@ export default function BrandWorkspace() {
         <p className="font-display font-extrabold text-xl truncate flex-1">{d.brief?.nome || p.title}</p>
         <span className={`text-[11px] font-mono ${saved === "erro" ? "text-danger" : "text-fog"}`}>{saved === "ok" ? "salvo" : saved === "salvando" ? "salvando…" : "não salvou, tente de novo"}</span>
       </div>
+
+      <ClienteBriefing briefingId={p.briefing_id || d.cliente?.briefing_id} />
 
       <nav className="flex gap-4 overflow-x-auto scroll-thin pb-2 mb-6 print:hidden" aria-label="Etapas da marca">
         {PHASES.map((f) => (

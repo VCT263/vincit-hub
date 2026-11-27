@@ -8,6 +8,7 @@ import LogoMotion from "./LogoMotion";
 import { useMockups } from "./MockupView";
 import { I } from "@/components/icons";
 import type { StepProps } from "./types";
+import LinkApresentacao from "../briefing/LinkApresentacao";
 
 /* processo de entrega (Design Academy): escopo, apresentação e aprovação, entrega dos arquivos */
 const ENTREGAVEIS = ["Logo principal (SVG e PNG)", "Versões e assinaturas", "Monograma e favicon", "Paleta com HEX, RGB e CMYK", "Fontes e onde baixar", "Grafismo", "Apresentação em PDF", "Logo animado (vídeo)"];
@@ -71,6 +72,8 @@ export default function ManualStep({ d, id, set }: StepProps) {
         {msg && <p className="w-full text-xs text-fog">{msg}</p>}
         <p className="w-full text-[11px] text-fog">{slides.length} slides em {FORMATS[format].l}. No PDF, escolha "Salvar como PDF" e ative "Gráficos de fundo"; o tamanho da página já vem certo. Clique num slide para apresentar a partir dele.</p>
       </div>
+
+      <LinkApresentacao id={id} d={d} set={set} />
 
       <LogoMotion d={d} name={name} />
 
