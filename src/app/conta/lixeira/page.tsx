@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Ajuda from "@/components/ajuda/Ajuda";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
@@ -70,7 +71,7 @@ export default function LixeiraPage() {
       </header>
       <div className="max-w-xl mx-auto px-4 sm:px-5 py-8 space-y-4">
         <div>
-          <h1 className="font-display text-3xl font-extrabold">Lixeira</h1>
+          <h1 className="font-display text-3xl font-extrabold">Lixeira <Ajuda tela className="relative -top-1 ml-1" /></h1>
           <p className="text-sm text-fog mt-1">Tudo o que você exclui no HUB fica aqui por {LIXEIRA_DIAS} dias. Recuperar devolve o item como estava, com o que saiu junto (por exemplo, as tarefas de um projeto). Depois do prazo, é apagado de vez sozinho.</p>
         </div>
         {msg && (

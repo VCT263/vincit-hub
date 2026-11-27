@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { I } from "@/components/icons";
+import Ajuda from "@/components/ajuda/Ajuda";
 
 const b64 = (s: string) => {
   const p = (s + "=".repeat((4 - (s.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
@@ -72,7 +73,7 @@ export default function PushSettings() {
       <div className="flex items-start gap-3">
         <span className="w-9 h-9 rounded-[10px] bg-panel2 grid place-items-center shrink-0 text-mint"><I.bolt className="w-5 h-5" /></span>
         <div>
-          <p className="font-display font-bold">App e notificações</p>
+          <p className="font-display font-bold flex items-center gap-2">App e notificações <Ajuda id="push" /></p>
           <p className="text-xs text-fog">Instale o HUB como app e receba no celular e no Mac os lembretes de tarefa, o que vence hoje, os atrasos e os avisos da semana.</p>
         </div>
       </div>
