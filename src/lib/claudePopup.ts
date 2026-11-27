@@ -48,5 +48,5 @@ export function claudeRequestFinished(queued: boolean) {
   if (pending > 0) return;
   if (closeTimer) clearTimeout(closeTimer);
   // se não foi para a fila (erro, limite, API própria), fecha já; se foi, dá um tempo para o painel terminar
-  closeTimer = setTimeout(() => { try { win?.close(); } catch {} win = null; }, queued ? 2500 : 0);
+  closeTimer = setTimeout(() => { try { win?.close(); } catch {} win = null; }, queued ? 5000 : 0);
 }

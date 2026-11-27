@@ -125,13 +125,13 @@ export default function BriefingPanel() {
               <>
                 <p className="font-display font-bold text-xl">Voz da marca</p>
                 <p className="text-sm text-fog mb-4">Como a marca escreve. A IA segue isso em legendas, roteiros e respostas. Dá para gerar a partir de textos seus na página Desempenho do perfil.</p>
-                <textarea className="input min-h-[200px]" defaultValue={voice} placeholder="Ex.: tom próximo e confiante, frases curtas, fala 'a gente', sem emojis, nunca usa 'top' ou 'incrível'…" onBlur={(e) => { setVoice(e.target.value); persist(b, e.target.value); }} />
+                <textarea key={accId} className="input min-h-[200px]" defaultValue={voice} placeholder="Ex.: tom próximo e confiante, frases curtas, fala 'a gente', sem emojis, nunca usa 'top' ou 'incrível'…" onBlur={(e) => { setVoice(e.target.value); persist(b, e.target.value); }} />
               </>
             ) : (
               <>
                 <p className="font-display font-bold text-xl">{cur.l}</p>
                 <p className="text-sm text-fog mb-5">{cur.d}</p>
-                <div className="grid md:grid-cols-2 gap-4">{cur.fields.map((f) => <Field key={f.k} f={f} v={b[f.k]} set={set} />)}</div>
+                <div className="grid md:grid-cols-2 gap-4">{cur.fields.map((f) => <Field key={accId + f.k} f={f} v={b[f.k]} set={set} />)}</div>
                 <div className="flex justify-between mt-6">
                   <span />
                   {BRIEFING.findIndex((s) => s.k === sec) < BRIEFING.length - 1
