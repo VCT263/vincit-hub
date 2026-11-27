@@ -164,7 +164,7 @@ export default function Recuperador() {
   return (
     <>
       <PageHead kicker="FERRAMENTAS" title="Recuperador de arquivos" desc="Traz de volta vídeo que não abre (Sony, Canon, Panasonic, DJI, iPhone, em H.264 ou H.265) e áudio WAV cortado. Tudo roda no seu computador: o arquivo não é enviado para lugar nenhum.">
-        <Link href="/audiovisual/ferramentas" className="btn btn-ghost"><I.back className="w-4 h-4" />Ferramentas</Link>
+        <Link href="/audiovisual" className="btn btn-ghost"><I.back className="w-4 h-4" />Audiovisual</Link>
       </PageHead>
 
       {!supported && (

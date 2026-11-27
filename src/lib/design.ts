@@ -429,7 +429,7 @@ export const timeAgo = (iso: string) => {
 };
 
 /* ───────────── Construção: logotipo, monograma e assinaturas ───────────── */
-export type Logotype = { text: string; font: string; weight: number; tracking: number; upper: boolean; kern: number[]; color: string; sub?: string; subFont?: string; lower?: boolean; italic?: boolean; form?: "linha" | "empilhado" | "selo"; vary?: number; lead?: number };
+export type Logotype = { text: string; font: string; weight: number; tracking: number; upper: boolean; kern: number[]; color: string; sub?: string; subFont?: string; lower?: boolean; italic?: boolean; form?: "linha" | "empilhado" | "selo"; vary?: number; lead?: number; svg?: string };
 export type Monogram = { letters: string; font: string; weight: number; shape: "nenhum" | "circulo" | "quadrado" | "arco" | "losango" | "selo"; overlap: number; fg: string; bg: string; stack: boolean };
 
 let _cv: HTMLCanvasElement | null = null;
@@ -445,6 +445,8 @@ export function measure(text: string, font: string, weight: number, size: number
     e "gesto" (pequenas variações de ângulo e altura, para não parecer digitado) */
 export function logotypeSvg(lt: Logotype, color?: string) {
   const fs = 100; const fill = color || lt.color;
+  // logotipo desenhado (vetor de fonte própria, ex.: Crasey): vale o desenho, não a fonte
+  if (lt.svg) { const p = svgParts(lt.svg); const s = color ? monoSvg(lt.svg, color) : lt.svg; return { svg: s, w: p.w, h: p.h, cap: p.h }; }
   const t = lt.upper ? lt.text.toUpperCase() : lt.lower ? lt.text.toLowerCase() : lt.text;
   const it = lt.italic ? ' font-style="italic"' : "";
   const rnd = (i: number) => { const v = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return (v - Math.floor(v)) * 2 - 1; };

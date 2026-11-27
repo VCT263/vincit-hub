@@ -36,7 +36,7 @@ export default function Diagnostico() {
   const [msg, setMsg] = useState<string | null>(null);
   const acc = accounts.find((a) => a.id === accId);
 
-  useEffect(() => { if (!accId && accounts[0]) setAccId(accounts[0].id); }, [accounts, accId]);
+  useEffect(() => { if (!accId && accounts[0]) setAccId(new URLSearchParams(location.search).get("perfil") || accounts[0].id); }, [accounts, accId]);
   const load = useCallback(async () => {
     if (!accId) return;
     const { data, error } = await createClient().from("profile_diagnoses").select("*").eq("account_id", accId).order("created_at", { ascending: false });
@@ -67,7 +67,7 @@ export default function Diagnostico() {
     const sb = createClient();
     const { error } = await sb.from("content_ideas").insert(rows.map((r: any, i: number) => ({ ...r, axis: recs[i].axis, diagnosis_id: cur.id || null })));
     if (error) { const { error: e2 } = await sb.from("content_ideas").insert(rows); if (e2) { setMsg(`Não consegui salvar: ${e2.message}`); return; } }
-    setMsg(`${rows.length} ideia(s) enviadas ao Planejador.`); setSel([]);
+    setMsg(`${rows.length} ideia(s) no Quadro, na coluna Ideia.`); setSel([]);
   }
   async function del() { if (!cur?.id || !confirm("Excluir esta versão do diagnóstico?")) return; await createClient().from("profile_diagnoses").delete().eq("id", cur.id); load(); }
 
@@ -80,7 +80,7 @@ export default function Diagnostico() {
 
   return (
     <>
-      <PageHead kicker="CREATOR · 03 CRESCIMENTO" title="Raio-X do perfil" desc="Diagnóstico estratégico do perfil, do mercado e do nicho em 5 eixos de crescimento. Usa só dados reais: métricas, briefing, referências e pesquisa de mercado." />
+      <PageHead kicker="CREATOR · 01 ANÁLISE" title="Raio-X e estratégia" desc="Diagnóstico estratégico do perfil, do mercado e do nicho em 5 eixos de crescimento. Usa só dados reais: métricas, briefing, referências e pesquisa de mercado." />
 
       <div className="grid md:grid-cols-3 gap-2 mb-5">
         {STEPS.map((s, i) => {
@@ -102,26 +102,57 @@ export default function Diagnostico() {
       {cur && (
         <div className="space-y-5">
           <section className="card p-5 md:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="max-w-3xl">
-                <p className="label text-mint">Resumo</p><p className="leading-relaxed">{r.resumo}</p>
-                {!!r.prioridades?.length && <><p className="label text-mint mt-4">Prioridades</p><ol className="list-decimal ml-5 text-sm space-y-1">{r.prioridades.map((p: string, i: number) => <li key={i}>{p}</li>)}</ol></>}
+            <div className="grid md:grid-cols-[180px_1fr] gap-6 items-center">
+              <div className="text-center md:border-r md:border-line md:pr-6">
+                <p className="text-xs text-fog">Nota média</p>
+                <p className="font-display text-6xl font-extrabold text-mint leading-none my-1">{media ?? "–"}</p>
+                <p className="text-[11px] text-fog">{scored.length} de 5 eixos avaliados</p>
+                <div className="flex justify-center gap-1.5 mt-3 text-[10px] font-mono text-fog flex-wrap">
+                  <span className="px-1.5 py-0.5 rounded bg-panel2">{inp.posts?.n ?? 0} posts</span>
+                  <span className="px-1.5 py-0.5 rounded bg-panel2">briefing {inp.briefing_pct ?? 0}%</span>
+                  <span className="px-1.5 py-0.5 rounded bg-panel2">{(inp.referencias?.perfis ?? 0) + (inp.referencias?.biblioteca ?? 0)} refs</span>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-fog">Nota média ({scored.length} de 5 eixos)</p>
-                <p className="font-display text-4xl font-extrabold text-mint">{media ?? "–"}</p>
-                <p className="text-[11px] text-fog mt-2">{inp.posts?.n ?? 0} posts · briefing {inp.briefing_pct ?? 0}% · {(inp.referencias?.perfis ?? 0) + (inp.referencias?.biblioteca ?? 0)} referências</p>
-                {cur.id && <button onClick={del} className="text-[11px] text-fog hover:text-danger mt-2">Excluir versão</button>}
+              <div className="space-y-2">
+                {AXES.map((a) => {
+                  const e = (r.eixos || []).find((x: any) => x.key === a.key) || {};
+                  const v = e.nota ?? null;
+                  const tone = v == null ? "bg-panel2" : v >= 7 ? "bg-mint" : v >= 5 ? "bg-amber-400" : "bg-danger";
+                  return (
+                    <a key={a.key} href={`#eixo-${a.key}`} className="flex items-center gap-3 group">
+                      <span className="w-36 shrink-0 text-sm truncate group-hover:text-mint">{a.label}</span>
+                      <span className="h-3 flex-1 bg-panel2 rounded-full overflow-hidden"><span className={`block h-full ${tone}`} style={{ width: `${(v ?? 0) * 10}%` }} /></span>
+                      <span className="w-10 text-right font-mono text-sm">{v ?? "–"}</span>
+                    </a>
+                  );
+                })}
               </div>
             </div>
+            {r.resumo && <details className="mt-5 bg-panel2 rounded-lg p-3 text-sm">
+              <summary className="cursor-pointer"><b>{String(r.resumo).split(/(?<=[.!?])\s/)[0]}</b> <span className="text-mint text-xs">ler resumo completo</span></summary>
+              <p className="leading-relaxed mt-2 text-fog">{r.resumo}</p>
+            </details>}
+            {cur.id && <button onClick={del} className="text-[11px] text-fog hover:text-danger mt-3">Excluir versão</button>}
           </section>
+
+          {!!r.prioridades?.length && <section>
+            <p className="label text-mint mb-2">Prioridades</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {r.prioridades.map((p: string, i: number) => (
+                <div key={i} className="card p-4 flex gap-3 items-start">
+                  <span className="w-8 h-8 shrink-0 rounded-full bg-mint text-ink font-display font-extrabold grid place-items-center">{i + 1}</span>
+                  <p className="text-sm">{p}</p>
+                </div>
+              ))}
+            </div>
+          </section>}
 
           <div className="grid lg:grid-cols-2 gap-4">
             {AXES.map((a) => {
               const e = (r.eixos || []).find((x: any) => x.key === a.key) || {};
               const pn = prevNota(a.key);
               return (
-                <section key={a.key} className="card p-5">
+                <section key={a.key} id={`eixo-${a.key}`} className="card p-5 scroll-mt-20">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div><p className="font-display font-bold">{a.label}</p><p className="text-xs text-fog">{a.q}</p></div>
                     <div className="text-right"><Score v={e.nota ?? null} />{pn != null && e.nota != null && e.nota !== pn && <p className={`text-[11px] font-mono mt-1 ${e.nota > pn ? "text-mint" : "text-danger"}`}>{e.nota > pn ? "+" : ""}{Math.round((e.nota - pn) * 10) / 10} desde a versão anterior</p>}</div>
@@ -130,10 +161,10 @@ export default function Diagnostico() {
                     <p className="text-sm text-fog">Falta {a.needs} para avaliar este eixo. <Link href={a.fix[1]} className="text-mint underline">{a.fix[0]}</Link></p>
                   ) : (
                     <>
-                      {e.evidencia && <p className="text-sm bg-panel2 rounded-lg p-3">{e.evidencia}</p>}
+                      {e.evidencia && <p className="text-sm border-l-2 border-mint pl-3 text-fog">{e.evidencia}</p>}
                       <div className="grid sm:grid-cols-2 gap-3 mt-3 text-sm">
-                        {!!e.pontos_fortes?.length && <div><p className="text-[11px] text-mint mb-1">Pontos fortes</p><ul className="list-disc ml-4 space-y-0.5">{e.pontos_fortes.map((x: string, i: number) => <li key={i}>{x}</li>)}</ul></div>}
-                        {!!e.lacunas?.length && <div><p className="text-[11px] text-danger mb-1">Lacunas</p><ul className="list-disc ml-4 space-y-0.5">{e.lacunas.map((x: string, i: number) => <li key={i}>{x}</li>)}</ul></div>}
+                        {!!e.pontos_fortes?.length && <div className="rounded-lg border border-mint/30 bg-mint/5 p-3"><p className="text-[11px] text-mint mb-1.5 font-semibold">✓ Pontos fortes</p><ul className="space-y-1">{e.pontos_fortes.map((x: string, i: number) => <li key={i}>{x}</li>)}</ul></div>}
+                        {!!e.lacunas?.length && <div className="rounded-lg border border-danger/30 bg-danger/5 p-3"><p className="text-[11px] text-danger mb-1.5 font-semibold">! Lacunas</p><ul className="space-y-1">{e.lacunas.map((x: string, i: number) => <li key={i}>{x}</li>)}</ul></div>}
                       </div>
                       {!!e.recomendacoes?.length && <div className="mt-4"><p className="text-[11px] text-fog mb-1">Recomendações de conteúdo</p><ul className="space-y-1.5">{e.recomendacoes.map((x: any) => (
                         <li key={x.id}><label className="flex items-start gap-2 text-sm cursor-pointer bg-panel2 rounded-lg p-2.5">
@@ -149,15 +180,17 @@ export default function Diagnostico() {
           </div>
 
           <div className="grid lg:grid-cols-2 gap-4">
-            {r.nicho && <section className="card p-5"><p className="label text-mint">Nicho</p>
-              {r.nicho.posicionamento_atual && <p className="text-sm"><span className="text-fog">Hoje: </span>{r.nicho.posicionamento_atual}</p>}
-              {r.nicho.lacuna && <p className="text-sm mt-2"><span className="text-fog">Espaço livre: </span>{r.nicho.lacuna}</p>}
-              {!!r.nicho.oportunidades?.length && <ul className="list-disc ml-5 text-sm space-y-1 mt-3">{r.nicho.oportunidades.map((x: string, i: number) => <li key={i}>{x}</li>)}</ul>}
+            {r.nicho && <section className="card p-5"><p className="label text-mint mb-3">Nicho</p>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {r.nicho.posicionamento_atual && <div className="bg-panel2 rounded-lg p-3"><p className="text-[11px] text-fog mb-1">Hoje</p><p className="text-sm">{r.nicho.posicionamento_atual}</p></div>}
+                {r.nicho.lacuna && <div className="rounded-lg p-3 border border-mint/40"><p className="text-[11px] text-mint mb-1">Espaço livre</p><p className="text-sm">{r.nicho.lacuna}</p></div>}
+              </div>
+              {!!r.nicho.oportunidades?.length && <div className="flex flex-wrap gap-1.5 mt-3">{r.nicho.oportunidades.map((x: string, i: number) => <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-panel2">{x}</span>)}</div>}
             </section>}
             <section className="card p-5"><p className="label text-mint">Mercado</p>
               {r.mercado ? <>
-                <p className="text-sm">{r.mercado.resumo}</p>
-                {!!r.mercado.sinais?.length && <ul className="space-y-1.5 text-sm mt-3">{r.mercado.sinais.map((s: any, i: number) => <li key={i}>{s.texto} <a href={s.fonte} target="_blank" rel="noopener noreferrer" className="text-mint text-xs underline">fonte</a></li>)}</ul>}
+                <p className="text-sm text-fog">{r.mercado.resumo}</p>
+                {!!r.mercado.sinais?.length && <div className="grid gap-2 mt-3">{r.mercado.sinais.map((s: any, i: number) => <a key={i} href={s.fonte} target="_blank" rel="noopener noreferrer" className="flex gap-2 items-start bg-panel2 rounded-lg p-2.5 text-sm hover:border-mint border border-transparent"><span className="text-mint">↗</span><span>{s.texto}</span></a>)}</div>}
               </> : <p className="text-sm text-fog">Sem informação: informe o nicho no <Link href="/creator/perfis?tab=briefing" className="text-mint underline">briefing</Link> para a pesquisa de mercado.</p>}
             </section>
           </div>
@@ -165,8 +198,8 @@ export default function Diagnostico() {
           {r.evolucao && <section className="card p-5"><p className="label text-mint">Evolução desde a versão anterior</p><p className="text-sm">{r.evolucao}</p></section>}
 
           <div className="card p-5 flex flex-wrap items-center gap-3 border-mint-dim sticky bottom-4">
-            <p className="flex-1 min-w-[220px] text-sm">{msg || (sel.length ? `${sel.length} recomendação(ões) selecionada(s).` : "Selecione recomendações para virar ideias na pauta, ou siga para a estratégia.")}</p>
-            <button onClick={toPauta} disabled={!sel.length} className="btn btn-ghost btn-sm"><I.board className="w-4 h-4" />Enviar para a pauta</button>
+            <p className="flex-1 min-w-[220px] text-sm">{msg || (sel.length ? `${sel.length} recomendação(ões) selecionada(s).` : "Selecione recomendações para virar ideias no Quadro, ou siga para a estratégia.")}</p>
+            <button onClick={toPauta} disabled={!sel.length} className="btn btn-ghost btn-sm"><I.board className="w-4 h-4" />Enviar ao Quadro</button>
             <Link href={`/creator/estrategia?perfil=${accId}&novo=1`} className="btn btn-mint btn-sm"><I.trend className="w-4 h-4" />Montar estratégia</Link>
           </div>
         </div>

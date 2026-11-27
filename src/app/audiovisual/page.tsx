@@ -93,9 +93,9 @@ export default async function Overview() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mt-4">
-        <Link href="/audiovisual/decupagem" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
+        <Link href="/creator/producao" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
           <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.board className="w-5 h-5" /></span>
-          <div><p className="font-display font-bold">Decupagem</p><p className="text-sm text-fog mt-1">Quebra o roteiro em planos (a partir do texto ou pela IA), com enquadramento, áudio e mídia do banco.</p></div>
+          <div><p className="font-display font-bold">Roteiro técnico</p><p className="text-sm text-fog mt-1">A decupagem fica na folha de cada card do Quadro: fala, cena, plano e movimento, pronta para imprimir e levar ao set.</p></div>
         </Link>
         <Link href="/audiovisual/ordem-do-dia" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
           <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.calendar className="w-5 h-5" /></span>
@@ -105,9 +105,9 @@ export default async function Overview() {
           <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.prompter className="w-5 h-5" /></span>
           <div><p className="font-display font-bold">Teleprompter</p><p className="text-sm text-fog mt-1">Funciona no celular, rola pela sua voz, espelha para o vidro do prompter e pode ser controlado de outro aparelho.</p></div>
         </Link>
-        <Link href="/audiovisual/midia" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
-          <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.folder className="w-5 h-5" /></span>
-          <div><p className="font-display font-bold">Banco de mídia</p><p className="text-sm text-fog mt-1">Efeitos, trilhas, inserções, LUTs e modelos direto da sua pasta do Google Drive, com etiquetas, cliente e licença.</p></div>
+        <Link href="/audiovisual/ferramentas/recuperador" className="card p-5 hover:border-mint transition-colors flex gap-4 items-start">
+          <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><I.refresh className="w-5 h-5" /></span>
+          <div><p className="font-display font-bold">Recuperador de arquivos</p><p className="text-sm text-fog mt-1">Para quando um arquivo da gravação corrompe: tenta recuperar o vídeo direto no navegador.</p></div>
         </Link>
       </div>
     </>

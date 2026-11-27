@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, hubAllowed, type Access } from "@/lib/access";
 import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
+import { igTokenForOwner } from "@/lib/tokens";
+import { contaInsights } from "@/lib/igInsights";
+import { porMes } from "@/lib/igHistorico";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -72,7 +75,7 @@ export const TOOLS: Tool[] = [
   {
     name: "ler_desempenho",
     title: "Ler desempenho do perfil",
-    description: "Traz os posts de um perfil nos últimos N dias com alcance, curtidas, comentários, salvamentos, compartilhamentos e plays, as taxas por alcance, os totais e os destaques. Use os números reais; não invente métricas. Analise primeiro compartilhamentos e salvamentos por alcance e views: são os sinais que o Instagram mais pesa; curtidas e seguidores pesam menos.",
+    description: "Traz o desempenho de um perfil: os posts dos últimos N dias (alcance, curtidas, comentários, salvamentos, compartilhamentos, views, tempo médio assistido dos Reels, pilar do Quadro), as taxas por alcance, médias por formato e por pilar, os destaques e os resultados da conta no Business Suite (visualizações, alcance, interações, visitas ao perfil, novos seguidores e cliques no link contra o período anterior; alcance de seguidores × não seguidores; horários com mais seguidores online; público; histórico mês a mês guardado no HUB). Use os números reais; não invente métricas. Analise primeiro compartilhamentos e salvamentos por alcance, tempo assistido e views: são os sinais que o Instagram mais pesa; curtidas e seguidores pesam menos.",
     inputSchema: { type: "object", properties: { perfil_id: { type: "string", description: "id do perfil (de listar_perfis)" }, dias: { type: "integer", minimum: 1, maximum: 365, default: 30 } }, required: ["perfil_id"] },
     readOnly: true,
     needs: "creator",
@@ -81,21 +84,69 @@ export const TOOLS: Tool[] = [
       const dias = Math.min(365, Math.max(1, Number(a.dias) || 30));
       const since = new Date(Date.now() - dias * 864e5).toISOString();
       const { data, error } = await ctx.sb.from("ig_posts")
-        .select("media_type, caption, permalink, posted_at, like_count, comments_count, reach, saved, shares, plays")
+        .select("ig_media_id, media_type, caption, permalink, posted_at, like_count, comments_count, reach, saved, shares, plays, avg_watch_ms")
         .eq("account_id", a.perfil_id).gte("posted_at", since).order("posted_at", { ascending: false }).limit(200);
       if (error) fail(error.message);
       const rate = (p: any, k: string) => (Number(p.reach) ? Math.round(((Number(p[k]) || 0) / Number(p.reach)) * 10000) / 100 : null);
-      const posts = (data || []).map((p: any) => ({ ...p, caption: clip(p.caption, 300), compart_por_alcance_pct: rate(p, "shares"), salvos_por_alcance_pct: rate(p, "saved") }));
+      const ids = (data || []).map((p: any) => p.ig_media_id).filter(Boolean);
+      const { data: ideas } = ids.length ? await ctx.sb.from("content_ideas").select("ig_media_id, pillar").in("ig_media_id", ids) : { data: [] as any[] };
+      const pilarDe = new Map((ideas || []).filter((i: any) => i.pillar).map((i: any) => [i.ig_media_id, i.pillar]));
+      const posts = (data || []).map(({ ig_media_id, avg_watch_ms, ...p }: any) => ({
+        ...p, caption: clip(p.caption, 300), compart_por_alcance_pct: rate(p, "shares"), salvos_por_alcance_pct: rate(p, "saved"),
+        tempo_medio_assistido_s: avg_watch_ms != null ? Math.round(avg_watch_ms / 100) / 10 : null, pilar: pilarDe.get(ig_media_id) || null,
+      }));
+      const media = (xs: (number | null)[]) => { const v = xs.filter((x): x is number => x != null); return v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 100) / 100 : null; };
+      const grupo = (key: (p: any) => string | null) => {
+        const g: Record<string, any[]> = {};
+        posts.forEach((p: any) => { const k = key(p); if (k) (g[k] ??= []).push(p); });
+        return Object.entries(g).map(([k, ps]) => ({ grupo: k, posts: ps.length, compart_por_alcance_pct: media(ps.map((p) => p.compart_por_alcance_pct)), salvos_por_alcance_pct: media(ps.map((p) => p.salvos_por_alcance_pct)), alcance_medio: media(ps.map((p) => p.reach)), tempo_medio_assistido_s: media(ps.map((p) => p.tempo_medio_assistido_s)) }))
+          .sort((a, b) => ((b.compart_por_alcance_pct || 0) + (b.salvos_por_alcance_pct || 0)) - ((a.compart_por_alcance_pct || 0) + (a.salvos_por_alcance_pct || 0)));
+      };
+      // resultados da conta (Business Suite), quando o perfil está conectado à Meta
+      let conta: any = null;
+      try {
+        const { data: full } = await ctx.sb.from("ig_accounts").select("ig_user_id, followers_count, connected").eq("id", a.perfil_id).maybeSingle();
+        const token = full?.ig_user_id ? await igTokenForOwner(a.perfil_id, ctx.userId) : null;
+        if (full?.ig_user_id && token) {
+          const r: any = await contaInsights(full as any, token, Math.min(30, Math.max(7, dias)), false);
+          const varia = (k: string) => (r.current?.[k] != null && r.previous?.[k] ? Math.round(((r.current[k] - r.previous[k]) / r.previous[k]) * 1000) / 10 : null);
+          const pctOf = (x: number, t: number) => (t ? Math.round((x / t) * 1000) / 10 : null);
+          const grid: number[][] | null = r.online;
+          const DS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+          const horas = grid ? grid.flatMap((row, d) => row.map((v, h) => ({ dia: DS[d], hora: h, online: v }))).sort((x, y) => y.online - x.online) : [];
+          const g = (r.audience?.gender || []).filter((x: any) => x.k[0] !== "U"); const gt = g.reduce((t: number, x: any) => t + x.v, 0);
+          conta = {
+            periodo_dias: r.days,
+            resultados: Object.fromEntries(["views", "reach", "total_interactions", "profile_views", "follows", "profile_links_taps"].map((k) => [k, { valor: r.current?.[k] ?? null, periodo_anterior: r.previous?.[k] ?? null, variacao_pct: varia(k) }])),
+            alcance_nao_seguidores_pct: r.follow?.reach ? pctOf(r.follow.reach.nao, r.follow.reach.nao + r.follow.reach.seguidores) : null,
+            views_nao_seguidores_pct: r.follow?.views ? pctOf(r.follow.views.nao, r.follow.views.nao + r.follow.views.seguidores) : null,
+            horarios_mais_online: horas.slice(0, 5),
+            historico_mensal: await (async () => {
+              const { data: h } = await ctx.sb.from("ig_account_daily").select("day,views,total_interactions,profile_views,follows,profile_links_taps").eq("account_id", a.perfil_id).order("day");
+              return porMes(h || []);
+            })(),
+            publico: {
+              genero_pct: Object.fromEntries(g.map((x: any) => [x.k[0] === "F" ? "mulheres" : "homens", pctOf(x.v, gt)])),
+              faixas_etarias: (r.audience?.age || []).map((x: any) => ({ faixa: x.k[0], seguidores: x.v })),
+              cidades: (r.audience?.city || []).slice(0, 5).map((x: any) => ({ cidade: x.k[0], pct_seguidores: pctOf(x.v, r.audience.total || 0) })),
+            },
+          };
+        }
+      } catch {}
       const sum = (k: string) => posts.reduce((t: number, p: any) => t + (Number(p[k]) || 0), 0);
       const alc = sum("reach");
       const sinal = (p: any) => (p.compart_por_alcance_pct ?? -1) + (p.salvos_por_alcance_pct ?? 0);
       const destaques = posts.filter((p: any) => p.reach).sort((a: any, b: any) => sinal(b) - sinal(a)).slice(0, 5)
-        .map((p: any) => ({ permalink: p.permalink, media_type: p.media_type, posted_at: p.posted_at, compart_por_alcance_pct: p.compart_por_alcance_pct, salvos_por_alcance_pct: p.salvos_por_alcance_pct, plays: p.plays }));
+        .map((p: any) => ({ permalink: p.permalink, media_type: p.media_type, posted_at: p.posted_at, compart_por_alcance_pct: p.compart_por_alcance_pct, salvos_por_alcance_pct: p.salvos_por_alcance_pct, plays: p.plays, tempo_medio_assistido_s: p.tempo_medio_assistido_s, pilar: p.pilar }));
       return {
         perfil: acc, periodo_dias: dias, quantidade: posts.length,
         totais: { alcance: alc, curtidas: sum("like_count"), comentarios: sum("comments_count"), salvamentos: sum("saved"), compartilhamentos: sum("shares"), plays: sum("plays") },
         taxas_por_alcance_pct: alc ? { compartilhamentos: Math.round((sum("shares") / alc) * 10000) / 100, salvamentos: Math.round((sum("saved") / alc) * 10000) / 100 } : null,
         destaques_por_compart_e_salvos: destaques,
+        por_formato: grupo((p) => p.media_type),
+        por_pilar: grupo((p) => p.pilar),
+        tempo_medio_assistido_reels_s: media(posts.map((p: any) => p.tempo_medio_assistido_s)),
+        conta,
         posts,
         aviso: posts.length ? undefined : "Sem posts sincronizados nesse período. Sincronize o perfil no HUB (Desempenho) antes de analisar.",
       };
@@ -141,8 +192,8 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "enviar_campanha",
-    title: "Enviar campanha ao Planejador",
-    description: "Grava uma campanha (série de posts com data) no Planejador e no Quadro de produção do CREATOR. Cada post vira um card com gancho, roteiro, legenda e CTA.",
+    title: "Enviar campanha ao Quadro",
+    description: "Grava uma campanha (série de posts com data) no Quadro de produção do CREATOR (também aparece na vista Calendário). Cada post vira um card com gancho, roteiro, legenda e CTA.",
     inputSchema: {
       type: "object",
       required: ["nome", "posts"],
@@ -173,7 +224,7 @@ export const TOOLS: Tool[] = [
       }));
       const { data, error } = await ctx.sb.from("content_ideas").insert(rows).select("id");
       if (error) fail(error.message);
-      return { ok: true, criados: data?.length || 0, onde: "CREATOR › Planejador e Quadro de produção", ids: (data || []).map((x: any) => x.id) };
+      return { ok: true, criados: data?.length || 0, onde: "CREATOR › Quadro de produção", ids: (data || []).map((x: any) => x.id) };
     },
   },
   {

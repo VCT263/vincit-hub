@@ -31,7 +31,7 @@ export default function Producao() {
     setItems(data || []); setClients(cl || []);
   }, []);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { const q = new URLSearchParams(location.search); if (q.get("perfil")) setF((x) => ({ ...x, account: q.get("perfil")! })); }, []);
+  useEffect(() => { const q = new URLSearchParams(location.search); if (q.get("perfil")) setF((x) => ({ ...x, account: q.get("perfil")! })); if (q.get("view") === "lista") setView("lista"); }, []);
   // abre um conteúdo direto pelo link (?c=id), vindo do Planejador ou de Seu dia
   useEffect(() => { const id = new URLSearchParams(location.search).get("c"); if (id && items.length && !sel) { const it = items.find((x) => x.id === id); if (it) setSel(it); } }, [items]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -65,6 +65,7 @@ export default function Producao() {
           {(["quadro", "lista"] as const).map((v) => <button key={v} onClick={() => setView(v)} className={`px-3 py-1 text-sm rounded-md ${view === v ? "bg-ink text-mint" : "text-fog"}`}>{v === "quadro" ? "Quadro" : "Lista"}</button>)}
           <Link href={`/creator/pauta${f.account ? `?perfil=${f.account}` : ""}`} className="px-3 py-1 text-sm rounded-md text-fog hover:text-paper">Calendário</Link>
         </div>
+        <Link href={`/creator/pauta?gerar=1${f.account ? `&perfil=${f.account}` : ""}`} className="btn btn-ghost btn-sm"><I.spark className="w-4 h-4" />Gerar plano com IA</Link>
         <select className="input !w-auto" value={f.account} onChange={(e) => setF({ ...f, account: e.target.value })}><option value="">Todos os perfis</option>{accounts.map((a) => <option key={a.id} value={a.id}>@{a.username}</option>)}</select>
         {clients.length > 0 && <select className="input !w-auto" value={f.client} onChange={(e) => setF({ ...f, client: e.target.value })}><option value="">Todos os clientes</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.company || c.name}</option>)}</select>}
         {assignees.length > 0 && <select className="input !w-auto" value={f.assignee} onChange={(e) => setF({ ...f, assignee: e.target.value })}><option value="">Todos os responsáveis</option>{assignees.map((a) => <option key={a}>{a}</option>)}</select>}

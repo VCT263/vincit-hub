@@ -43,6 +43,8 @@ export default function Perfil() {
   const [insErr, setInsErr] = useState<string | null>(null);
   const [insLoading, setInsLoading] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [hist, setHist] = useState<any[]>([]);
+  const [rankBy, setRankBy] = useState<"formato" | "pilar">("formato");
   const ai = useAI();
 
   const load = useCallback(async () => {
@@ -52,7 +54,10 @@ export default function Perfil() {
       s.from("ig_posts").select("*").eq("account_id", id).order("posted_at", { ascending: false }),
       s.from("ig_accounts").select("id,username,profile_picture_url,connected").order("created_at"),
     ]);
-    setAcc(a); setPosts(p || []); setAccounts(all || []);
+    // pilar do card do Quadro que publicou o post (content_ideas.ig_media_id)
+    const { data: ideas } = await s.from("content_ideas").select("ig_media_id,pillar").eq("account_id", id).not("ig_media_id", "is", null);
+    const pil = new Map((ideas || []).filter((i: any) => i.pillar).map((i: any) => [i.ig_media_id, i.pillar]));
+    setAcc(a); setPosts((p || []).map((x: any) => ({ ...x, pilar: pil.get(x.ig_media_id) || null }))); setAccounts(all || []);
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
@@ -60,10 +65,12 @@ export default function Perfil() {
     if (!acc?.connected) return;
     setInsLoading(true); setInsErr(null);
     try {
-      const r = await fetch(`/api/meta/insights?account_id=${id}&days=${days}`);
+      const r = await fetch(`/api/meta/insights?account_id=${id}&days=${days}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Não foi possível ler os resultados da Meta.");
       setIns(j);
+      const { data: h } = await createClient().from("ig_account_daily").select("day,views,total_interactions,profile_views,follows,profile_links_taps").eq("account_id", id).order("day");
+      setHist(h || []);
     } catch (e: any) { setInsErr(e.message); setIns(null); }
     setInsLoading(false);
   }, [id, days, acc?.connected]);
@@ -113,25 +120,29 @@ export default function Perfil() {
     const avgViews = avgOf(posts.map((p) => p.plays ?? null));
     const avgEng = posts.length ? posts.reduce((a, p) => a + eng(p), 0) / posts.length : null;
     const engRate = avgEng != null && acc?.followers_count ? avgEng / acc.followers_count : null;
-    const byType: Record<string, { n: number; s: number[]; r: number[]; e: number }> = {};
-    posts.forEach((p) => {
-      const k = p.media_type || "?"; byType[k] ??= { n: 0, s: [], r: [], e: 0 };
-      byType[k].n++; byType[k].e += eng(p);
-      const t = taxas(p).sinal; if (t != null) byType[k].s.push(t);
-      if (p.reach != null) byType[k].r.push(p.reach);
-    });
-    const useRate = Object.values(byType).some((v) => v.s.length);
-    const ranking = Object.entries(byType).map(([k, v]) => ({
-      k, n: v.n, val: useRate ? avgOf(v.s) ?? 0 : v.e / v.n, reach: avgOf(v.r),
-    })).sort((a, b) => b.val - a.val);
+    const watchMed = avgOf(posts.map((p) => p.avg_watch_ms ?? null));
+    const useRate = posts.some((p) => taxas(p).sinal != null);
+    const rank = (key: (p: any) => string | null) => {
+      const g: Record<string, { n: number; s: number[]; r: number[]; w: number[]; e: number }> = {};
+      posts.forEach((p) => {
+        const k = key(p); if (!k) return; g[k] ??= { n: 0, s: [], r: [], w: [], e: 0 };
+        g[k].n++; g[k].e += eng(p);
+        const t = taxas(p).sinal; if (t != null) g[k].s.push(t);
+        if (p.reach != null) g[k].r.push(p.reach);
+        if (p.avg_watch_ms != null) g[k].w.push(p.avg_watch_ms);
+      });
+      return Object.entries(g).map(([k, v]) => ({ k, n: v.n, val: useRate ? avgOf(v.s) ?? 0 : v.e / v.n, reach: avgOf(v.r), watch: avgOf(v.w) })).sort((a, b) => b.val - a.val);
+    };
+    const ranking = rank((p) => p.media_type || "?");
+    const rankingPilar = rank((p) => p.pilar);
     const sinal = (p: any) => taxas(p).sinal ?? -1;
     const top = [...posts].filter((p) => taxas(p).sinal != null).sort((a, b) => sinal(b) - sinal(a)).slice(0, 6);
     const cols = [...posts].reverse().filter((p) => p.reach).map((p) => ({ id: p.id, date: (p.posted_at || "").slice(0, 10), a: taxas(p).compart || 0, b: taxas(p).salvos || 0, caption: p.caption, thumb: p.thumbnail_url, tipo: formato(p.media_type) }));
-    return { xMed, eng, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal };
+    return { rankingPilar, watchMed, xMed, eng, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal };
   }, [posts, acc?.followers_count]);
 
   if (!acc) return <p className="text-fog">Carregando…</p>;
-  const { xMed, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal } = calc;
+  const { rankingPilar, watchMed, xMed, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal } = calc;
   const sorted = sort === "sinal" ? [...posts].sort((a, b) => sinal(b) - sinal(a) || calc.eng(b) - calc.eng(a)) : posts;
   const sel = METRICAS.find((m) => m.k === metric)!;
   const serie = (k: MK) => (ins?.series || []).map((d: any) => ({ date: d.date, v: d[k] ?? null }));
@@ -169,7 +180,8 @@ export default function Perfil() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {acc.connected && <button onClick={sync} disabled={syncing} className="btn btn-ghost"><I.refresh className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />{syncing ? "Sincronizando…" : "Sincronizar"}</button>}
-          <button onClick={diagnose} disabled={ai.busy} className="btn btn-mint"><I.spark className="w-4 h-4" />{ai.busy ? "Analisando…" : "Diagnóstico com IA"}</button>
+          {/* o diagnóstico mora no Raio-X (27/11); aqui ficam só os números */}
+          <Link href={`/creator/diagnostico?perfil=${id}`} className="btn btn-mint"><I.target className="w-4 h-4" />Raio-X e estratégia</Link>
         </div>
       </div>
       {msg && <div className="card px-4 py-3 mb-5 text-sm text-mint border-mint-dim">{msg}</div>}
@@ -221,6 +233,8 @@ export default function Perfil() {
               </div>
               {ins ? <AreaChart key={metric + days} data={serie(metric)} label={sel.label} /> : <div className="h-[220px] rounded-[10px] bg-panel2/50 animate-pulse" />}
             </div>
+            {ins?.follow && <Descoberta f={ins.follow} />}
+            {hist.length > 0 && <MesAMes rows={hist} />}
           </>
         )}
       </section>
@@ -232,10 +246,11 @@ export default function Perfil() {
         <p className="text-sm text-fog mb-3 max-w-2xl">O Instagram hoje pesa mais compartilhamentos, salvamentos, tempo assistido e views do que curtidas e seguidores. Média dos últimos {posts.length} posts sincronizados.</p>
 
         <div className="grid gap-3">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <Big label="Compartilhamentos" value={pct(compartMed, 2)} hint="por pessoa alcançada" dot="var(--color-mint)" />
             <Big label="Salvamentos" value={pct(salvosMed, 2)} hint="por pessoa alcançada" dot={LILAS} />
             <Big label="Alcance médio" value={num(avgReach && Math.round(avgReach))} hint="pessoas por post" />
+            <Big label="Tempo assistido" value={seg(watchMed)} hint="média por Reel" />
             <Big label="Views médias" value={num(avgViews && Math.round(avgViews))} hint={`engajamento ${pct(engRate)} por seguidor (pesa menos)`} />
           </div>
           <div className="card p-4 md:p-5 flex flex-col">
@@ -254,23 +269,38 @@ export default function Perfil() {
       {/* 3. Ranking de formatos + melhores posts */}
       <section className="grid lg:grid-cols-3 gap-3 mb-8">
         <div className="card p-4 md:p-5">
-          <p className="font-mono text-[11px] text-mint tracking-widest uppercase">03 · Ranking de formatos</p>
-          <p className="text-xs text-fog mb-4">{useRate ? "Compartilhamentos + salvamentos por alcance, média por formato" : "Engajamento médio por formato"}</p>
-          {!ranking.length ? <p className="text-fog text-sm">Sem posts sincronizados.</p> : (
-            <ol className="space-y-4">
-              {ranking.map((r, i) => (
-                <li key={r.k}>
-                  <div className="flex items-baseline gap-3 mb-1.5">
-                    <span className={`font-display text-lg font-extrabold w-6 ${i === 0 ? "text-mint" : "text-fog"}`}>{i + 1}</span>
-                    <span className="font-semibold flex-1 min-w-0">{formato(r.k)}<span className="block text-fog text-[11px] font-normal">{r.n} {r.n === 1 ? "post" : "posts"}{r.reach != null ? ` · alcance médio ${num(Math.round(r.reach))}` : ""}</span></span>
-                    <span className="font-semibold text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>{useRate ? pct(r.val, 2) : num(Math.round(r.val))}</span>
-                  </div>
-                  <div className="pl-9"><HBar value={r.val} max={ranking[0].val} color={i === 0 ? "var(--color-mint)" : "var(--color-slate)"} /></div>
-                </li>
-              ))}
-            </ol>
-          )}
-          {ranking.length > 1 && <p className="text-xs text-fog mt-5 pt-4 border-t border-line">Faça mais <b className="text-paper">{formato(ranking[0].k)}</b>: é o formato que mais gera compartilhamento e salvamento por pessoa alcançada.</p>}
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="font-mono text-[11px] text-mint tracking-widest uppercase">03 · Ranking</p>
+            <div className="flex rounded-[10px] border border-line p-0.5 text-[11px]">
+              {(["formato", "pilar"] as const).map((k) => <button key={k} onClick={() => setRankBy(k)} className={`px-2.5 py-1 rounded-[8px] ${rankBy === k ? "bg-mint text-[#06140e] font-semibold" : "text-fog hover:text-paper"}`}>{k === "formato" ? "Formato" : "Pilar"}</button>)}
+            </div>
+          </div>
+          <p className="text-xs text-fog mb-4">{useRate ? `Compartilhamentos + salvamentos por alcance, média por ${rankBy}` : `Engajamento médio por ${rankBy}`}</p>
+          {(() => {
+            const list = rankBy === "formato" ? ranking : rankingPilar;
+            const nome = (k: string) => (rankBy === "formato" ? formato(k) : k);
+            if (!list.length) return rankBy === "pilar"
+              ? <p className="text-fog text-sm">Ainda nenhum post publicado pelo Quadro de produção. Quando um card com pilar for publicado (o link do post fica no card), ele entra aqui.</p>
+              : <p className="text-fog text-sm">Sem posts sincronizados.</p>;
+            return (
+              <>
+                <ol className="space-y-4">
+                  {list.map((r, i) => (
+                    <li key={r.k}>
+                      <div className="flex items-baseline gap-3 mb-1.5">
+                        <span className={`font-display text-lg font-extrabold w-6 ${i === 0 ? "text-mint" : "text-fog"}`}>{i + 1}</span>
+                        <span className="font-semibold flex-1 min-w-0">{nome(r.k)}<span className="block text-fog text-[11px] font-normal">{r.n} {r.n === 1 ? "post" : "posts"}{r.reach != null ? ` · alcance médio ${num(Math.round(r.reach))}` : ""}{r.watch != null ? ` · assistido ${seg(r.watch)}` : ""}</span></span>
+                        <span className="font-semibold text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>{useRate ? pct(r.val, 2) : num(Math.round(r.val))}</span>
+                      </div>
+                      <div className="pl-9"><HBar value={r.val} max={list[0].val} color={i === 0 ? "var(--color-mint)" : "var(--color-slate)"} /></div>
+                    </li>
+                  ))}
+                </ol>
+                {list.length > 1 && <p className="text-xs text-fog mt-5 pt-4 border-t border-line">Faça mais <b className="text-paper">{nome(list[0].k)}</b>: é o {rankBy} que mais gera compartilhamento e salvamento por pessoa alcançada.</p>}
+                {rankBy === "pilar" && <p className="text-[11px] text-fog mt-3">{list.reduce((t, r) => t + r.n, 0)} de {posts.length} posts têm pilar (vêm do Quadro de produção).</p>}
+              </>
+            );
+          })()}
         </div>
 
         <div className="card p-4 md:p-5 lg:col-span-2">
@@ -293,7 +323,7 @@ export default function Perfil() {
                         <p className="text-[10px] text-paper/70 mt-0.5">compart. + salvos por alcance</p>
                       </div>
                     </div>
-                    <div className="px-2.5 py-2 text-[11px] text-fog flex justify-between gap-2"><span>{formato(p.media_type)} · {new Date(p.posted_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")}</span><span>{num(p.reach)} alc.</span></div>
+                    <div className="px-2.5 py-2 text-[11px] text-fog flex justify-between gap-2"><span>{formato(p.media_type)} · {new Date(p.posted_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")}</span><span>{p.avg_watch_ms != null ? `${seg(p.avg_watch_ms)} · ` : ""}{num(p.reach)} alc.</span></div>
                   </a>
                 );
               })}
@@ -303,12 +333,14 @@ export default function Perfil() {
       </section>
 
       {/* 5. Público */}
+      {acc.connected && ins?.online && <QuandoPostar grid={ins.online} />}
+
       {acc.connected && ins?.audience && (ins.audience.gender || ins.audience.age || ins.audience.city) && <Publico a={ins.audience} />}
 
       {/* 6. Todos os posts */}
       <section className="card p-4 md:p-5 mb-8">
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <div><p className="font-mono text-[11px] text-mint tracking-widest uppercase">06 · Todos os posts</p><p className="text-xs text-fog">Números de cada post, para conferir e comparar.</p></div>
+          <div><p className="font-mono text-[11px] text-mint tracking-widest uppercase">07 · Todos os posts</p><p className="text-xs text-fog">Números de cada post, para conferir e comparar.</p></div>
           <div className="flex gap-1 flex-wrap">
             {(["recent", "sinal"] as const).map((s) => <button key={s} onClick={() => { setSort(s); setShowTable(true); }} className={`btn btn-sm ${sort === s && showTable ? "btn-mint" : "btn-ghost"}`}>{s === "recent" ? "Recentes" : "Mais compartilhados e salvos"}</button>)}
             {showTable && <button onClick={() => setShowTable(false)} className="btn btn-sm btn-ghost">Fechar</button>}
@@ -319,7 +351,7 @@ export default function Perfil() {
         ) : (
           <div className="overflow-x-auto scroll-thin">
             <table className="w-full text-sm min-w-[940px]">
-              <thead><tr className="text-left text-fog text-xs border-b border-line">{["Post", "Formato", "Data", "x mediana", "Compart./alc.", "Salvos/alc.", "Alcance", "Views", "Compart.", "Salvos", "Curtidas", "Coment."].map((h) => <th key={h} className="py-2 pr-3 font-normal whitespace-nowrap">{h}</th>)}</tr></thead>
+              <thead><tr className="text-left text-fog text-xs border-b border-line">{["Post", "Formato", "Data", "x mediana", "Compart./alc.", "Salvos/alc.", "Tempo méd.", "Alcance", "Views", "Compart.", "Salvos", "Curtidas", "Coment."].map((h) => <th key={h} className="py-2 pr-3 font-normal whitespace-nowrap">{h}</th>)}</tr></thead>
               <tbody style={{ fontVariantNumeric: "tabular-nums" }}>
                 {sorted.map((p) => {
                   const t = taxas(p); const xm = xMed(p);
@@ -331,6 +363,7 @@ export default function Perfil() {
                       <td className="pr-3 text-xs">{xm != null ? <span className={`rounded-full px-1.5 py-0.5 ${xm >= 2 ? "bg-mint/15 text-mint font-semibold" : xm < 0.5 ? "text-fog" : ""}`}>{xm.toFixed(1)}x</span> : "–"}</td>
                       <td className="pr-3 text-xs"><Cell v={t.compart} max={0.05} color="var(--color-mint)" /></td>
                       <td className="pr-3 text-xs"><Cell v={t.salvos} max={0.05} color={LILAS} /></td>
+                      <td className="pr-3 text-xs whitespace-nowrap">{seg(p.avg_watch_ms)}</td>
                       {[p.reach, p.plays, p.shares, p.saved, p.like_count, p.comments_count].map((v, i) => <td key={i} className="pr-3 text-xs">{fmt(v)}</td>)}
                     </tr>
                   );
@@ -378,6 +411,147 @@ export default function Perfil() {
   );
 }
 
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+/** soma por mês do histórico diário guardado no HUB, em pequenos gráficos (um por métrica, cada um na sua escala) */
+function MesAMes({ rows }: { rows: any[] }) {
+  const m: Record<string, any> = {};
+  for (const r of rows) {
+    const k = String(r.day).slice(0, 7);
+    m[k] ??= { mes: k, dias: 0, views: 0, total_interactions: 0, profile_views: 0, follows: 0 };
+    m[k].dias++;
+    for (const c of ["views", "total_interactions", "profile_views", "follows"]) m[k][c] += Number(r[c]) || 0;
+  }
+  const meses = Object.values(m).sort((a: any, b: any) => a.mes.localeCompare(b.mes)).slice(-6) as any[];
+  const diasNoMes = (k: string) => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate();
+  const nome = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]}${k.slice(0, 4) !== String(new Date().getFullYear()) ? "/" + k.slice(2, 4) : ""}`;
+  const desde = new Date(rows[0].day + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
+  return (
+    <div className="card p-4 md:p-5 mt-3">
+      <div className="mb-4">
+        <p className="font-display font-bold">Mês a mês</p>
+        <p className="text-xs text-fog">O Instagram só mostra 30 dias; o HUB guarda cada dia desde {desde}. Mês com menos dias guardados aparece mais claro.</p>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[["views", "Visualizações"], ["total_interactions", "Interações"], ["profile_views", "Visitas ao perfil"], ["follows", "Novos seguidores"]].map(([k, l]) => {
+          const max = Math.max(...meses.map((x) => x[k]), 1);
+          const last = meses[meses.length - 1], prev = meses[meses.length - 2];
+          return (
+            <div key={k}>
+              <p className="text-xs text-fog">{l}</p>
+              <p className="font-display text-xl font-bold">{num(last?.[k])} <span className="text-[11px] font-normal text-fog">em {nome(last.mes)}{prev ? ` · ${nome(prev.mes)}: ${num(prev[k])}` : ""}</span></p>
+              <div className="flex items-end gap-1.5 h-20 mt-2">
+                {meses.map((x) => {
+                  const parcial = x.dias < diasNoMes(x.mes);
+                  return (
+                    <div key={x.mes} className="flex-1 flex flex-col items-center justify-end h-full" title={`${nome(x.mes)}: ${num(x[k])} (${x.dias} dias guardados)`}>
+                      <div className="w-full max-w-[24px] rounded-t-[4px] bg-mint" style={{ height: `${Math.max(2, (x[k] / max) * 100)}%`, opacity: parcial ? 0.45 : 1 }} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-1.5 mt-1">{meses.map((x) => <span key={x.mes} className="flex-1 text-center text-[10px] text-fog">{nome(x.mes)}</span>)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** milissegundos em "4,2 s" ou "1 min 05 s" */
+const seg = (ms: number | null | undefined) => {
+  if (ms == null) return "–";
+  const s = ms / 1000;
+  return s < 60 ? `${s.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} s` : `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, "0")} s`;
+};
+
+/** alcance e views divididos entre quem já segue e gente nova */
+function Descoberta({ f }: { f: Record<string, { seguidores: number; nao: number }> }) {
+  const rows = [["reach", "Alcance"], ["views", "Visualizações"]].filter(([k]) => f[k] && f[k].seguidores + f[k].nao > 0);
+  if (!rows.length) return null;
+  const novo = f.reach ? f.reach.nao / ((f.reach.seguidores + f.reach.nao) || 1) : null;
+  return (
+    <div className="card p-4 md:p-5 mt-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+        <div>
+          <p className="font-display font-bold">Gente nova ou sua base?</p>
+          <p className="text-xs text-fog">Quanto do período chegou a quem ainda não segue o perfil. Mais não seguidores = mais descoberta.</p>
+        </div>
+        <div className="flex gap-3 text-xs text-fog">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-mint" />Não seguidores</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: LILAS }} />Seguidores</span>
+        </div>
+      </div>
+      <div className="space-y-3">
+        {rows.map(([k, l]) => {
+          const t = f[k].seguidores + f[k].nao; const a = f[k].nao / t, b = f[k].seguidores / t;
+          return (
+            <div key={k} className="grid grid-cols-[92px_1fr] items-center gap-3">
+              <span className="text-xs text-fog">{l}</span>
+              <div className="flex gap-[2px] h-7" role="img" aria-label={`${l}: ${pct(a, 1)} não seguidores, ${pct(b, 1)} seguidores`}>
+                {a > 0 && <div className="h-full rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e] bg-mint" style={{ width: `${a * 100}%` }}>{a > 0.14 ? `${pct(a, 0)} · ${num(f[k].nao)}` : ""}</div>}
+                {b > 0 && <div className="h-full rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e]" style={{ width: `${b * 100}%`, background: LILAS }}>{b > 0.14 ? `${pct(b, 0)} · ${num(f[k].seguidores)}` : ""}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {novo != null && <p className="text-xs text-fog mt-4">{novo >= 0.5 ? "A maior parte do alcance veio de quem não segue: o conteúdo está sendo distribuído para fora da base." : "A maior parte do alcance ficou na sua base. Ganchos que respondem uma pergunta clara e Reels compartilháveis ajudam a chegar em gente nova."}</p>}
+    </div>
+  );
+}
+
+const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const DIAS_LONGO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+/** mapa de calor dia × hora dos seguidores online (uma cor, mais forte = mais gente) */
+function QuandoPostar({ grid }: { grid: number[][] }) {
+  const [sel, setSel] = useState<[number, number] | null>(null);
+  const max = Math.max(...grid.flat(), 1), min = Math.min(...grid.flat());
+  const ranked = grid.flatMap((row, d) => row.map((v, h) => ({ d, h, v }))).sort((a, b) => b.v - a.v);
+  // melhores janelas: um por dia diferente
+  const best: typeof ranked = [];
+  for (const c of ranked) { if (best.length >= 3) break; if (!best.some((b) => b.d === c.d)) best.push(c); }
+  const hourAvg = Array.from({ length: 24 }, (_, h) => grid.reduce((a, r) => a + r[h], 0) / 7);
+  const bestHour = hourAvg.indexOf(Math.max(...hourAvg));
+  const cur = sel ? { d: sel[0], h: sel[1], v: grid[sel[0]][sel[1]] } : null;
+  return (
+    <section className="mb-8">
+      <p className="font-mono text-[11px] text-mint tracking-widest uppercase">05 · Quando postar</p>
+      <h2 className="font-display text-xl font-bold">Quando seus seguidores estão online</h2>
+      <p className="text-sm text-fog mb-3">Média das últimas semanas, em horário de Brasília. Poste um pouco antes do pico.</p>
+      <div className="grid lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 content-start">
+          <div className="card p-4"><p className="text-xs text-fog">Melhor hora no geral</p><p className="font-display text-3xl font-bold mt-1">{bestHour}h</p><p className="text-[11px] text-fog mt-0.5">~{num(Math.round(hourAvg[bestHour]))} seguidores online</p></div>
+          <div className="card p-4"><p className="text-xs text-fog mb-2">Picos da semana</p><ol className="space-y-1.5 text-sm">{best.map((b, i) => <li key={i} className="flex justify-between gap-2"><span><span className="text-fog mr-1.5">{i + 1}.</span>{DIAS_LONGO[b.d]}, {b.h}h</span><span className="text-fog">{num(b.v)}</span></li>)}</ol></div>
+        </div>
+        <div className="card p-4 md:p-5 lg:col-span-3 overflow-x-auto scroll-thin">
+          <div className="min-w-[520px]" onPointerLeave={() => setSel(null)}>
+            <div className="grid gap-[2px]" style={{ gridTemplateColumns: "34px repeat(24, minmax(0, 1fr))" }}>
+              {grid.map((row, d) => (
+                <div key={d} className="contents">
+                  <span className="text-[11px] text-fog self-center">{DIAS[d]}</span>
+                  {row.map((v, h) => (
+                    <button key={h} type="button" onPointerEnter={() => setSel([d, h])} onClick={() => setSel([d, h])}
+                      aria-label={`${DIAS_LONGO[d]} ${h}h: ${v} seguidores online`}
+                      className={`h-6 rounded-[3px] ${cur && cur.d === d && cur.h === h ? "ring-1 ring-paper" : ""}`}
+                      style={{ background: `color-mix(in srgb, var(--color-mint) ${Math.round(6 + Math.pow((v - min) / (max - min || 1), 1.6) * 94)}%, var(--color-panel2))` }} />
+                  ))}
+                </div>
+              ))}
+              <span />
+              {Array.from({ length: 24 }, (_, h) => <span key={h} className="text-[10px] text-fog text-center">{h % 3 === 0 ? `${h}h` : ""}</span>)}
+            </div>
+            <div className="flex items-center justify-between gap-3 mt-3 text-xs text-fog flex-wrap">
+              <span>{cur ? <><b className="text-paper">{DIAS_LONGO[cur.d]}, {cur.h}h</b> · {num(cur.v)} seguidores online</> : "Passe o dedo ou o mouse nos quadrados."}</span>
+              <span className="flex items-center gap-1.5">menos<span className="w-16 h-2 rounded-full" style={{ background: "linear-gradient(90deg, color-mix(in srgb, var(--color-mint) 8%, var(--color-panel2)), var(--color-mint))" }} />mais</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Big({ label, value, hint, dot }: { label: string; value: string; hint: string; dot?: string }) {
   return (
     <div className="card p-4">
@@ -414,7 +588,7 @@ function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age:
   const segs = [{ k: "F", l: "Mulheres", c: "var(--color-mint)" }, { k: "M", l: "Homens", c: LILAS }].map((s) => ({ ...s, v: gv(s.k) })).filter((s) => s.v > 0);
   return (
     <section className="mb-8">
-      <p className="font-mono text-[11px] text-mint tracking-widest uppercase">05 · Público</p>
+      <p className="font-mono text-[11px] text-mint tracking-widest uppercase">06 · Público</p>
       <h2 className="font-display text-xl font-bold mb-3">Quem segue o perfil</h2>
       <div className="grid md:grid-cols-3 gap-3">
         {g.length > 0 && (
