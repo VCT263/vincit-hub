@@ -67,6 +67,13 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
   const scroller = useRef<HTMLDivElement>(null);
   const curRef = useRef(0); curRef.current = cur;
   const ready = useRef(false);
+  const sec = useRef<HTMLElement>(null);
+  const [shown, setShown] = useState(false); // a barra só aparece enquanto as páginas estão na tela
+  useEffect(() => {
+    const el = sec.current; if (!el || typeof IntersectionObserver === "undefined") { setShown(true); return; }
+    const io = new IntersectionObserver(([e]) => setShown(e.isIntersecting), { rootMargin: "0px 0px -35% 0px" });
+    io.observe(el); return () => io.disconnect();
+  }, []);
   const lock = useRef(0); // enquanto a rolagem pedida anda, a página atual não muda
 
   useEffect(() => {
@@ -88,7 +95,7 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
   const goTo = useCallback((i: number, smooth = true) => {
     const t = Math.max(0, Math.min(total - 1, i));
     const el = pages.current[t]; if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - (bar.current?.offsetHeight || 0) - 12;
+    const top = el.getBoundingClientRect().top + window.scrollY - 12;
     lock.current = Date.now() + (smooth ? 900 : 150);
     window.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
     setCur(t);
@@ -101,7 +108,7 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
       cancelAnimationFrame(raf);
       if (Date.now() < lock.current) return;
       raf = requestAnimationFrame(() => {
-        const line = (bar.current?.getBoundingClientRect().bottom || 0) + 40;
+        const line = 40;
         let best = 0;
         for (let i = 0; i < pages.current.length; i++) {
           const el = pages.current[i]; if (!el) continue;
@@ -162,8 +169,9 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
   const jump = () => { const n = parseInt(typed || "", 10); setTyped(null); if (n >= 1 && n <= total) goTo(n - 1); };
 
   return (
-    <section className="reader print:hidden">
-      <div ref={bar} className="sticky top-0 z-30 bg-ink/90 backdrop-blur border-y border-line">
+    <section ref={sec} className="reader print:hidden pb-20">
+      {/* barra fixa embaixo, ao alcance do polegar no celular */}
+      <div ref={bar} className={`fixed inset-x-0 bottom-0 z-30 bg-ink/90 backdrop-blur border-t border-line transition-transform duration-200 ${shown ? "translate-y-0" : "translate-y-full"}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-6xl mx-auto px-1.5 md:px-8 py-1.5 flex flex-wrap items-center justify-between gap-x-1 sm:gap-x-2 gap-y-1">
           <div className="flex items-center gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Como ver as páginas">
             <Btn on={mode === "uma"} title="Uma página" onClick={() => setMode("uma")}>{I.uma}</Btn>
