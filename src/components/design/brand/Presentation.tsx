@@ -365,7 +365,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       <div style={{ overflow: "hidden" }}><SvgView svg={patternSvg(d, pat, 1000, 900)} className="w-full h-full" /></div>
       <div style={{ padding: "56px 56px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
         <Label x={x} style={{ opacity: .6 }}>Grafismos</Label>
-        <div><h2 style={x.T({ fontSize: 84, textTransform: "uppercase" })}>Padrão</h2><p style={x.B({ fontSize: 18, lineHeight: 1.55, marginTop: 22, opacity: .8 })}>Nasce do {pat.source === "monograma" ? "monograma" : "símbolo"}. Cheio em embalagens e fundos de destaque; sutil atrás de texto.</p></div>
+        <div><h2 style={x.T({ fontSize: 84, textTransform: "uppercase" })}>Padrão</h2><p style={x.B({ fontSize: 18, lineHeight: 1.55, marginTop: 22, opacity: .8 })}>Nasce {pat.svg ? (d.pattern?.nome || "de um detalhe do logo") : pat.source === "monograma" ? "do monograma" : "do símbolo"}. Cheio em embalagens e fundos de destaque; sutil atrás de texto.</p></div>
         <div style={{ height: "28%", overflow: "hidden" }}><SvgView svg={patternSvg(d, { ...pat, bg: x.paper, fg: x.acc, opacity: .5 }, 600, 260)} className="w-full h-full" /></div>
       </div>
     </div>
