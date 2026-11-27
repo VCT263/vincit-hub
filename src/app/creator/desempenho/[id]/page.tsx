@@ -7,6 +7,7 @@ import { fmt } from "@/lib/useAccounts";
 import { useAI } from "@/lib/useAI";
 import Markdown from "@/components/Markdown";
 import { I } from "@/components/icons";
+import { pct, taxas } from "@/lib/mixModa";
 
 export default function Perfil() {
   const { id } = useParams<{ id: string }>();
@@ -17,7 +18,7 @@ export default function Perfil() {
   const [msg, setMsg] = useState<string | null>(null);
   const [diag, setDiag] = useState("");
   const [edit, setEdit] = useState(false);
-  const [sort, setSort] = useState<"recent" | "eng">("recent");
+  const [sort, setSort] = useState<"recent" | "sinal">("recent");
   const [voiceEdit, setVoiceEdit] = useState(false);
   const [samples, setSamples] = useState("");
   const ai = useAI();
@@ -74,9 +75,16 @@ export default function Perfil() {
   const reachPosts = posts.filter((p) => p.reach);
   const avgReach = reachPosts.length ? reachPosts.reduce((a, p) => a + p.reach, 0) / reachPosts.length : null;
   const engRate = avgEng != null && acc.followers_count ? (avgEng / acc.followers_count) * 100 : null;
-  const byType: Record<string, { n: number; e: number }> = {};
-  posts.forEach((p) => { const k = p.media_type || "?"; byType[k] ??= { n: 0, e: 0 }; byType[k].n++; byType[k].e += eng(p); });
-  const sorted = sort === "eng" ? [...posts].sort((a, b) => eng(b) - eng(a)) : posts;
+  // o que o Instagram mais pesa: compartilhamentos e salvamentos por alcance (e views)
+  const avgOf = (xs: (number | null)[]) => { const v = xs.filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const compartMed = avgOf(posts.map((p) => taxas(p).compart));
+  const salvosMed = avgOf(posts.map((p) => taxas(p).salvos));
+  const sinal = (p: any) => taxas(p).sinal ?? -1;
+  const byType: Record<string, { n: number; e: number; s: number[] }> = {};
+  posts.forEach((p) => { const k = p.media_type || "?"; byType[k] ??= { n: 0, e: 0, s: [] }; byType[k].n++; byType[k].e += eng(p); const t = taxas(p).sinal; if (t != null) byType[k].s.push(t); });
+  const typeVal = (v: { n: number; e: number; s: number[] }) => (v.s.length ? v.s.reduce((a, b) => a + b, 0) / v.s.length : null);
+  const useRate = Object.values(byType).some((v) => v.s.length);
+  const sorted = sort === "sinal" ? [...posts].sort((a, b) => sinal(b) - sinal(a) || eng(b) - eng(a)) : posts;
 
   return (
     <>
@@ -98,10 +106,11 @@ export default function Perfil() {
       {ai.error && <div className="card px-4 py-3 mb-5 text-sm text-danger border-danger/40">{ai.error}</div>}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        {[["Seguidores", fmt(acc.followers_count)], ["Posts analisados", fmt(posts.length)], ["Engaj. médio/post", fmt(avgEng && Math.round(avgEng))], ["Taxa de engajamento", engRate != null ? engRate.toFixed(2) + "%" : "–"], ["Alcance médio", fmt(avgReach && Math.round(avgReach))]].map(([k, v]) => (
-          <div key={k} className="card p-4"><p className="text-xs text-fog">{k}</p><p className="font-display text-2xl font-bold mt-1.5 tabular-nums">{v}</p></div>
+        {[["Alcance médio", fmt(avgReach && Math.round(avgReach)), "pessoas por post"], ["Compartilhamentos", pct(compartMed, 2), "média por alcance"], ["Salvamentos", pct(salvosMed, 2), "média por alcance"], ["Posts analisados", fmt(posts.length), `${fmt(acc.followers_count)} seguidores`], ["Taxa de engajamento", engRate != null ? engRate.toFixed(2) + "%" : "–", "por seguidor, pesa menos hoje"]].map(([k, v, h]) => (
+          <div key={k} className="card p-4"><p className="text-xs text-fog">{k}</p><p className="font-display text-2xl font-bold mt-1.5 tabular-nums">{v}</p><p className="text-[11px] text-fog mt-0.5">{h}</p></div>
         ))}
       </div>
+      <p className="text-xs text-fog -mt-3 mb-6">O Instagram hoje pesa mais compartilhamentos, salvamentos, tempo assistido e views do que curtidas e seguidores. Repita o que vai bem nessas taxas.</p>
 
       <div className="grid lg:grid-cols-3 gap-5 mb-6">
         <section className="card p-5">
@@ -118,15 +127,16 @@ export default function Perfil() {
           )}
         </section>
         <section className="card p-5 lg:col-span-2">
-          <h2 className="font-display font-bold mb-3">Desempenho por formato</h2>
+          <h2 className="font-display font-bold mb-3">Desempenho por formato <span className="text-xs text-fog font-normal">{useRate ? "· compartilhamentos + salvamentos por alcance" : "· engajamento médio"}</span></h2>
           {!Object.keys(byType).length ? <p className="text-fog text-sm">Sem posts sincronizados.</p> : (
             <div className="space-y-3">
               {Object.entries(byType).map(([k, v]) => {
-                const max = Math.max(...Object.values(byType).map((x) => x.e / x.n));
-                const avg = v.e / v.n;
+                const val = (x: typeof v) => (useRate ? typeVal(x) ?? 0 : x.e / x.n);
+                const max = Math.max(...Object.values(byType).map(val)) || 1;
+                const avg = val(v);
                 return (
                   <div key={k}>
-                    <div className="flex justify-between text-sm mb-1"><span>{k} <span className="text-fog text-xs">({v.n})</span></span><span className="font-mono text-mint">{fmt(Math.round(avg))}</span></div>
+                    <div className="flex justify-between text-sm mb-1"><span>{k} <span className="text-fog text-xs">({v.n})</span></span><span className="font-mono text-mint">{useRate ? pct(avg, 2) : fmt(Math.round(avg))}</span></div>
                     <div className="h-2 bg-panel2 rounded-full overflow-hidden"><div className="h-full bg-mint rounded-full" style={{ width: `${(avg / max) * 100}%` }} /></div>
                   </div>
                 );
@@ -157,12 +167,12 @@ export default function Perfil() {
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-bold">Posts</h2>
-          <div className="flex gap-1">{(["recent", "eng"] as const).map((s) => <button key={s} onClick={() => setSort(s)} className={`btn btn-sm ${sort === s ? "btn-mint" : "btn-ghost"}`}>{s === "recent" ? "Recentes" : "Mais engajamento"}</button>)}</div>
+          <div className="flex gap-1">{(["recent", "sinal"] as const).map((s) => <button key={s} onClick={() => setSort(s)} className={`btn btn-sm ${sort === s ? "btn-mint" : "btn-ghost"}`}>{s === "recent" ? "Recentes" : "Mais compartilhados e salvos"}</button>)}</div>
         </div>
         {!posts.length ? <p className="text-fog text-sm py-6 text-center">{acc.connected ? "Clique em Sincronizar para puxar os posts." : "Perfis manuais não têm posts automáticos. Conecte via Meta para métricas reais."}</p> : (
           <div className="overflow-x-auto scroll-thin">
-            <table className="w-full text-sm min-w-[860px]">
-              <thead><tr className="text-left text-fog text-xs border-b border-line">{["Post", "Formato", "Data", "x mediana", "Curtidas", "Coment.", "Salvos", "Compart.", "Alcance", "Views", "Compart./alc."].map((h) => <th key={h} className="py-2 pr-3 font-normal">{h}</th>)}</tr></thead>
+            <table className="w-full text-sm min-w-[940px]">
+              <thead><tr className="text-left text-fog text-xs border-b border-line">{["Post", "Formato", "Data", "x mediana", "Curtidas", "Coment.", "Salvos", "Compart.", "Alcance", "Views", "Compart./alc.", "Salvos/alc."].map((h) => <th key={h} className="py-2 pr-3 font-normal">{h}</th>)}</tr></thead>
               <tbody>
                 {sorted.map((p) => (
                   <tr key={p.id} className="border-b border-line/60 hover:bg-panel2/50">
@@ -171,7 +181,8 @@ export default function Perfil() {
                     <td className="pr-3 text-fog text-xs whitespace-nowrap">{p.posted_at?.slice(0, 10)}</td>
                     <td className="pr-3 font-mono text-xs">{xMed(p) != null ? <span className={xMed(p)! >= 2 ? "text-mint font-semibold" : xMed(p)! < 0.5 ? "text-fog" : ""}>{xMed(p)!.toFixed(1)}x</span> : "–"}</td>
                     {[p.like_count, p.comments_count, p.saved, p.shares, p.reach, p.plays].map((v, i) => <td key={i} className="pr-3 font-mono text-xs">{fmt(v)}</td>)}
-                    <td className="pr-3 font-mono text-xs">{p.reach && p.shares != null ? `${((p.shares / p.reach) * 100).toFixed(1)}%` : "–"}</td>
+                    <td className="pr-3 font-mono text-xs">{p.reach && p.shares != null ? pct(taxas(p).compart) : "–"}</td>
+                    <td className="pr-3 font-mono text-xs">{p.reach && p.saved != null ? pct(taxas(p).salvos) : "–"}</td>
                   </tr>
                 ))}
               </tbody>

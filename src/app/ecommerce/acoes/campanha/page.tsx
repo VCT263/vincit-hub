@@ -7,6 +7,7 @@ import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import StoreGate from "@/components/ec/StoreGate";
 import ActionDrawer from "@/components/ec/ActionDrawer";
+import { TIPOS_MODA, TIPO_KEYS, mixDe, type TipoModa } from "@/lib/mixModa";
 import { addDays, brl, daysBetween, fmtDay, goalMath, KINDS, PHASE_COLOR, STATUS, todayBR, type EcAction, type Item } from "@/lib/ecommerce";
 
 /** Estúdio da campanha: a ação inteira dia a dia (conteúdo, WhatsApp, tarefas), a conta da meta e cada peça pronta para postar. */
@@ -14,7 +15,7 @@ export default function Campanha() {
   return <StoreGate>{(ctx) => <Studio ctx={ctx} />}</StoreGate>;
 }
 
-type Piece = { id: string; data: string; fase: string; canal: string; formato: string; titulo: string; gancho?: string; roteiro?: string; legenda?: string; cta?: string; status?: string; sent_at?: string };
+type Piece = { id: string; data: string; fase: string; canal: string; formato: string; titulo: string; gancho?: string; roteiro?: string; legenda?: string; cta?: string; status?: string; sent_at?: string; tipo?: TipoModa; fora_do_padrao?: boolean };
 const CANAIS = ["Instagram", "WhatsApp", "E-mail", "Loja", "TikTok"];
 const FORMATOS = ["Reels", "Carrossel", "Stories", "Foto", "Live", "Mensagem", "Evento"];
 const PSTATUS: Record<string, string> = { ideia: "Ideia", aprovado: "Aprovado", publicado: "Publicado" };
@@ -71,8 +72,8 @@ function Studio({ ctx }: { ctx: any }) {
     const prof = (profs || []).find((x: any) => [x.username, x.name].some((n) => n && n.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key)));
     const { error } = await sb.from("content_ideas").insert(posts.map((p) => ({
       account_id: prof?.id || null, caption: p.legenda || null,
-      kind: "plano", status: "backlog", title: `${ctx.store.name} · ${p.titulo}`.slice(0, 120), format: p.formato || null, planned_for: p.data, hook: p.gancho || null, pillar: a!.title,
-      body: `**Ação:** ${a!.title} (${fmtDay(a!.date)})\n**Fase:** ${p.fase} · **Canal:** ${p.canal}\n\n**Gancho:** ${p.gancho || "-"}\n\n**Roteiro:**\n${p.roteiro || "-"}\n\n**Legenda:**\n${p.legenda || "-"}\n\n**CTA:** ${p.cta || "-"}`,
+      kind: "plano", status: "backlog", title: `${ctx.store.name} · ${p.titulo}`.slice(0, 120), format: p.formato || null, planned_for: p.data, hook: p.gancho || null, pillar: (p.tipo && TIPOS_MODA[p.tipo]?.label) || a!.title,
+      body: `**Ação:** ${a!.title} (${fmtDay(a!.date)})\n**Fase:** ${p.fase} · **Canal:** ${p.canal}${p.tipo && TIPOS_MODA[p.tipo] ? ` · **Tipo:** ${TIPOS_MODA[p.tipo].label}` : ""}${p.fora_do_padrao ? " · **Fora do padrão**" : ""}\n\n**Gancho:** ${p.gancho || "-"}\n\n**Roteiro:**\n${p.roteiro || "-"}\n\n**Legenda:**\n${p.legenda || "-"}\n\n**CTA:** ${p.cta || "-"}`,
     })));
     setBusy(false);
     if (error) return setMsg(error.message);
@@ -161,6 +162,7 @@ function Studio({ ctx }: { ctx: any }) {
         </section>
 
         <aside className="space-y-4">
+          <MixCard pieces={pieces.filter((x) => x.canal === "Instagram" || x.canal === "TikTok")} />
           <section className="card p-5">
             <p className="font-mono text-[10px] uppercase tracking-widest text-mint mb-2">Conceito</p>
             {c.conceito ? <p className="font-display font-bold text-xl">{c.conceito}</p> : <p className="text-sm text-fog">Sem conceito ainda. Peça a campanha ao Claude no chat do projeto (sem custo) ou crie as peças à mão no dia a dia.</p>}
@@ -244,6 +246,8 @@ function PieceRow({ x, open, onToggle, onChange, onDelete, onSend, days }: { x: 
     <div className={`rounded-lg border ${open ? "border-mint" : "border-line"} bg-panel2/40`}>
       <button onClick={onToggle} className="w-full text-left px-3 py-2 flex items-center gap-2">
         <span className="chip text-[10px] shrink-0">{x.canal} · {x.formato}</span>
+        {x.tipo && TIPOS_MODA[x.tipo] && <span className="text-[10px] shrink-0 flex items-center gap-1 text-fog"><span className="w-1.5 h-1.5 rounded-full" style={{ background: TIPOS_MODA[x.tipo].cor }} />{TIPOS_MODA[x.tipo].label}</span>}
+        {x.fora_do_padrao && <span className="text-[10px] shrink-0 text-mint">fora do padrão</span>}
         <span className="font-semibold text-sm truncate flex-1">{x.titulo}</span>
         <span className={`text-[10px] shrink-0 ${x.status === "ideia" ? "text-fog" : "text-mint"}`}>{x.sent_at ? "no Quadro" : PSTATUS[x.status || "ideia"]}</span>
       </button>
@@ -257,6 +261,14 @@ function PieceRow({ x, open, onToggle, onChange, onDelete, onSend, days }: { x: 
             <select className="input" value={x.data} onChange={(e) => onChange({ data: e.target.value })}>{days.map((d) => <option key={d} value={d}>{fmtDay(d)}</option>)}</select>
             <select className="input" value={x.status} onChange={(e) => onChange({ status: e.target.value })}>{Object.entries(PSTATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           </div>
+          <div className="grid md:grid-cols-[1fr_auto] gap-2 items-center">
+            <select className="input" value={x.tipo || ""} onChange={(e) => onChange({ tipo: (e.target.value || undefined) as TipoModa | undefined })}>
+              <option value="">Tipo de conteúdo…</option>
+              {TIPO_KEYS.map((k) => <option key={k} value={k}>{TIPOS_MODA[k].label}</option>)}
+            </select>
+            <label className="flex items-center gap-2 text-xs text-fog cursor-pointer"><input type="checkbox" className="accent-[var(--color-mint)]" checked={!!x.fora_do_padrao} onChange={(e) => onChange({ fora_do_padrao: e.target.checked })} />Fora do padrão</label>
+          </div>
+          {x.tipo && TIPOS_MODA[x.tipo] && <p className="text-[11px] text-fog -mt-1">{TIPOS_MODA[x.tipo].dica}</p>}
           <div><label className="label">Gancho (primeira frase)</label><input className="input" defaultValue={x.gancho || ""} onBlur={blur("gancho")} /></div>
           <div><label className="label">Roteiro / cenas</label><textarea className="input !min-h-[90px]" defaultValue={x.roteiro || ""} onBlur={blur("roteiro")} /></div>
           <div><label className="label">Legenda pronta</label><textarea className="input !min-h-[90px]" defaultValue={x.legenda || ""} onBlur={blur("legenda")} /></div>
@@ -271,5 +283,33 @@ function PieceRow({ x, open, onToggle, onChange, onDelete, onSend, days }: { x: 
         </div>
       )}
     </div>
+  );
+}
+
+/** Mix de moda: fundadora, estilo de vida, educativo e editorial, mais a peça fora do padrão da semana */
+function MixCard({ pieces }: { pieces: Piece[] }) {
+  if (!pieces.length) return null;
+  const m = mixDe(pieces);
+  return (
+    <section className="card p-5">
+      <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Mix de conteúdo ({m.n})</p>
+      <div className="flex h-2 rounded-full overflow-hidden bg-line mb-3">
+        {TIPO_KEYS.map((k) => m.conta[k] > 0 && <span key={k} style={{ width: `${(m.conta[k] / m.n) * 100}%`, background: TIPOS_MODA[k].cor }} />)}
+      </div>
+      <div className="space-y-1.5 text-sm">
+        {TIPO_KEYS.map((k) => (
+          <div key={k} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: TIPOS_MODA[k].cor }} />
+            <span className="flex-1">{TIPOS_MODA[k].label}</span>
+            <span className="font-mono text-xs tabular-nums">{m.conta[k]}</span>
+          </div>
+        ))}
+        {m.semTipo > 0 && <div className="flex items-center gap-2 text-fog"><span className="w-2 h-2 rounded-full shrink-0 bg-line" /><span className="flex-1">Sem tipo</span><span className="font-mono text-xs tabular-nums">{m.semTipo}</span></div>}
+      </div>
+      <p className="text-[11px] text-fog mt-3">
+        {m.faltando.length ? `Falta ${m.faltando.map((k) => TIPOS_MODA[k].label.toLowerCase()).join(" e ")}. ` : ""}
+        {m.fora ? `${m.fora} ${m.fora === 1 ? "peça fora" : "peças fora"} do padrão.` : "Marque uma peça por semana como fora do padrão (formato, cor ou edição diferente)."}
+      </p>
+    </section>
   );
 }

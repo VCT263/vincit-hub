@@ -71,7 +71,7 @@ export const TOOLS: Tool[] = [
   {
     name: "ler_desempenho",
     title: "Ler desempenho do perfil",
-    description: "Traz os posts de um perfil nos últimos N dias com alcance, curtidas, comentários, salvamentos, compartilhamentos e plays, mais os totais. Use os números reais; não invente métricas.",
+    description: "Traz os posts de um perfil nos últimos N dias com alcance, curtidas, comentários, salvamentos, compartilhamentos e plays, as taxas por alcance, os totais e os destaques. Use os números reais; não invente métricas. Analise primeiro compartilhamentos e salvamentos por alcance e views: são os sinais que o Instagram mais pesa; curtidas e seguidores pesam menos.",
     inputSchema: { type: "object", properties: { perfil_id: { type: "string", description: "id do perfil (de listar_perfis)" }, dias: { type: "integer", minimum: 1, maximum: 365, default: 30 } }, required: ["perfil_id"] },
     readOnly: true,
     needs: "creator",
@@ -83,11 +83,18 @@ export const TOOLS: Tool[] = [
         .select("media_type, caption, permalink, posted_at, like_count, comments_count, reach, saved, shares, plays")
         .eq("account_id", a.perfil_id).gte("posted_at", since).order("posted_at", { ascending: false }).limit(200);
       if (error) fail(error.message);
-      const posts = (data || []).map((p: any) => ({ ...p, caption: clip(p.caption, 300) }));
+      const rate = (p: any, k: string) => (Number(p.reach) ? Math.round(((Number(p[k]) || 0) / Number(p.reach)) * 10000) / 100 : null);
+      const posts = (data || []).map((p: any) => ({ ...p, caption: clip(p.caption, 300), compart_por_alcance_pct: rate(p, "shares"), salvos_por_alcance_pct: rate(p, "saved") }));
       const sum = (k: string) => posts.reduce((t: number, p: any) => t + (Number(p[k]) || 0), 0);
+      const alc = sum("reach");
+      const sinal = (p: any) => (p.compart_por_alcance_pct ?? -1) + (p.salvos_por_alcance_pct ?? 0);
+      const destaques = posts.filter((p: any) => p.reach).sort((a: any, b: any) => sinal(b) - sinal(a)).slice(0, 5)
+        .map((p: any) => ({ permalink: p.permalink, media_type: p.media_type, posted_at: p.posted_at, compart_por_alcance_pct: p.compart_por_alcance_pct, salvos_por_alcance_pct: p.salvos_por_alcance_pct, plays: p.plays }));
       return {
         perfil: acc, periodo_dias: dias, quantidade: posts.length,
-        totais: { alcance: sum("reach"), curtidas: sum("like_count"), comentarios: sum("comments_count"), salvamentos: sum("saved"), compartilhamentos: sum("shares"), plays: sum("plays") },
+        totais: { alcance: alc, curtidas: sum("like_count"), comentarios: sum("comments_count"), salvamentos: sum("saved"), compartilhamentos: sum("shares"), plays: sum("plays") },
+        taxas_por_alcance_pct: alc ? { compartilhamentos: Math.round((sum("shares") / alc) * 10000) / 100, salvamentos: Math.round((sum("saved") / alc) * 10000) / 100 } : null,
+        destaques_por_compart_e_salvos: destaques,
         posts,
         aviso: posts.length ? undefined : "Sem posts sincronizados nesse período. Sincronize o perfil no HUB (Desempenho) antes de analisar.",
       };

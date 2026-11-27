@@ -113,6 +113,7 @@ function Overview({ ctx }: { ctx: any }) {
         </section>
 
         <div className="space-y-4">
+        <MonthMeetingCard ctx={ctx} month={month.slice(0, 7)} />
         <StoreProfileCard ctx={ctx} />
         <section className="card p-5">
           <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Quem vê esta loja</p>
@@ -173,6 +174,52 @@ function StoreProfileCard({ ctx }: { ctx: any }) {
             <div><label className="label">Conversão do atendimento (%)</label><input inputMode="decimal" className="input" defaultValue={p.conversao ?? ""} placeholder="Ex.: 30" disabled={!ctx.isOwner} onBlur={(e) => save("conversao", num(e.target.value))} /></div>
           </div>
           <p className="text-[11px] text-fog">Ticket médio e conversão saem do sistema da loja; com eles o HUB calcula quantas vendas e atendimentos cada ação precisa.{!ctx.isOwner ? " Só o dono edita." : ""}</p>
+          {msg && <p className="text-xs text-danger">{msg}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const MEETING: [string, string, string][] = [
+  ["ofertas", "Ofertas e promoções do mês", "O que a loja quer vender, desconto, brinde, kit…"],
+  ["datas", "Datas e acontecimentos", "Datas comerciais, eventos, viagem, fechamento de coleção…"],
+  ["lancamentos", "Lançamentos e reposições", "Peças novas, restoque, cor nova…"],
+  ["metas", "O que a loja quer do mês", "Vender X, girar estoque, ganhar cliente nova…"],
+  ["retorno", "Retorno do mês passado", "O que a cliente achou dos conteúdos e das ações."],
+];
+
+/** Ritual do mês: uma conversa curta com a loja que vira as ações e a pauta do mês. Fica no perfil da loja, por mês. */
+function MonthMeetingCard({ ctx, month }: { ctx: any; month: string }) {
+  const p = ctx.store?.profile || {};
+  const r = p.reunioes?.[month] || {};
+  const filled = MEETING.filter(([k]) => r[k]).length;
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function save(patch: Record<string, any>) {
+    const cur = ctx.store?.profile || {};
+    const next = { ...cur, reunioes: { ...(cur.reunioes || {}), [month]: { ...(cur.reunioes?.[month] || {}), ...patch } } };
+    const { error } = await createClient().from("ec_stores").update({ profile: next }).eq("id", ctx.storeId);
+    if (error) return setMsg(error.message);
+    setMsg(null); ctx.reload?.();
+  }
+  const label = MONTHS[Number(month.slice(5, 7)) - 1];
+  return (
+    <section className="card p-5">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 text-left">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-mint">Reunião de {label.toLowerCase()}</p>
+          <p className="text-xs text-fog mt-1">{r.feita ? `feita em ${fmtDay(r.feita)}` : "ainda não feita"} · {filled}/{MEETING.length} respostas</p>
+        </div>
+        <span className={`chip shrink-0 ${r.feita ? "text-mint" : ""}`}>{r.feita ? "feita" : "a fazer"}</span>
+      </button>
+      {open && (
+        <div className="mt-4 space-y-3">
+          <p className="text-[11px] text-fog">Uma conversa curta com a loja no começo do mês. As respostas viram as ações e a pauta do mês: peça ao Claude no chat para montar a partir daqui.</p>
+          {MEETING.map(([k, l, ph]) => (
+            <div key={k}><label className="label">{l}</label><textarea rows={2} className="input !min-h-0 text-sm" defaultValue={r[k] || ""} placeholder={ph} disabled={!ctx.isOwner} onBlur={(e) => { const v = e.target.value.trim() || null; if ((r[k] ?? null) !== v) save({ [k]: v }); }} /></div>
+          ))}
+          {ctx.isOwner && <button onClick={() => save({ feita: r.feita ? null : todayBR() })} className={`btn btn-sm ${r.feita ? "btn-ghost" : "btn-mint"}`}>{r.feita ? "Desmarcar como feita" : "Marcar reunião como feita"}</button>}
           {msg && <p className="text-xs text-danger">{msg}</p>}
         </div>
       )}
