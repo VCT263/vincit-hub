@@ -247,11 +247,11 @@ export default function Perfil() {
 
         <div className="grid gap-3">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <Big label="Compartilhamentos" value={pct(compartMed, 2)} hint="por pessoa alcançada" dot="var(--color-mint)" />
+            <Big label="Compartilhamentos" short="Compartilhados" value={pct(compartMed, 2)} hint="por pessoa alcançada" dot="var(--color-mint)" />
             <Big label="Salvamentos" value={pct(salvosMed, 2)} hint="por pessoa alcançada" dot={LILAS} />
             <Big label="Alcance médio" value={num(avgReach && Math.round(avgReach))} hint="pessoas por post" />
             <Big label="Tempo assistido" value={seg(watchMed)} hint="média por Reel" />
-            <Big label="Views médias" value={num(avgViews && Math.round(avgViews))} hint={`engajamento ${pct(engRate)} por seguidor (pesa menos)`} />
+            <Big label="Views médias" value={num(avgViews && Math.round(avgViews))} hint={`engajamento ${pct(engRate)} por seguidor (pesa menos)`} className="col-span-2 lg:col-span-1" />
           </div>
           <div className="card p-4 md:p-5 flex flex-col">
             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
@@ -323,7 +323,7 @@ export default function Perfil() {
                         <p className="text-[10px] text-paper/70 mt-0.5">compart. + salvos por alcance</p>
                       </div>
                     </div>
-                    <div className="px-2.5 py-2 text-[11px] text-fog flex justify-between gap-2"><span>{formato(p.media_type)} · {new Date(p.posted_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")}</span><span>{p.avg_watch_ms != null ? `${seg(p.avg_watch_ms)} · ` : ""}{num(p.reach)} alc.</span></div>
+                    <div className="px-2.5 py-2 text-[11px] text-fog flex flex-wrap justify-between gap-x-2"><span className="whitespace-nowrap">{formato(p.media_type)} · {new Date(p.posted_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")}</span><span className="whitespace-nowrap">{p.avg_watch_ms != null ? `${seg(p.avg_watch_ms)} · ` : ""}{num(p.reach)} alc.</span></div>
                   </a>
                 );
               })}
@@ -418,7 +418,7 @@ function MesAMes({ rows }: { rows: any[] }) {
   const br = new Date(Date.now() - 3 * 3600e3);
   const meses = Array.from({ length: 4 }, (_, i) => {
     const d = new Date(Date.UTC(br.getUTCFullYear(), br.getUTCMonth() - 3 + i, 1));
-    return { mes: d.toISOString().slice(0, 7), dias: 0, views: 0, total_interactions: 0, profile_views: 0, follows: 0 } as any;
+    return { mes: d.toISOString().slice(0, 7), dias: 0, n: {} as Record<string, number>, views: 0, total_interactions: 0, profile_views: 0, follows: 0 } as any;
   });
   const idx = Object.fromEntries(meses.map((x, i) => [x.mes, i]));
   const comDado = rows.filter((r) => MCAMPOS.some((c) => r[c] != null));
@@ -426,35 +426,37 @@ function MesAMes({ rows }: { rows: any[] }) {
     const x = meses[idx[String(r.day).slice(0, 7)]];
     if (!x) continue;
     x.dias++;
-    for (const c of MCAMPOS) x[c] += Number(r[c]) || 0;
+    for (const c of MCAMPOS) if (r[c] != null) { x[c] += Number(r[c]) || 0; x.n[c] = (x.n[c] || 0) + 1; }
   }
   const atual = meses[3].mes;
   const diasNoMes = (k: string) => (k === atual ? br.getUTCDate() - 1 : new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate());
   const nome = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]}${k.slice(0, 4) !== String(br.getUTCFullYear()) ? "/" + k.slice(2, 4) : ""}`;
   const desde = comDado[0] ? new Date(comDado[0].day + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "") : "–";
-  const vazios = meses.filter((x) => !x.dias).length;
+  const semSeg = meses.some((x) => x.dias && !x.n.follows);
   return (
     <div className="card p-4 md:p-5 mt-3">
       <div className="mb-4">
         <p className="font-display font-bold">Últimos 4 meses</p>
         <p className="text-xs text-fog">
-          Soma de cada mês com os dias que o HUB guardou (desde {desde}). Barra mais clara = mês com dias faltando{vazios ? "; mês sem barra ainda não tem dados do Instagram" : ""}.
+          Soma de cada mês com os dias que o HUB guardou (desde {desde}). Barra mais clara = mês com dias faltando; tracejado = sem dado.{semSeg ? " O Instagram só informa novos seguidores dos últimos 30 dias, por isso os meses antigos começam a contar a partir de agora." : ""}
         </p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
         {[["views", "Visualizações"], ["total_interactions", "Interações"], ["profile_views", "Visitas ao perfil"], ["follows", "Novos seguidores"]].map(([k, l]) => {
           const max = Math.max(...meses.map((x) => x[k]), 1);
           const total = meses.reduce((a, x) => a + x[k], 0);
+          const faltaAlgum = meses.some((x) => x.dias && !x.n[k]);
           return (
             <div key={k}>
               <p className="text-xs text-fog">{l}</p>
-              <p className="font-display text-xl font-bold">{num(total)} <span className="text-[11px] font-normal text-fog">em 4 meses</span></p>
+              <p className="flex flex-wrap items-baseline gap-x-1.5"><span className="font-display text-xl font-bold">{num(total)}</span><span className="text-[11px] text-fog whitespace-nowrap">{faltaAlgum ? "nos meses com dado" : "em 4 meses"}</span></p>
               <div className="flex items-end gap-1.5 h-24 mt-2">
                 {meses.map((x) => {
-                  const parcial = x.dias < diasNoMes(x.mes);
+                  const nk = x.n[k] || 0;
+                  const parcial = nk < diasNoMes(x.mes);
                   return (
-                    <div key={x.mes} className="flex-1 flex flex-col items-center justify-end h-full" title={`${nome(x.mes)}: ${x.dias ? num(x[k]) : "sem dados"} (${x.dias} dias guardados)`}>
-                      {x.dias ? (
+                    <div key={x.mes} className="flex-1 flex flex-col items-center justify-end h-full" title={`${nome(x.mes)}: ${nk ? num(x[k]) : "sem dados"} (${nk} dias guardados)`}>
+                      {nk ? (
                         <>
                           <span className="text-[10px] text-paper mb-0.5" style={{ fontVariantNumeric: "tabular-nums" }}>{num(x[k])}</span>
                           <div className="w-full max-w-[28px] rounded-t-[4px] bg-mint" style={{ height: `${Math.max(2, (x[k] / max) * 80)}%`, opacity: parcial ? 0.45 : 1 }} />
@@ -501,11 +503,11 @@ function Descoberta({ f }: { f: Record<string, { seguidores: number; nao: number
         {rows.map(([k, l]) => {
           const t = f[k].seguidores + f[k].nao; const a = f[k].nao / t, b = f[k].seguidores / t;
           return (
-            <div key={k} className="grid grid-cols-[92px_1fr] items-center gap-3">
+            <div key={k} className="grid grid-cols-[84px_1fr] sm:grid-cols-[92px_1fr] items-center gap-2 sm:gap-3">
               <span className="text-xs text-fog">{l}</span>
               <div className="flex gap-[2px] h-7" role="img" aria-label={`${l}: ${pct(a, 1)} não seguidores, ${pct(b, 1)} seguidores`}>
-                {a > 0 && <div className="h-full rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e] bg-mint" style={{ width: `${a * 100}%` }}>{a > 0.14 ? `${pct(a, 0)} · ${num(f[k].nao)}` : ""}</div>}
-                {b > 0 && <div className="h-full rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e]" style={{ width: `${b * 100}%`, background: LILAS }}>{b > 0.14 ? `${pct(b, 0)} · ${num(f[k].seguidores)}` : ""}</div>}
+                {a > 0 && <div className="h-full min-w-0 overflow-hidden whitespace-nowrap rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e] bg-mint" title={`${pct(a, 1)} · ${num(f[k].nao)}`} style={{ width: `${a * 100}%` }}>{a > 0.4 ? `${pct(a, 0)} · ${num(f[k].nao)}` : a > 0.12 ? pct(a, 0) : ""}</div>}
+                {b > 0 && <div className="h-full min-w-0 overflow-hidden whitespace-nowrap rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e]" title={`${pct(b, 1)} · ${num(f[k].seguidores)}`} style={{ width: `${b * 100}%`, background: LILAS }}>{b > 0.4 ? `${pct(b, 0)} · ${num(f[k].seguidores)}` : b > 0.12 ? pct(b, 0) : ""}</div>}
               </div>
             </div>
           );
@@ -535,26 +537,26 @@ function QuandoPostar({ grid }: { grid: number[][] }) {
       <h2 className="font-display text-xl font-bold">Quando seus seguidores estão online</h2>
       <p className="text-sm text-fog mb-3">Média das últimas semanas, em horário de Brasília. Poste um pouco antes do pico.</p>
       <div className="grid lg:grid-cols-4 gap-3">
-        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 content-start">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-3 content-start">
           <div className="card p-4"><p className="text-xs text-fog">Melhor hora no geral</p><p className="font-display text-3xl font-bold mt-1">{bestHour}h</p><p className="text-[11px] text-fog mt-0.5">~{num(Math.round(hourAvg[bestHour]))} seguidores online</p></div>
           <div className="card p-4"><p className="text-xs text-fog mb-2">Picos da semana</p><ol className="space-y-1.5 text-sm">{best.map((b, i) => <li key={i} className="flex justify-between gap-2"><span><span className="text-fog mr-1.5">{i + 1}.</span>{DIAS_LONGO[b.d]}, {b.h}h</span><span className="text-fog">{num(b.v)}</span></li>)}</ol></div>
         </div>
-        <div className="card p-4 md:p-5 lg:col-span-3 overflow-x-auto scroll-thin">
-          <div className="min-w-[520px]" onPointerLeave={() => setSel(null)}>
-            <div className="grid gap-[2px]" style={{ gridTemplateColumns: "34px repeat(24, minmax(0, 1fr))" }}>
+        <div className="card p-3 sm:p-4 md:p-5 lg:col-span-3">
+          <div onPointerLeave={() => setSel(null)}>
+            <div className="grid gap-[2px]" style={{ gridTemplateColumns: "28px repeat(24, minmax(0, 1fr))" }}>
               {grid.map((row, d) => (
                 <div key={d} className="contents">
                   <span className="text-[11px] text-fog self-center">{DIAS[d]}</span>
                   {row.map((v, h) => (
                     <button key={h} type="button" onPointerEnter={() => setSel([d, h])} onClick={() => setSel([d, h])}
                       aria-label={`${DIAS_LONGO[d]} ${h}h: ${v} seguidores online`}
-                      className={`h-6 rounded-[3px] ${cur && cur.d === d && cur.h === h ? "ring-1 ring-paper" : ""}`}
+                      className={`h-5 sm:h-6 rounded-[2px] sm:rounded-[3px] ${cur && cur.d === d && cur.h === h ? "ring-1 ring-paper" : ""}`}
                       style={{ background: `color-mix(in srgb, var(--color-mint) ${Math.round(6 + Math.pow((v - min) / (max - min || 1), 1.6) * 94)}%, var(--color-panel2))` }} />
                   ))}
                 </div>
               ))}
               <span />
-              {Array.from({ length: 24 }, (_, h) => <span key={h} className="text-[10px] text-fog text-center">{h % 3 === 0 ? `${h}h` : ""}</span>)}
+              {Array.from({ length: 24 }, (_, h) => <span key={h} className="text-[10px] text-fog text-center whitespace-nowrap">{h % 3 === 0 ? <span className={h % 6 ? "hidden sm:inline" : ""}>{h}h</span> : null}</span>)}
             </div>
             <div className="flex items-center justify-between gap-3 mt-3 text-xs text-fog flex-wrap">
               <span>{cur ? <><b className="text-paper">{DIAS_LONGO[cur.d]}, {cur.h}h</b> · {num(cur.v)} seguidores online</> : "Passe o dedo ou o mouse nos quadrados."}</span>
@@ -567,10 +569,10 @@ function QuandoPostar({ grid }: { grid: number[][] }) {
   );
 }
 
-function Big({ label, value, hint, dot }: { label: string; value: string; hint: string; dot?: string }) {
+function Big({ label, short, value, hint, dot, className = "" }: { label: string; short?: string; value: string; hint: string; dot?: string; className?: string }) {
   return (
-    <div className="card p-4">
-      <p className="text-xs text-fog flex items-center gap-1.5">{dot && <span className="w-2 h-2 rounded-sm" style={{ background: dot }} />}{label}</p>
+    <div className={`card p-4 min-w-0 ${className}`}>
+      <p className="text-xs text-fog flex items-center gap-1.5">{dot && <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: dot }} />}{short ? <><span className="sm:hidden">{short}</span><span className="hidden sm:inline">{label}</span></> : <span className="truncate">{label}</span>}</p>
       <p className="font-display text-3xl font-bold mt-1">{value}</p>
       <p className="text-[11px] text-fog mt-0.5">{hint}</p>
     </div>
@@ -605,14 +607,14 @@ function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age:
     <section className="mb-8">
       <p className="font-mono text-[11px] text-mint tracking-widest uppercase">06 · Público</p>
       <h2 className="font-display text-xl font-bold mb-3">Quem segue o perfil</h2>
-      <div className="grid md:grid-cols-3 gap-3">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
         {g.length > 0 && (
           <div className="card p-4 md:p-5">
             <p className="font-display font-bold mb-4">Gênero</p>
             <div className="flex gap-[2px] h-7 rounded-[4px] overflow-hidden" role="img" aria-label={segs.map((s) => `${s.l} ${(s.v * 100).toFixed(1)}%`).join(", ")}>
               {segs.map((s) => <div key={s.k} className="h-full rounded-[4px] flex items-center px-2 text-[11px] font-semibold text-[#06140e]" style={{ width: `${s.v * 100}%`, background: s.c }}>{s.v > 0.15 ? `${(s.v * 100).toFixed(0)}%` : ""}</div>)}
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-5">{segs.map((s) => <div key={s.k}><p className="text-xs text-fog flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} />{s.l}</p><p className="font-display text-3xl font-bold mt-1">{pct(s.v, 1)}</p></div>)}</div>
+            <div className="grid grid-cols-2 gap-3 mt-5">{segs.map((s) => <div key={s.k}><p className="text-xs text-fog flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} />{s.l}</p><p className="font-display text-2xl sm:text-3xl font-bold mt-1">{pct(s.v, 1)}</p></div>)}</div>
             <p className="text-[11px] text-fog mt-4">Entre quem informou o gênero.</p>
           </div>
         )}
@@ -631,7 +633,7 @@ function Publico({ a }: { a: { gender: { k: string[]; v: number }[] | null; age:
           </div>
         )}
         {city.length > 0 && (
-          <div className="card p-4 md:p-5">
+          <div className="card p-4 md:p-5 md:col-span-2 lg:col-span-1">
             <p className="font-display font-bold mb-4">Principais cidades</p>
             <ul className="space-y-2.5">
               {city.slice(0, 6).map((c) => (

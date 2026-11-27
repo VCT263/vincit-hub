@@ -2,14 +2,19 @@
 /** Gráficos leves em SVG para Desempenho & insights (sem biblioteca): área com cursor, sparkline e colunas empilhadas. */
 import { useEffect, useRef, useState } from "react";
 
-/** largura do desenho: menor no celular, para as letras dos eixos ficarem legíveis */
+/** largura real do gráfico na tela (o desenho usa essa largura, então as letras ficam sempre em 11px, em qualquer tela) */
 function useW() {
+  const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(720);
   useEffect(() => {
-    const f = () => setW(window.innerWidth < 640 ? 380 : 720);
-    f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f);
+    const el = ref.current;
+    if (!el) return;
+    const f = () => setW(Math.max(280, Math.round(el.clientWidth || 720)));
+    f();
+    const ro = new ResizeObserver(f); ro.observe(el);
+    return () => ro.disconnect();
   }, []);
-  return w;
+  return [ref, w] as const;
 }
 
 const MINT = "var(--color-mint)";
@@ -37,7 +42,7 @@ function ticks(max: number) {
 export function AreaChart({ data, label, fmtV = (v: number) => num(v), height = 220 }: { data: { date: string; v: number | null }[]; label: string; fmtV?: (v: number) => string; height?: number }) {
   const ref = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const W = useW(), H = W < 500 ? Math.round(height * 0.8) : height, L = 44, R = 12, T = 12, B = 26;
+  const [box, W] = useW(), H = W < 500 ? Math.round(height * 0.8) : height, L = 44, R = 12, T = 12, B = 26;
   const vals = data.map((d) => d.v ?? 0);
   const tk = ticks(Math.max(...vals, 0));
   const max = tk[tk.length - 1] || 1;
@@ -57,7 +62,7 @@ export function AreaChart({ data, label, fmtV = (v: number) => num(v), height = 
   }
   const h = hover != null ? data[hover] : null;
   return (
-    <div className="relative">
+    <div className="relative" ref={box}>
       <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto select-none touch-none" role="img" aria-label={`${label} por dia`}
         onPointerMove={move} onPointerDown={move} onPointerLeave={() => setHover(null)}>
         {tk.map((t) => (
@@ -111,7 +116,7 @@ export function Spark({ values, active }: { values: (number | null)[]; active?: 
 /** colunas empilhadas (compartilhamentos + salvamentos por alcance), uma por post, em ordem de data */
 export function SignalColumns({ posts, onPick }: { posts: { id: string; date: string; a: number; b: number; caption?: string; thumb?: string; tipo: string }[]; onPick?: (id: string) => void }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = useW(), H = W < 500 ? 180 : 200, L = 40, R = 8, T = 10, B = 22;
+  const [box, W] = useW(), H = W < 500 ? 180 : 200, L = 40, R = 8, T = 10, B = 22;
   const tk = ticks(Math.max(...posts.map((p) => p.a + p.b), 0.0001) * 100).map((t) => t / 100);
   const max = tk[tk.length - 1] || 1;
   const n = posts.length || 1;
@@ -120,7 +125,7 @@ export function SignalColumns({ posts, onPick }: { posts: { id: string; date: st
   const y = (v: number) => T + (1 - v / max) * (H - T - B);
   const h = hover != null ? posts[hover] : null;
   return (
-    <div className="relative">
+    <div className="relative" ref={box}>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Compartilhamentos e salvamentos por alcance, por post" onPointerLeave={() => setHover(null)}>
         {tk.map((t) => (
           <g key={t}>
