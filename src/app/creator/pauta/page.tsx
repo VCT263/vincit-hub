@@ -53,11 +53,16 @@ export default function Pauta() {
 
   return (
     <>
-      <PageHead kicker="CREATOR · 02 CRIAÇÃO" title="Planejador" desc="Calendário de conteúdo da semana ou do mês. Gere com IA a partir do briefing e da estratégia; cada conteúdo segue pelo Quadro de produção.">
+      <PageHead kicker="Creator · 02 Criação" title="Quadro de produção" desc="Todo conteúdo da ideia ao post publicado, agora no calendário. Arraste para mudar a data ou gere a semana com IA a partir do briefing e da estratégia.">
         <select className="input w-auto" value={filter} onChange={(e) => setFilter(e.target.value)}><option value="">Todos os perfis</option>{accounts.map((a) => <option key={a.id} value={a.id}>@{a.username}</option>)}</select>
       </PageHead>
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Link href={`/creator/producao${filter ? `?perfil=${filter}` : ""}`} className="btn btn-ghost btn-sm"><I.board className="w-4 h-4" />Quadro de produção</Link>
+        {/* o Planejador virou a vista Calendário do Quadro (27/11) */}
+        <div className="flex bg-panel2 rounded-lg p-0.5">
+          <Link href={`/creator/producao${filter ? `?perfil=${filter}` : ""}`} className="px-3 py-1 text-sm rounded-md text-fog hover:text-paper">Quadro</Link>
+          <Link href={`/creator/producao?view=lista${filter ? `&perfil=${filter}` : ""}`} className="px-3 py-1 text-sm rounded-md text-fog hover:text-paper">Lista</Link>
+          <span className="px-3 py-1 text-sm rounded-md bg-ink text-mint">Calendário</span>
+        </div>
         <button onClick={() => setGen(gen ? null : { period: "semana", start: new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10), formats: ["Reels", "Carrossel", "Stories"], frequency: "", focus: "", strategy: "", account_id: filter || accounts[0]?.id || "" })} className="btn btn-mint btn-sm ml-auto"><I.spark className="w-4 h-4" />Gerar plano com IA</button>
       </div>
       {gen && (
@@ -70,7 +75,7 @@ export default function Pauta() {
           <div className="md:col-span-2"><label className="label">Foco do período</label><input className="input" value={gen.focus} onChange={(e) => setGen({ ...gen, focus: e.target.value })} placeholder="Ex.: lançamento do pacote mensal, autoridade, crescimento" /></div>
           {gen.strategy && <p className="md:col-span-4 text-xs text-fog bg-panel2 rounded-lg p-2.5">Seguindo a estratégia: {gen.strategy}</p>}
           {ai.error && <p className="md:col-span-4 text-danger text-sm">{ai.error}</p>}
-          <div className="md:col-span-4 flex justify-between items-center"><Link href="/creator/estrategia" className="text-xs text-fog hover:text-mint">Ainda sem estratégia? Monte primeiro →</Link><button disabled={ai.busy} className="btn btn-mint">{ai.busy ? "Planejando…" : `Gerar ${gen.period === "mes" ? "mês" : "semana"}`}</button></div>
+          <div className="md:col-span-4 flex justify-between items-center"><Link href="/creator/diagnostico" className="text-xs text-fog hover:text-mint">Ainda sem estratégia? Faça o Raio-X primeiro →</Link><button disabled={ai.busy} className="btn btn-mint">{ai.busy ? "Planejando…" : `Gerar ${gen.period === "mes" ? "mês" : "semana"}`}</button></div>
         </form>
       )}
       {(() => {

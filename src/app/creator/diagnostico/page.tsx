@@ -36,7 +36,7 @@ export default function Diagnostico() {
   const [msg, setMsg] = useState<string | null>(null);
   const acc = accounts.find((a) => a.id === accId);
 
-  useEffect(() => { if (!accId && accounts[0]) setAccId(accounts[0].id); }, [accounts, accId]);
+  useEffect(() => { if (!accId && accounts[0]) setAccId(new URLSearchParams(location.search).get("perfil") || accounts[0].id); }, [accounts, accId]);
   const load = useCallback(async () => {
     if (!accId) return;
     const { data, error } = await createClient().from("profile_diagnoses").select("*").eq("account_id", accId).order("created_at", { ascending: false });
@@ -67,7 +67,7 @@ export default function Diagnostico() {
     const sb = createClient();
     const { error } = await sb.from("content_ideas").insert(rows.map((r: any, i: number) => ({ ...r, axis: recs[i].axis, diagnosis_id: cur.id || null })));
     if (error) { const { error: e2 } = await sb.from("content_ideas").insert(rows); if (e2) { setMsg(`Não consegui salvar: ${e2.message}`); return; } }
-    setMsg(`${rows.length} ideia(s) enviadas ao Planejador.`); setSel([]);
+    setMsg(`${rows.length} ideia(s) no Quadro, na coluna Ideia.`); setSel([]);
   }
   async function del() { if (!cur?.id || !confirm("Excluir esta versão do diagnóstico?")) return; await createClient().from("profile_diagnoses").delete().eq("id", cur.id); load(); }
 
@@ -80,7 +80,7 @@ export default function Diagnostico() {
 
   return (
     <>
-      <PageHead kicker="CREATOR · 03 CRESCIMENTO" title="Raio-X do perfil" desc="Diagnóstico estratégico do perfil, do mercado e do nicho em 5 eixos de crescimento. Usa só dados reais: métricas, briefing, referências e pesquisa de mercado." />
+      <PageHead kicker="CREATOR · 01 ANÁLISE" title="Raio-X e estratégia" desc="Diagnóstico estratégico do perfil, do mercado e do nicho em 5 eixos de crescimento. Usa só dados reais: métricas, briefing, referências e pesquisa de mercado." />
 
       <div className="grid md:grid-cols-3 gap-2 mb-5">
         {STEPS.map((s, i) => {
