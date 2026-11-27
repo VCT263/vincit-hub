@@ -308,9 +308,9 @@ function Detail({ it, clients, save, playing, toggle }: { it: any; clients: any[
           ) : VIDEO(it.mime) ? (
             <iframe src={`https://drive.google.com/file/d/${it.drive_id}/preview`} className="w-full aspect-video" allow="autoplay" />
           ) : IMAGE(it.mime) ? (
-            <img src={`/api/av/drive/file/${it.drive_id}`} alt="" className="max-h-[360px] object-contain" />
+            <img loading="lazy" decoding="async" src={`/api/av/drive/file/${it.drive_id}`} alt="" className="max-h-[360px] object-contain" />
           ) : it.has_thumb ? (
-            <img src={`/api/av/drive/thumb/${it.drive_id}?s=800`} alt="" className="max-h-[360px] object-contain" />
+            <img loading="lazy" decoding="async" src={`/api/av/drive/thumb/${it.drive_id}?s=800`} alt="" className="max-h-[360px] object-contain" />
           ) : <span className="font-mono text-fog">.{it.name.split(".").pop()}</span>}
         </div>
         <p className="text-xs text-fog mt-2 break-all">{[it.folder || "pasta principal", kb(it.size), it.width && it.height ? `${it.width}×${it.height}` : "", dur(it.duration_ms)].filter(Boolean).join(" · ")}</p>

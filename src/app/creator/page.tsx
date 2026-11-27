@@ -113,7 +113,7 @@ export default async function Overview() {
               {top.map((p, i) => (
                 <li key={i} className="py-3 flex gap-3 items-center">
                   <span className="font-mono text-xs text-fog w-4">{i + 1}</span>
-                  {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="w-11 h-11 rounded-md object-cover bg-panel2" /> : <div className="w-11 h-11 rounded-md bg-panel2" />}
+                  {p.thumbnail_url ? <img loading="lazy" decoding="async" src={p.thumbnail_url} alt="" className="w-11 h-11 rounded-md object-cover bg-panel2" /> : <div className="w-11 h-11 rounded-md bg-panel2" />}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm truncate">{p.caption || "(sem legenda)"}</p>
                     <p className="text-xs text-fog mt-0.5">{p.media_type} · {p.posted_at?.slice(0, 10)}</p>

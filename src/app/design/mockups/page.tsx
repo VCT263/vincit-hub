@@ -112,7 +112,7 @@ export default function MockupsPage() {
           {items.map((m) => (
             <div key={m.id} className={`card overflow-hidden ${m.active ? "" : "opacity-50"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" />
+              <img loading="lazy" decoding="async" src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" />
               <div className="p-3 space-y-1.5">
                 <p className="text-sm font-semibold truncate">{m.title}</p>
                 <p className="text-[11px] text-fog">{m.slots.length} {m.slots.length === 1 ? "área" : "áreas"} · {m.width}×{m.height}</p>

@@ -64,7 +64,7 @@ export default function Perfis() {
           {accounts.map((a, i) => (
             <Link key={a.id} href={`/creator/desempenho/${a.id}`} className="card p-5 hover:border-mint transition-colors rise" style={{ animationDelay: `${i * 0.04}s` }}>
               <div className="flex items-center gap-3">
-                {a.profile_picture_url ? <img src={a.profile_picture_url} alt="" className="w-12 h-12 rounded-full object-cover" /> : <div className="w-12 h-12 rounded-full bg-panel2 grid place-items-center font-display font-bold text-mint">{a.username[0]?.toUpperCase()}</div>}
+                {a.profile_picture_url ? <img loading="lazy" decoding="async" src={a.profile_picture_url} alt="" className="w-12 h-12 rounded-full object-cover" /> : <div className="w-12 h-12 rounded-full bg-panel2 grid place-items-center font-display font-bold text-mint">{a.username[0]?.toUpperCase()}</div>}
                 <div className="min-w-0">
                   <p className="font-semibold truncate">@{a.username}</p>
                   <span className={`chip mt-1 ${a.connected ? "chip-mint" : ""}`}>{a.connected ? "Conectado à Meta" : "Manual"}</span>

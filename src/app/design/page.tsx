@@ -87,7 +87,7 @@ export default function DesignHome() {
           <div className="divide-y divide-line">
             {pieces.slice(0, 5).map((p) => (
               <Link key={p.id} href={`/design/pecas/${p.id}`} className="flex items-center gap-3 py-2.5 hover:opacity-80">
-                <span className="w-10 h-12 rounded-md bg-panel2 overflow-hidden shrink-0">{p.preview && <img src={p.preview} alt="" className="w-full h-full object-cover" />}</span>
+                <span className="w-10 h-12 rounded-md bg-panel2 overflow-hidden shrink-0">{p.preview && <img loading="lazy" decoding="async" src={p.preview} alt="" className="w-full h-full object-cover" />}</span>
                 <div className="min-w-0 flex-1"><p className="font-semibold text-sm truncate">{p.title}</p><p className="text-xs text-fog">{p.kind === "carrossel" ? `Carrossel · ${(p.data?.slides || []).length} páginas` : "Peça estática"} · {timeAgo(p.updated_at)}</p></div>
               </Link>
             ))}

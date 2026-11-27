@@ -196,7 +196,7 @@ export default function TeleprompterPage() {
 
       <Modal open={remote} title="Controlar pelo celular" onClose={() => setRemote(false)}>
         <div className="flex flex-col sm:flex-row gap-5 items-center">
-          {qr ? <img src={qr} alt="QR code do controle remoto" className="w-44 h-44 rounded-xl" /> : <div className="w-44 h-44 rounded-xl bg-panel2" />}
+          {qr ? <img loading="lazy" decoding="async" src={qr} alt="QR code do controle remoto" className="w-44 h-44 rounded-xl" /> : <div className="w-44 h-44 rounded-xl bg-panel2" />}
           <div className="text-sm text-fog space-y-2">
             <p>1. Abra o teleprompter neste aparelho (notebook, tablet ou o celular que fica na câmera).</p>
             <p>2. No outro celular, aponte a câmera para o código e entre com a <b className="text-paper">mesma conta</b> do HUB.</p>

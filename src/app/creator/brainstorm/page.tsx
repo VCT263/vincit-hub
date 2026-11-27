@@ -120,7 +120,7 @@ export default function Brainstorm() {
             <div key={b.id} className="card overflow-hidden group rise relative" style={{ animationDelay: `${i * 0.03}s` }}>
               <Link href={`/creator/brainstorm/${b.id}`} className="block">
                 <div className="h-40 bg-panel2 border-b border-line relative overflow-hidden">
-                  {b.preview ? <img src={b.preview} alt="" className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full grid place-items-center text-fog text-xs">Quadro vazio</div>}
+                  {b.preview ? <img loading="lazy" decoding="async" src={b.preview} alt="" className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full grid place-items-center text-fog text-xs">Quadro vazio</div>}
                   <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: b.color || "var(--color-mint)" }} />
                 </div>
                 <div className="p-4 pr-12">

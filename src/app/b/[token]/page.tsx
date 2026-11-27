@@ -65,7 +65,7 @@ export default function BriefingPublico() {
   const Head = (
     <header className="sticky top-0 z-20 bg-[#f4f2ee]/90 backdrop-blur border-b border-[#e2ddd4]">
       <div className="max-w-2xl mx-auto px-5 h-14 flex items-center justify-between">
-        <img src="/vincit-logo-escuro.svg" alt="VINCIT" className="h-5 w-auto" />
+        <img loading="lazy" decoding="async" src="/vincit-logo-escuro.svg" alt="VINCIT" className="h-5 w-auto" />
         <span className="text-[11px] tracking-[.22em] uppercase text-[#8a847a]">Briefing de marca</span>
       </div>
       {i >= 0 && !sent && <div className="h-[2px] bg-[#e2ddd4]"><div className="h-full bg-[#151515] transition-all duration-500" style={{ width: `${pct}%` }} /></div>}
@@ -115,7 +115,7 @@ export default function BriefingPublico() {
                 ))}</dl>
               )}
               {e.k === "referencias" && !!(a.refs || []).length && (
-                <div className="flex gap-2 overflow-x-auto mt-3 pb-1">{(a.refs as RefImg[]).map((r) => <img key={r.id} src={r.img} alt="" className={`h-20 rounded-lg border-2 ${r.tipo === "evitar" ? "border-[#9b2c1f]" : "border-transparent"}`} />)}</div>
+                <div className="flex gap-2 overflow-x-auto mt-3 pb-1">{(a.refs as RefImg[]).map((r) => <img loading="lazy" decoding="async" key={r.id} src={r.img} alt="" className={`h-20 rounded-lg border-2 ${r.tipo === "evitar" ? "border-[#9b2c1f]" : "border-transparent"}`} />)}</div>
               )}
             </section>
           );
