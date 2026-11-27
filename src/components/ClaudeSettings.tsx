@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Ajuda from "@/components/ajuda/Ajuda";
 
 /** link do painel do HUB publicado no Claude (artifact) */
 export const CLAUDE_PANEL_URL = "https://claude.ai/artifact/AWg3shE2RQH28mLQnnLQsx";
@@ -15,9 +16,9 @@ export default function ClaudeSettings() {
   }
 
   return (
-    <section className="card p-5 space-y-4">
+    <section id="claude" className="card p-5 space-y-4 scroll-mt-6">
       <div>
-        <p className="font-display font-bold">Usar no Claude</p>
+        <p className="font-display font-bold flex items-center gap-2">Usar no Claude <Ajuda id="claude" /></p>
         <p className="text-sm text-fog mt-1">Ligue o Claude ao seu HUB para criar campanhas, roteiros, ideias e análises direto na conversa. A IA roda na sua assinatura do Claude.</p>
       </div>
       <div>

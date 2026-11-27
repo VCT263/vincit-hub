@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Ajuda from "@/components/ajuda/Ajuda";
 
 /** Código de sincronia do Arc Route + ID da agenda do Google */
 export default function SyncSettings({ code }: { code: string }) {
@@ -17,8 +18,8 @@ export default function SyncSettings({ code }: { code: string }) {
     setMsg(r?.ok ? { t: "Agenda do Google atualizada.", ok: true } : { t: "Conecte o Google Agenda antes." });
   }
   return (
-    <section className="card p-5 space-y-3">
-      <p className="font-display font-bold">Sincronia com o Arc Route</p>
+    <section id="arc" className="card p-5 space-y-3 scroll-mt-6">
+      <p className="font-display font-bold flex items-center gap-2">Sincronia com o Arc Route <Ajuda id="arc" /></p>
       <p className="text-xs text-fog">Cole o código que aparece em Arc Route → Configurações → Sincronia. Ele liga as suas tarefas e agenda dos dois sistemas.</p>
       <div className="flex gap-2"><input className="input font-mono" value={v} onChange={(e) => setV(e.target.value.toUpperCase())} placeholder="ARC-XXXX-XXXX" /><button type="button" className="btn btn-mint btn-sm" onClick={saveCode}>Salvar</button></div>
       <p className="label">ID da agenda do Google (vazio = principal)</p>

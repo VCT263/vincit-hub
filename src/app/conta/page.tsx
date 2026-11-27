@@ -15,6 +15,8 @@ import ResetSettings from "@/components/ResetSettings";
 import SyncSettings from "@/components/SyncSettings";
 import { useAccess } from "@/lib/useAccess";
 import { hubAllowed } from "@/lib/access";
+import Ajuda from "@/components/ajuda/Ajuda";
+import { refazerTour } from "@/components/ajuda/Tour";
 
 export default function Conta() {
   const [p, setP] = useState<any>(null);
@@ -52,7 +54,17 @@ export default function Conta() {
         <Link href="/" className="btn btn-ghost btn-sm"><I.back className="w-3.5 h-3.5" />Hubs</Link>
       </header>
       <div className="max-w-xl mx-auto px-5 py-10 space-y-5">
-        <h1 className="font-display text-3xl font-extrabold">Minha conta</h1>
+        <h1 className="font-display text-3xl font-extrabold flex items-center gap-2">Minha conta <Ajuda tela /></h1>
+        <section className="card p-5 space-y-3">
+          <div>
+            <p className="font-display font-bold">Primeiros passos</p>
+            <p className="text-xs text-fog mt-0.5">Veja o que precisa estar ligado e o que é opcional, ou refaça o tour de boas-vindas.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Link href="/conta/configurar" className="btn btn-mint">Guia de configuração</Link>
+            <button type="button" onClick={refazerTour} className="btn btn-ghost">Refazer o tour</button>
+          </div>
+        </section>
         {p && (
           <section className="card p-5 grid grid-cols-2 gap-4 text-sm">
             <div><p className="label">Nome</p><p>{p.name || "–"}</p></div>
@@ -72,7 +84,7 @@ export default function Conta() {
         <PushSettings />
         <WidgetSettings />
         <form onSubmit={save} className="card p-5 space-y-3">
-          <p className="font-display font-bold">Alterar senha</p>
+          <p className="font-display font-bold flex items-center gap-2">Alterar senha <Ajuda id="senha" /></p>
           <div className="relative"><input className="input pr-11" type={show ? "text" : "password"} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" />
             <button type="button" onClick={() => setShow(!show)} className="absolute right-0 top-0 h-full px-3.5 text-fog hover:text-paper text-xs">{show ? "Ocultar" : "Mostrar"}</button></div>
           <input className="input" type={show ? "text" : "password"} value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Repita a nova senha" autoComplete="new-password" />

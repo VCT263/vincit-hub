@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { brandCss, contrast, isHex, PRESETS } from "@/lib/brand";
 import Logo from "./Logo";
+import Ajuda from "@/components/ajuda/Ajuda";
 
 /** Personalização do assinante: cor de destaque e logo (sempre acompanhada de "by VINCIT HUB") */
 export default function BrandSettings() {
@@ -55,7 +56,7 @@ export default function BrandSettings() {
   const low = isHex(color) && contrast(color, "#151517") < 3;
   return (
     <section className="card p-5 space-y-4">
-      <div><h2 className="font-display font-bold text-lg">Personalização</h2><p className="text-xs text-fog">Deixe o sistema com a cara da sua marca. O selo “by VINCIT HUB” sempre acompanha sua logo.</p></div>
+      <div><h2 className="font-display font-bold text-lg flex items-center gap-2">Personalização <Ajuda id="marca" /></h2><p className="text-xs text-fog">Deixe o sistema com a cara da sua marca. O selo “by VINCIT HUB” sempre acompanha sua logo.</p></div>
       <div>
         <label className="label">Cor de destaque</label>
         <div className="flex flex-wrap items-center gap-2">

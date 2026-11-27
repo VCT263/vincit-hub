@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Ajuda from "@/components/ajuda/Ajuda";
 import Link from "next/link";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
@@ -417,7 +418,7 @@ export default function Editor() {
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <p className="font-mono text-[11px] tracking-[.2em] text-mint uppercase">Audiovisual · Pós-produção</p>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight mt-1">Editor</h1>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight mt-1">Editor <Ajuda tela className="relative -top-1 ml-1" /></h1>
           <p className="text-sm text-fog mt-1 max-w-2xl">Cortes, legenda automática no estilo do cliente, títulos, B-roll e câmera, em 9:16 para Reels ou 16:9 para YouTube. Tudo roda no seu computador. Para vídeos maiores, use o <Link href="/audiovisual/premiere" className="text-mint">Premiere com o Claude</Link>.</p>
         </div>
         <div className="flex flex-wrap gap-2">

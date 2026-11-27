@@ -29,7 +29,7 @@ export default function TopBar() {
   const nav = (
     <nav className="flex gap-1 bg-panel border border-line rounded-xl p-1 overflow-x-auto scroll-thin">
       {visible.map(({ href, label, Icon }) => (
-        <Link key={href} href={href}
+        <Link key={href} href={href} data-tour={"hub-" + href}
           className={`flex-1 shrink-0 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-1.5 rounded-[9px] text-sm font-semibold whitespace-nowrap transition-colors ${isActive(href) ? "bg-mint text-[var(--color-on-mint,#06140e)]" : "text-fog hover:text-paper hover:bg-panel2"}`}>
           <Icon className="w-4 h-4" /> {label}
         </Link>
@@ -45,10 +45,10 @@ export default function TopBar() {
         </Link>
         <div className="hidden md:block">{nav}</div>
         <form action="/auth/signout" method="post" className="ml-auto flex items-center gap-2">
-          <Bell />
+          <span data-tour="sino" className="inline-flex"><Bell /></span>
           {acc?.role === "superadmin" && <Link href="/admin" className="btn btn-ghost btn-sm text-mint">Admin</Link>}
-          <Link href="/conta/lixeira" className="btn btn-ghost btn-sm" aria-label="Lixeira" title="Lixeira"><I.trash className="w-3.5 h-3.5" /></Link>
-          <Link href="/conta" className="btn btn-ghost btn-sm"><I.user className="w-3.5 h-3.5" /><span className="hidden sm:inline">Minha conta</span></Link>
+          <Link href="/conta/lixeira" data-tour="lixeira" className="btn btn-ghost btn-sm" aria-label="Lixeira" title="Lixeira"><I.trash className="w-3.5 h-3.5" /></Link>
+          <Link href="/conta" data-tour="conta" className="btn btn-ghost btn-sm"><I.user className="w-3.5 h-3.5" /><span className="hidden sm:inline">Minha conta</span></Link>
           <button className="btn btn-ghost btn-sm" aria-label="Sair"><I.logout className="w-3.5 h-3.5" /><span className="hidden sm:inline">Sair</span></button>
         </form>
       </div>
