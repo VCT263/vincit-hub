@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { kitFrom } from "@/lib/design";
 import Link from "next/link";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
@@ -100,6 +101,7 @@ const demoDoEstilo = (e: Estilo): Demo => {
 export default function KitPage() {
   const [kits, setKits] = useState<Row[] | null>(null);
   const [profiles, setProfiles] = useState<{ id: string; username: string }[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [edit, setEdit] = useState<Row | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [camada, setCamada] = useState<Camada>("identidade");
@@ -109,10 +111,12 @@ export default function KitPage() {
 
   const load = useCallback(async () => {
     const s = createClient();
-    const [{ data: k }, { data: p }] = await Promise.all([
+    const [{ data: k }, { data: p }, { data: b }] = await Promise.all([
       s.from("av_style_kits").select("id,name,account_id,data").order("updated_at", { ascending: false }),
       s.from("ig_accounts").select("id,username"),
+      s.from("design_projects").select("id,title,data").eq("kind", "marca").order("updated_at", { ascending: false }),
     ]);
+    setBrands(b || []);
     setKits((k as Row[]) || []);
     setProfiles(p || []);
   }, []);
@@ -225,6 +229,18 @@ export default function KitPage() {
                   <p className="text-xs text-fog mt-1.5">{estiloByNum(d.estilo) ? estiloByNum(d.estilo)!.resumo : "O Editor e o Claude usam este estilo quando nada mais for pedido. As cores continuam as do kit."}</p>
                 </Group>
                 <Group title="Cores">
+                  {/* a identidade vem da marca do Design; o kit guarda o que é de edição (27/11) */}
+                  {!!brands.length && (
+                    <select className="input mb-3" value="" onChange={(e) => {
+                      const k = kitFrom(brands.find((x) => x.id === e.target.value));
+                      set(["cores"], { ...d.cores, destaque: k.colors["Primária"], texto: k.colors["Claro"], fundo: k.colors["Escuro"] });
+                      set(["fontes", "titulo"], k.title);
+                      setMsg(`Cores e fonte de título copiadas da marca ${k.name || ""}. Salve o kit para usar.`);
+                    }}>
+                      <option value="">Usar cores e fonte da marca criada no Design…</option>
+                      {brands.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+                    </select>
+                  )}
                   <div className="grid grid-cols-3 gap-3">
                     {([["destaque", "Destaque"], ["texto", "Texto"], ["fundo", "Fundo"]] as const).map(([k, l]) => (
                       <label key={k} className="flex items-center gap-2 rounded-xl border border-line p-2">

@@ -141,8 +141,8 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "enviar_campanha",
-    title: "Enviar campanha ao Planejador",
-    description: "Grava uma campanha (série de posts com data) no Planejador e no Quadro de produção do CREATOR. Cada post vira um card com gancho, roteiro, legenda e CTA.",
+    title: "Enviar campanha ao Quadro",
+    description: "Grava uma campanha (série de posts com data) no Quadro de produção do CREATOR (também aparece na vista Calendário). Cada post vira um card com gancho, roteiro, legenda e CTA.",
     inputSchema: {
       type: "object",
       required: ["nome", "posts"],
@@ -173,7 +173,7 @@ export const TOOLS: Tool[] = [
       }));
       const { data, error } = await ctx.sb.from("content_ideas").insert(rows).select("id");
       if (error) fail(error.message);
-      return { ok: true, criados: data?.length || 0, onde: "CREATOR › Planejador e Quadro de produção", ids: (data || []).map((x: any) => x.id) };
+      return { ok: true, criados: data?.length || 0, onde: "CREATOR › Quadro de produção", ids: (data || []).map((x: any) => x.id) };
     },
   },
   {

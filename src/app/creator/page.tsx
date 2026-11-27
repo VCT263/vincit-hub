@@ -32,9 +32,9 @@ export default async function Overview() {
 
   const flow = [
     { n: "00", t: "Base", d: "Perfis conectados e o briefing: negócio, público, mercado e estilo.", links: [["Perfis & briefing", "/creator/perfis"]] },
-    { n: "01", t: "Análise & insights", d: "Dados do perfil, tendências e referências para decidir melhor.", links: [["Desempenho & insights", "/creator/desempenho"], ["Tendências", "/creator/tendencias"], ["Referências", "/creator/referencias"]] },
-    { n: "02", t: "Criação & planejamento", d: "Da ideia ao calendário da semana ou do mês.", links: [["Brainstorm", "/creator/brainstorm"], ["Formatos criativos", "/creator/formatos"], ["Laboratório", "/creator/laboratorio"], ["Planejador", "/creator/pauta"]] },
-    { n: "03", t: "Crescimento", d: "Raio-X do perfil, estratégia 30/60/90 e automações que trabalham por você.", links: [["Raio-X do perfil", "/creator/diagnostico"], ["Estratégia", "/creator/estrategia"], ["Automações", "/creator/automacoes"]] },
+    { n: "01", t: "Análise", d: "Os números do perfil, o que funciona nas referências e o Raio-X com a estratégia 30/60/90.", links: [["Desempenho & insights", "/creator/desempenho"], ["Referências", "/creator/referencias"], ["Raio-X e estratégia", "/creator/diagnostico"]] },
+    { n: "02", t: "Criação", d: "Da ideia ao roteiro; tudo termina como card no Quadro.", links: [["Brainstorm", "/creator/brainstorm"], ["Laboratório e cartas", "/creator/laboratorio"]] },
+    { n: "03", t: "Produção", d: "Cada conteúdo com status, data, roteiro técnico, gravação e edição.", links: [["Quadro de produção", "/creator/producao"], ["Calendário", "/creator/pauta"]] },
   ];
 
   return (
@@ -98,8 +98,8 @@ export default async function Overview() {
         </section>
         <section className="lg:col-span-2 card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display font-bold text-lg">Planejador</h2>
-            <Link href="/creator/pauta" className="text-xs text-fog hover:text-mint">Abrir planejador</Link>
+            <h2 className="font-display font-bold text-lg">Quadro de produção</h2>
+            <Link href="/creator/producao" className="text-xs text-fog hover:text-mint">Abrir Quadro</Link>
           </div>
           {!ideas?.length ? <p className="text-fog text-sm py-8 text-center">Ideias salvas de tendências, referências e copy aparecem aqui.</p> : (
             <ul className="space-y-2">

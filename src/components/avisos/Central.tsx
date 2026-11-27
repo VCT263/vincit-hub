@@ -45,7 +45,9 @@ export default function Central({ modo, limite, aoNavegar }: { modo: Modo; limit
     return () => { clearInterval(t); window.removeEventListener("vh:avisos", carregar); window.removeEventListener("focus", carregar); };
   }, [carregar]);
 
-  const daAba = useMemo(() => (notas || []).filter((n) => (aba === "abertos" ? ativo(n, agora) : aba === "adiados" ? adiado(n, agora) : !!n.read_at)), [notas, aba, agora]);
+  // no Resumo de Seu dia as tarefas já aparecem em "Hoje"; o card de avisos mostra só o resto (27/11)
+  const noResumo = (n: Nota) => modo !== "resumo" || meta(n).cat !== "tarefas";
+  const daAba = useMemo(() => (notas || []).filter(noResumo).filter((n) => (aba === "abertos" ? ativo(n, agora) : aba === "adiados" ? adiado(n, agora) : !!n.read_at)), [notas, aba, agora]);
   const contagem = useMemo(() => {
     const c: Partial<Record<Cat, number>> = {};
     for (const n of daAba) { const k = meta(n).cat; c[k] = (c[k] || 0) + 1; }
@@ -55,7 +57,7 @@ export default function Central({ modo, limite, aoNavegar }: { modo: Modo; limit
     const l = cat === "todas" ? daAba : daAba.filter((n) => meta(n).cat === cat);
     return limite ? l.slice(0, limite) : l;
   }, [daAba, cat, limite]);
-  const abertos = (notas || []).filter((n) => ativo(n, agora));
+  const abertos = (notas || []).filter(noResumo).filter((n) => ativo(n, agora));
   const nAdiados = (notas || []).filter((n) => adiado(n, agora)).length;
   const urgentes = abertos.filter((n) => meta(n).tom === "danger").length;
 

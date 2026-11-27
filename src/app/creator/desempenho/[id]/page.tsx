@@ -171,7 +171,8 @@ export default function Perfil() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {acc.connected && <button onClick={sync} disabled={syncing} className="btn btn-ghost"><I.refresh className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />{syncing ? "Sincronizando…" : "Sincronizar"}</button>}
-          <button onClick={diagnose} disabled={ai.busy} className="btn btn-mint"><I.spark className="w-4 h-4" />{ai.busy ? "Analisando…" : "Diagnóstico com IA"}</button>
+          {/* o diagnóstico mora no Raio-X (27/11); aqui ficam só os números */}
+          <Link href={`/creator/diagnostico?perfil=${id}`} className="btn btn-mint"><I.target className="w-4 h-4" />Raio-X e estratégia</Link>
         </div>
       </div>
       {msg && <div className="card px-4 py-3 mb-5 text-sm text-mint border-mint-dim">{msg}</div>}
