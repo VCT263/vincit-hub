@@ -113,6 +113,26 @@ export default function ManualStep({ d, id }: StepProps) {
           </div>
         </Pad>
 
+        {/* manifesto e voz (documento mestre, mesmo do briefing do Creator) */}
+        {(b.frase_mae || b.manifesto || b.arquetipo || b.matriz_tom) && (
+          <Pad bg={C["Escuro"]}>
+            <div className="flex items-baseline gap-3 mb-5"><span className="font-mono text-xs" style={{ color: C["Primária"] }}>{nx()}</span><h2 className="text-3xl" style={{ fontFamily: `"${t.title}"`, fontWeight: t.tw, color: C["Claro"] }}>Manifesto e voz</h2></div>
+            <div className="grid grid-cols-5 gap-[4%] flex-1 min-h-0 text-[12px]" style={{ fontFamily: `"${t.body}"`, color: C["Claro"] }}>
+              <div className="col-span-3 min-h-0 overflow-hidden">
+                {b.frase_mae && <p className="text-xl leading-snug mb-4" style={{ fontFamily: `"${t.title}"`, fontWeight: t.tw, color: C["Primária"] }}>{b.frase_mae}</p>}
+                {b.manifesto && <p className="whitespace-pre-line leading-snug opacity-80 text-[11px] columns-2 gap-6">{b.manifesto}</p>}
+              </div>
+              <div className="col-span-2 space-y-3 min-h-0 overflow-hidden">
+                {b.arquetipo && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Arquétipo</p><p className="mt-1">{b.arquetipo}</p></div>}
+                {b.territorio && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Território</p><p className="mt-1">{b.territorio}</p></div>}
+                {b.matriz_tom && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Tom de voz</p><p className="mt-1 whitespace-pre-line">{b.matriz_tom}</p></div>}
+                {!!arr(b.nao_e).length && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">A marca não é</p><p className="mt-1">{arr(b.nao_e).join(" · ")}</p></div>}
+                {!!arr(b.regras_ouro).length && <div><p className="font-mono text-[10px] uppercase tracking-widest opacity-50">Regras de ouro</p><p className="mt-1">{arr(b.regras_ouro).join(" · ")}</p></div>}
+              </div>
+            </div>
+          </Pad>
+        )}
+
         {/* estratégia */}
         {(niche || arcs.length || terr || st.posicao) && (
           <Pad>
@@ -202,7 +222,7 @@ export default function ManualStep({ d, id }: StepProps) {
             ); })}
           </div>
           <div className="flex h-3 rounded-full overflow-hidden mt-4"><span style={{ width: "60%", background: C["Claro"] }} className="border border-black/10" /><span style={{ width: "30%", background: C["Primária"] }} /><span style={{ width: "10%", background: C["Destaque"] }} /></div>
-          <p className="text-xs mt-2 opacity-70">Proporção: 60% neutros, 30% primária e apoio, 10% destaque. CMYK é aproximado; confirme com a gráfica.</p>
+          <p className="text-xs mt-2 opacity-70">Proporção: {b.proporcao || "60% neutros, 30% primária e apoio, 10% destaque"}. {!!arr(b.regras_visuais).length && <>Regras: {arr(b.regras_visuais).join(" · ")}. </>}CMYK é aproximado; confirme com a gráfica.</p>
         </Pad>
 
         {/* 05 tipografia */}
