@@ -64,7 +64,13 @@ function Studio({ ctx }: { ctx: any }) {
     const posts = list.filter((p) => p.canal === "Instagram" || p.canal === "TikTok");
     if (!posts.length) return setMsg("Nenhum conteúdo de Instagram ou TikTok para enviar.");
     setBusy(true); setMsg(null);
-    const { error } = await createClient().from("content_ideas").insert(posts.map((p) => ({
+    const sb = createClient();
+    // liga ao perfil de Instagram da loja no Creator, quando existir um com o nome da loja
+    const key = ctx.store.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const { data: profs } = await sb.from("ig_accounts").select("id,username,name");
+    const prof = (profs || []).find((x: any) => [x.username, x.name].some((n) => n && n.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key)));
+    const { error } = await sb.from("content_ideas").insert(posts.map((p) => ({
+      account_id: prof?.id || null, caption: p.legenda || null,
       kind: "plano", status: "backlog", title: `${ctx.store.name} · ${p.titulo}`.slice(0, 120), format: p.formato || null, planned_for: p.data, hook: p.gancho || null, pillar: a!.title,
       body: `**Ação:** ${a!.title} (${fmtDay(a!.date)})\n**Fase:** ${p.fase} · **Canal:** ${p.canal}\n\n**Gancho:** ${p.gancho || "-"}\n\n**Roteiro:**\n${p.roteiro || "-"}\n\n**Legenda:**\n${p.legenda || "-"}\n\n**CTA:** ${p.cta || "-"}`,
     })));

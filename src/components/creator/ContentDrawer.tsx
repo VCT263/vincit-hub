@@ -140,6 +140,14 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           <textarea className="input min-h-[160px] font-mono text-xs" value={f.body || ""} onChange={(e) => set("body", e.target.value)} />
           {f.body && <details className="mt-2"><summary className="text-xs text-fog cursor-pointer">Pré-visualizar</summary><div className="mt-2 bg-panel2 rounded-xl p-4"><Markdown text={f.body} /></div></details>}
           <Link href={`/creator/laboratorio?tab=criar${f.card ? `&carta=${f.card}` : ""}${f.format ? `&format=${encodeURIComponent(f.format)}` : ""}`} className="btn btn-ghost btn-sm mt-3"><I.flask className="w-4 h-4" />Desenvolver no Laboratório</Link>
+          {f.id && (
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-line">
+              <span className="text-[10px] uppercase tracking-widest text-fog font-mono w-full">Levar para o Audiovisual</span>
+              <Link href={`/audiovisual/teleprompter?c=${f.id}`} className="btn btn-ghost btn-sm"><I.video className="w-4 h-4" />Teleprompter</Link>
+              <Link href={`/audiovisual/decupagem?c=${f.id}`} className="btn btn-ghost btn-sm"><I.board className="w-4 h-4" />Decupagem</Link>
+              <Link href={`/audiovisual/ordem-do-dia?c=${f.id}`} className="btn btn-ghost btn-sm"><I.calendar className="w-4 h-4" />Ordem do dia</Link>
+            </div>
+          )}
         </Section>
 
         {reached("producao") && (
