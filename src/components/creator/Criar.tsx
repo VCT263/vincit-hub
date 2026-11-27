@@ -67,12 +67,31 @@ export default function Criar() {
             <div className="h-full grid place-items-center text-center text-fog text-sm"><div><I.pen className="w-8 h-8 mx-auto mb-3 text-line" />O resultado aparece aqui.</div></div>
           ) : (
             <>
-              <div className="flex justify-end gap-2 mb-2"><CopyButton text={out} label="Copiar tudo" /><button onClick={save} disabled={saved} className="btn btn-ghost btn-sm">{saved ? "Salvo ✓" : "Salvar na pauta"}</button></div>
-              <Markdown text={out} />
+              <div className="flex justify-end gap-2 mb-3"><CopyButton text={out} label="Copiar tudo" /><button onClick={save} disabled={saved} className="btn btn-mint btn-sm">{saved ? "No Quadro ✓" : "Enviar ao Quadro"}</button></div>
+              {/* cada parte do resultado (gancho, roteiro, legenda…) numa caixa própria, com cópia (visual, 27/11) */}
+              <div className="space-y-3">
+                {blocks(out).map((b, i) => (
+                  <div key={i} className="rounded-xl border border-line bg-panel2/50 p-4">
+                    {b.title && <div className="flex items-center justify-between gap-2 mb-2"><p className="font-mono text-[11px] uppercase tracking-widest text-mint">{b.title}</p><CopyButton text={b.body} label="Copiar" /></div>}
+                    <Markdown text={b.body} />
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </section>
       </div>
     </>
   );
+}
+
+/** divide o texto da IA pelos títulos (#, ##, ###) para mostrar cada parte numa caixa */
+function blocks(md: string): { title: string; body: string }[] {
+  const out: { title: string; body: string }[] = [];
+  for (const part of md.split(/\n(?=#{1,3} )/)) {
+    const m = part.match(/^#{1,3} (.+)\n?([\s\S]*)$/);
+    const b = m ? { title: m[1].replace(/\*/g, "").trim(), body: m[2].trim() } : { title: "", body: part.trim() };
+    if (b.body || b.title) out.push(b);
+  }
+  return out;
 }
