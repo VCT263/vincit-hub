@@ -22,6 +22,14 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   jumpPunch?: number;
   /** entra do preto no começo e some no preto no fim */
   fade?: boolean;
+  /** cor do vídeo (natural, quente, frio, contraste, filme, pb) */
+  look?: string;
+  /** transição nos cortes entre trechos */
+  transicao?: string;
+  /** grão de filme mesmo sem o look filme */
+  grao?: boolean;
+  /** número do estilo do catálogo aplicado (ex.: "03") */
+  estilo?: string;
 };
 /** B-roll por cima da fala: o vídeo/imagem cobre a tela (cheia) ou entra num cartão do lado; o som continua o da fala */
 export type OverlayMode = "cheia" | "esquerda" | "direita";
@@ -33,6 +41,8 @@ export type Kit = {
   legenda?: { estilo?: string; palavras_por_tela?: number; caixa_alta?: boolean; altura?: number; altura_h?: number };
   regras?: { corte_max_s?: number; silencio_ms?: number; trilha_db?: number };
   camera?: { intensidade?: number };
+  /** estilo padrão do cliente no catálogo numerado */
+  estilo?: string;
   mogrts?: Record<string, string>;
 };
 
@@ -65,6 +75,7 @@ export function mergeKit(k?: Kit | null): Kit {
     legenda: { ...d.legenda, ...(k?.legenda || {}) },
     regras: { ...d.regras, ...(k?.regras || {}) },
     camera: { ...d.camera, ...(k?.camera || {}) },
+    estilo: k?.estilo,
     mogrts: k?.mogrts,
   };
 }
@@ -262,7 +273,7 @@ export function zoomAt(p: Project, t: number, cam: Camera = NO_CAMERA) {
     const i = L.findIndex((l) => t >= l.start && t < l.end);
     if (i % 2 === 1) jump = p.jumpPunch / 100;
   }
-  return punch * jump * cameraAt(cam, t);
+  return punch * jump * transitionZoom(p, t) * cameraAt(cam, t);
 }
 
 /** desenha a imagem cobrindo o quadro, com zoom no centro; take vertical em saída horizontal entra inteiro sobre um fundo desfocado */
@@ -302,35 +313,63 @@ function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: numb
   ctx.closePath();
 }
 
+/** estilos de legenda disponíveis (o catálogo numerado combina estes com cortes, câmera, transição e cor) */
+export const CAPTION_STYLES: [string, string][] = [
+  ["impacto", "Impacto (caixa alta, contorno, palavra dita em destaque)"],
+  ["karaoke", "Karaokê (a cor varre a palavra enquanto ela é dita)"],
+  ["caixa", "Caixa colorida atrás da palavra"],
+  ["bloco", "Blocos tortos (cada palavra num bloco, estilo colagem)"],
+  ["serifa", "Sans + serifa itálica (palavras fortes em itálico)"],
+  ["minimal", "Minimal (minúsculas, pequena, sem contorno)"],
+  ["neon", "Neon (brilho na cor de destaque)"],
+  ["editorial", "Editorial (serifada, discreta)"],
+  ["documental", "Documental (faixa simples embaixo)"],
+];
+
 /** legenda da tela atual no estilo do kit */
 export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number] | undefined, t: number, kit: Kit) {
   if (!screen) return;
   const st = kit.legenda?.estilo || "impacto";
   const hi = kit.cores?.destaque || "#F5C84C";
   const fg = kit.cores?.texto || "#FFFFFF";
-  const upper = !!kit.legenda?.caixa_alta && st !== "editorial";
+  const bg = kit.cores?.fundo || "#0c0c0d";
+  const upper = !!kit.legenda?.caixa_alta && !["editorial", "minimal", "serifa"].includes(st);
   const y0 = H * (isWide() ? kit.legenda?.altura_h || 0.84 : kit.legenda?.altura || 0.64);
-  const size = U * (st === "editorial" ? 92 : st === "documental" ? 54 : st === "caixa" ? 70 : 84);
-  const fontName = st === "editorial" ? "Instrument Serif" : kit.fontes?.legenda;
-  ctx.font = css(fontName, size, st === "editorial");
+  const base = { editorial: 92, documental: 54, caixa: 70, minimal: 52, serifa: 74, bloco: 72, neon: 80, karaoke: 84 }[st] ?? 84;
+  const size = U * base;
+  const fontOf = (raw: string) => {
+    if (st === "editorial") return css("Instrument Serif", size, true);
+    if (st === "minimal") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Medium", size);
+    if (st === "serifa" && isHot(raw)) return css("Instrument Serif", size * 1.25, true);
+    return css(kit.fontes?.legenda, size);
+  };
   ctx.textBaseline = "middle";
-  const words = screen.words.map((w) => (upper ? w.t.toUpperCase() : w.t));
-  const lines = wrapLines(ctx, words, isWide() ? W * 0.62 : W * 0.84);
-  const lh = size * 1.18;
-  let idx = 0;
+  const items = screen.words.map((w) => {
+    const txt = st === "minimal" ? w.t.toLowerCase() : upper ? w.t.toUpperCase() : w.t;
+    ctx.font = fontOf(w.t);
+    return { w, txt, font: ctx.font, width: ctx.measureText(txt).width };
+  });
+  ctx.font = css(kit.fontes?.legenda, size);
+  const space = ctx.measureText(" ").width * (st === "bloco" ? 1.6 : 1);
+  const maxW = isWide() ? W * 0.62 : W * 0.84;
+  const lines: (typeof items)[] = [[]];
+  let lw = 0;
+  for (const it of items) {
+    const cur = lines[lines.length - 1];
+    if (cur.length && lw + space + it.width > maxW) { lines.push([it]); lw = it.width; } else { cur.push(it); lw += (cur.length > 1 ? space : 0) + it.width; }
+  }
+  const lh = size * (st === "bloco" ? 1.45 : 1.18);
   lines.forEach((line, li) => {
     const y = y0 + (li - (lines.length - 1) / 2) * lh;
-    const widths = line.map((w) => ctx.measureText(w).width);
-    const space = ctx.measureText(" ").width;
-    const total = widths.reduce((a, b) => a + b, 0) + space * (line.length - 1);
+    const total = line.reduce((a, b) => a + b.width, 0) + space * (line.length - 1);
     let x = (W - total) / 2;
-    line.forEach((w, wi) => {
-      const word = screen.words[idx++];
+    line.forEach((it, wi) => {
+      const word = it.w, w = it.txt, ww = it.width;
       const active = t >= word.start && t < word.end + 0.05;
       const said = t >= word.start;
       const hot = active || (said && isHot(word.t));
-      const ww = widths[wi];
       ctx.save();
+      ctx.font = it.font;
       if (st === "impacto") {
         const pop = active ? 1 + 0.12 * Math.max(0, 1 - (t - word.start) / 0.12) : 1;
         ctx.translate(x + ww / 2, y); ctx.scale(pop, pop); ctx.translate(-(x + ww / 2), -y);
@@ -338,10 +377,36 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
         ctx.strokeText(w, x, y);
         ctx.fillStyle = hot ? hi : fg; ctx.globalAlpha = said ? 1 : 0.55;
         ctx.fillText(w, x, y);
+      } else if (st === "karaoke") {
+        ctx.lineJoin = "round"; ctx.lineWidth = size * 0.16; ctx.strokeStyle = "#000";
+        ctx.strokeText(w, x, y);
+        ctx.fillStyle = fg; ctx.fillText(w, x, y);
+        const f = word.end > word.start ? Math.max(0, Math.min(1, (t - word.start) / (word.end - word.start))) : said ? 1 : 0;
+        if (f > 0) { ctx.save(); ctx.beginPath(); ctx.rect(x - 4, y - size, (ww + 8) * f, size * 2); ctx.clip(); ctx.fillStyle = hi; ctx.fillText(w, x, y); ctx.restore(); }
       } else if (st === "caixa") {
         if (active) { ctx.fillStyle = hi; roundRect(ctx, x - 12, y - size * 0.62, ww + 24, size * 1.24, 14); ctx.fill(); }
         ctx.fillStyle = active ? "#0c0c0d" : fg; ctx.shadowColor = active ? "transparent" : "rgba(0,0,0,.7)"; ctx.shadowBlur = 16;
         ctx.fillText(w, x, y);
+      } else if (st === "bloco") {
+        if (!said) { ctx.restore(); x += ww + space; return; }
+        const rot = ((wi + li) % 2 ? 1 : -1) * 0.04;
+        const pop = active ? 1 + 0.1 * Math.max(0, 1 - (t - word.start) / 0.12) : 1;
+        ctx.translate(x + ww / 2, y); ctx.rotate(rot); ctx.scale(pop, pop); ctx.translate(-(x + ww / 2), -y);
+        ctx.fillStyle = hot ? hi : fg; ctx.fillRect(x - 16, y - size * 0.62, ww + 32, size * 1.24);
+        ctx.fillStyle = bg; ctx.fillText(w, x, y + size * 0.04);
+      } else if (st === "serifa") {
+        ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 20;
+        ctx.fillStyle = isHot(word.t) ? hi : fg; ctx.globalAlpha = said ? 1 : 0.45;
+        ctx.fillText(w, x, y);
+      } else if (st === "minimal") {
+        ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 14;
+        ctx.fillStyle = fg; ctx.globalAlpha = said ? 1 : 0.4;
+        ctx.fillText(w, x, y);
+      } else if (st === "neon") {
+        ctx.globalAlpha = said ? 1 : 0.35;
+        ctx.shadowColor = hi; ctx.shadowBlur = active ? 40 : 22;
+        ctx.fillStyle = active ? "#fff" : hi; ctx.fillText(w, x, y);
+        ctx.shadowBlur = 8; ctx.fillText(w, x, y);
       } else if (st === "editorial") {
         ctx.shadowColor = "rgba(0,0,0,.65)"; ctx.shadowBlur = 24;
         ctx.fillStyle = hot ? hi : fg; ctx.globalAlpha = said ? 1 : 0.5;
@@ -354,6 +419,80 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
       x += ww + space;
     });
   });
+}
+
+/* ---------- look (cor), grão e transições entre cortes ---------- */
+
+export const LOOKS: [string, string][] = [["natural", "Natural"], ["quente", "Quente"], ["frio", "Frio"], ["contraste", "Contraste alto"], ["filme", "Filme (grão e vinheta)"], ["pb", "Preto e branco"]];
+export const TRANSITIONS: [string, string][] = [["corte", "Corte seco"], ["zoom", "Zoom de impacto"], ["flash", "Flash branco"], ["preto", "Mergulho no preto"], ["blur", "Desfoque"], ["glitch", "Glitch"]];
+const LOOK_FILTER: Record<string, string> = {
+  quente: "sepia(.18) saturate(1.15) brightness(1.03)", frio: "saturate(.9) hue-rotate(-8deg) brightness(1.02) contrast(1.05)",
+  contraste: "contrast(1.22) saturate(1.2)", filme: "contrast(1.08) saturate(.82) sepia(.12)", pb: "grayscale(1) contrast(1.15)",
+};
+let grain: OffscreenCanvas | HTMLCanvasElement | null = null;
+function grainTile() {
+  if (grain) return grain;
+  const c: OffscreenCanvas | HTMLCanvasElement = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(256, 256) : Object.assign(document.createElement("canvas"), { width: 256, height: 256 });
+  const g = c.getContext("2d") as Ctx;
+  const img = g.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  g.putImageData(img, 0, 0);
+  return (grain = c);
+}
+export function drawLook(ctx: Ctx, p: Project, t: number) {
+  const look = p.look || "natural";
+  if (look !== "natural" && LOOK_FILTER[look]) { ctx.save(); ctx.filter = LOOK_FILTER[look]; ctx.drawImage(ctx.canvas as CanvasImageSource, 0, 0, W, H); ctx.restore(); }
+  if (look === "filme" || look === "pb" || p.grao) {
+    ctx.save();
+    ctx.globalAlpha = 0.07; ctx.globalCompositeOperation = "overlay";
+    const tile = grainTile(); const ox = Math.floor((t * 977) % 256), oy = Math.floor((t * 613) % 256);
+    for (let y = -oy; y < H; y += 256) for (let x = -ox; x < W; x += 256) ctx.drawImage(tile as CanvasImageSource, x, y);
+    ctx.restore();
+  }
+  if (look === "filme" || look === "pb") {
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.55)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+}
+/** distância (s) até o corte mais próximo entre trechos; o primeiro e o último não contam */
+export function nearestCut(p: Project, t: number) {
+  let best = Infinity, at = 0;
+  const L = layout(p);
+  for (let i = 1; i < L.length; i++) { const d = t - L[i].start; if (Math.abs(d) < Math.abs(best)) { best = d; at = L[i].start; } }
+  return { d: best, at };
+}
+export function drawTransition(ctx: Ctx, p: Project, t: number) {
+  const tr = p.transicao || "corte";
+  if (tr === "corte" || tr === "zoom") return;
+  const { d } = nearestCut(p, t);
+  const R = tr === "preto" ? 0.3 : 0.2;
+  if (Math.abs(d) > R) return;
+  const k = 1 - Math.abs(d) / R; // 1 no corte, 0 nas pontas
+  ctx.save();
+  if (tr === "flash") { ctx.globalAlpha = Math.pow(k, 1.5) * 0.9; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); }
+  else if (tr === "preto") { ctx.globalAlpha = Math.min(1, k * 1.3); ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+  else if (tr === "blur") { ctx.filter = `blur(${Math.round(k * 24)}px)`; ctx.drawImage(ctx.canvas as CanvasImageSource, 0, 0, W, H); }
+  else if (tr === "glitch") {
+    const n = 7;
+    for (let i = 0; i < n; i++) {
+      const y = Math.floor(((Math.sin(i * 91.7 + Math.floor(t * 30) * 12.9) + 1) / 2) * H);
+      const h = Math.floor(H * (0.02 + 0.05 * ((i * 37) % 5) / 5));
+      const dx = Math.round((Math.sin(i * 13.1 + t * 50) * 60) * k);
+      ctx.drawImage(ctx.canvas as CanvasImageSource, 0, y, W, h, dx, y, W, h);
+    }
+    ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = 0.35 * k;
+    ctx.drawImage(ctx.canvas as CanvasImageSource, 12 * k, 0, W, H);
+  }
+  ctx.restore();
+}
+/** zoom de impacto: o quadro entra fechado e abre logo depois do corte */
+export function transitionZoom(p: Project, t: number) {
+  if (p.transicao !== "zoom") return 1;
+  const { d } = nearestCut(p, t);
+  if (d < 0 || d > 0.3) return 1;
+  const k = 1 - d / 0.3;
+  return 1 + 0.18 * k * k;
 }
 
 export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit, all: Title[] = []) {
@@ -565,6 +704,8 @@ export function drawFade(ctx: Ctx, p: Project, t: number) {
 
 /** tudo que vai por cima do vídeo no tempo t */
 export function drawOverlays(ctx: Ctx, p: Project, screens: ReturnType<typeof captionScreens>, t: number, kit: Kit) {
+  drawLook(ctx, p, t);
+  drawTransition(ctx, p, t);
   // REC e frase mexem no quadro inteiro: vão antes dos outros textos
   const on = p.titles.filter((tt) => t >= tt.start && t < tt.end).sort((a, b) => (a.kind === "rec" ? -1 : 0) - (b.kind === "rec" ? -1 : 0));
   for (const tt of on) drawTitle(ctx, tt, t, kit, p.titles);

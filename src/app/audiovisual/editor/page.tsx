@@ -4,9 +4,10 @@ import Link from "next/link";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
-  CAMERA_LEVELS, FONTS_CSS, H, TITLE_LABEL, W, activeOverlays, applyCuts, drawInsert, isHot, setFormat, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
+  CAMERA_LEVELS, CAPTION_STYLES, LOOKS, TRANSITIONS, FONTS_CSS, H, TITLE_LABEL, W, activeOverlays, applyCuts, drawInsert, isHot, setFormat, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
   type Format, type Kit, type Media, type Overlay, type OverlayMode, type Project, type Title, type Zoom,
 } from "@/lib/editor/model";
+import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from "@/lib/editor/styles";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -15,21 +16,6 @@ const SUB_HINT: Partial<Record<Title["kind"], string>> = {
   episodio: "Linha de baixo (ex.: EP. 03 · 2026)", capitulo: "Linha pequena (opcional)", lower_third: "Cargo ou @perfil", palavra: "Linha pequena",
   frase: "Palavras na cor de destaque (ex.: conforto)", data: "Segunda linha (ex.: domingo · Floripa)", lista: "Itens separados por | (ex.: dormir | treinar | escrever)", rec: "Canto de baixo (ex.: 4K UHD)",
 };
-type Preset = { key: string; title: string; desc: string; estilo: string; zoom: boolean; cut: number | false; camera: number; captions: boolean; jump?: number; fade?: boolean; keywords?: boolean; abertura?: boolean };
-const PRESETS_V: Preset[] = [
-  { key: "impacto", title: "Corte seco + zoom", desc: "Tira os silêncios, câmera forte que acompanha a fala, punch de 110% nas frases fortes, legenda palavra a palavra.", estilo: "impacto", zoom: true, cut: 0, camera: 3, captions: true },
-  { key: "broll", title: "Talking head limpo", desc: "Tira os silêncios, legenda com caixa colorida, câmera média seguindo a fala.", estilo: "caixa", zoom: false, cut: 0, camera: 2, captions: true },
-  { key: "editorial", title: "Editorial", desc: "Legenda serifada e discreta, cortes só nos silêncios longos, câmera suave.", estilo: "editorial", zoom: false, cut: 0.9, camera: 1, captions: true },
-  { key: "documental", title: "Documental calmo", desc: "Mantém as pausas, legenda simples embaixo, câmera parada.", estilo: "documental", zoom: false, cut: false, camera: 0, captions: true },
-];
-/* horizontal (YouTube): a partir do seu vídeo "21KM em Floripa" e de canais de conhecimento/autodesenvolvimento */
-const PRESETS_H: Preset[] = [
-  { key: "vlog", title: "Vlog de série", desc: "Abertura com o título sobre o quadro desfocado, corte seco com punch alternado (jump cut), câmera suave, sem legenda, fade no fim. Coloque os B-rolls por cima.", estilo: "editorial", zoom: false, cut: 0, camera: 1, captions: false, jump: 112, fade: true, abertura: true },
-  { key: "conhecimento", title: "Conhecimento (ritmo alto)", desc: "Corte seco, punch alternado, câmera média, palavra-chave na tela nas ideias fortes. Estilo de canais de ciência e produtividade.", estilo: "impacto", zoom: true, cut: 0, camera: 2, captions: false, jump: 115, fade: true, keywords: true, abertura: true },
-  { key: "documentario", title: "Documentário", desc: "Mantém respiros (corta só pausas longas), câmera suave, legenda discreta embaixo, abertura e fade.", estilo: "documental", zoom: false, cut: 0.9, camera: 1, captions: true, fade: true, abertura: true },
-  { key: "conversa", title: "Conversa / podcast", desc: "Sem cortes, câmera parada, nome na tela no começo. Bom para entrevista.", estilo: "documental", zoom: false, cut: false, camera: 0, captions: false },
-];
-
 export default function Editor() {
   const [media, setMedia] = useState<Media[]>([]);
   const [p, setP] = useState<Project>(EMPTY);
@@ -52,7 +38,7 @@ export default function Editor() {
 
   setFormat(p.format); // W e H da prévia acompanham o formato escolhido
   const wide = p.format === "16:9";
-  const PRESETS = wide ? PRESETS_H : PRESETS_V;
+  const catalogo = ESTILOS.filter((e) => e.formato === "ambos" || e.formato === p.format || (!p.format && e.formato === "9:16"));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const brollVideos = useRef<Map<string, HTMLVideoElement>>(new Map());
   const images = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -76,7 +62,7 @@ export default function Editor() {
   useEffect(() => {
     const s = createClient();
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
-    s.from("content_ideas").select("id,title,hook,format").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
+    s.from("content_ideas").select("id,title,hook,format,body").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
     if (document.fonts) FONTS_LOAD.forEach((f) => document.fonts.load(f).catch(() => {}));
   }, []);
 
@@ -226,41 +212,21 @@ export default function Editor() {
     setBusy(null);
   }
 
-  async function applyPreset(key: string) {
-    const pr = PRESETS.find((x) => x.key === key)!;
-    setPreset(key);
-    setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), estilo: pr.estilo } }));
-    if (!media.some((m) => m.words)) { setMsg("Gere a legenda primeiro (aba Legenda). O estilo usa a fala para cortar e mexer a câmera."); return; }
-    const minGap = pr.cut === false ? 0 : pr.cut || (kit.regras?.silencio_ms || 350) / 1000;
-    let next: Project = { ...p, camera: pr.camera, captionsOn: pr.captions, jumpPunch: pr.jump, fade: !!pr.fade };
-    if (pr.cut !== false) next = { ...next, segments: removeSilences(p, media, minGap) };
-    const ws = outputWords(next, media);
-    const end = totalDuration(next);
-    if (pr.zoom) {
-      const zooms: Zoom[] = [];
-      let last = -10;
-      ws.forEach((w, i) => {
-        const strong = /[!?]$/.test(w.t) || (i > 0 && ws[i - 1].t.match(/[.!?]$/));
-        if (strong && w.start - last > 3) { zooms.push({ id: uid(), start: w.start, end: Math.min(w.start + 1.6, end), scale: 110 }); last = w.start; }
-      });
-      next = { ...next, zooms };
-    } else next = { ...next, zooms: [] };
-    let titles = next.titles.filter((x) => x.kind !== "palavra" && x.kind !== "episodio");
-    if (pr.keywords) {
-      let last = -10;
-      for (const w of ws) {
-        const clean = w.t.replace(/[^\p{L}\p{N}%$]/gu, "");
-        if (clean.length >= 4 && isHot(w.t) && w.start - last > 9 && w.start > 4) { titles.push({ id: uid(), kind: "palavra", text: clean, start: w.start, end: Math.min(end, w.start + 2.2) }); last = w.start; }
-      }
+  function applyPreset(num: string) {
+    const e = estiloByNum(num);
+    if (!e) return;
+    setPreset(num);
+    setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), ...e.legenda }, fontes: { ...(o.fontes || {}), ...e.fontes } }));
+    if (!media.some((m) => m.words)) {
+      update((pp) => projetoDoEstilo(pp, e));
+      setMsg(`Estilo ${e.num} · ${e.nome}: lettering, câmera, cor e transição aplicados. Gere a legenda (aba Legenda) e aplique de novo para cortar e pôr os textos.`);
+      return;
     }
-    if (pr.abertura) {
-      const c = contents.find((x) => x.id === contentId);
-      titles = [{ id: uid(), kind: "episodio", text: c?.title || "Título do episódio", sub: String(new Date().getFullYear()), start: 0, end: Math.min(end, 3.5) }, ...titles];
-    }
-    next = { ...next, titles };
+    const c = contents.find((x) => x.id === contentId);
+    const next = aplicarEstilo(e, p, media, kit, { titulo: c?.title, gancho: c?.hook || c?.title, cta: wide ? "Se inscreve e ativa o sininho" : undefined });
     update(() => next);
     seek(0);
-    setMsg(`Estilo "${pr.title}" aplicado.${pr.cut !== false ? ` Ficou com ${next.segments.length} trechos.` : ""}`);
+    setMsg(`Estilo ${e.num} · ${e.nome} aplicado.${e.cut !== false ? ` Ficou com ${next.segments.length} trechos.` : ""}`);
   }
 
   function addTitle(kind: Title["kind"]) {
@@ -307,7 +273,7 @@ export default function Editor() {
       fps: 30, duration_sec: +total.toFixed(2),
       timeline: layout(p).map((l) => ({ faixa: "V1", nome: media.find((m) => m.id === l.seg.mediaId)?.name, inicio: +l.start.toFixed(2), fim: +l.end.toFixed(2) })),
       transcript: words.map((w) => ({ inicio: +w.start.toFixed(2), fim: +w.end.toFixed(2), texto: w.t })),
-      request: [ask.trim(), wide ? "Plano para o editor do HUB (vídeo horizontal 16:9 para YouTube, formato série). Cortes são aplicados direto na timeline. B-rolls disponíveis: " + (media.filter((m) => m.broll).map((m) => m.name).join(", ") || "nenhum") : "Plano para o editor do HUB (vídeo vertical 9:16). Cortes são aplicados direto na timeline."].filter(Boolean).join(" · "),
+      request: [ask.trim(), wide ? "Plano para o editor do HUB (vídeo horizontal 16:9 para YouTube, formato série). Cortes são aplicados direto na timeline. B-rolls disponíveis: " + (media.filter((m) => m.broll).map((m) => m.name).join(", ") || "nenhum") : "Plano para o editor do HUB (vídeo vertical 9:16). Cortes são aplicados direto na timeline.", preset || baseKit?.estilo ? `Estilo escolhido: ${preset || baseKit?.estilo} (pode sugerir outro do catálogo em "estilo")` : "Sugira um estilo do catálogo (01 a 12) em \"estilo\""].filter(Boolean).join(" · "),
     };
     const { data, error } = await s.from("av_edit_sessions").insert(row).select("id,status").single();
     if (error) { setMsg(error.message); return; }
@@ -326,7 +292,9 @@ export default function Editor() {
   async function applyPlan() {
     if (!plan?.plan) return;
     const pl = plan.plan;
-    let next: Project = { ...p, ...(pl.camera != null && !isNaN(+pl.camera) ? { camera: Math.max(0, Math.min(3, Math.round(+pl.camera))) } : {}) };
+    const est = estiloByNum(pl.estilo);
+    if (est) { setPreset(est.num); setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), ...est.legenda }, fontes: { ...(o.fontes || {}), ...est.fontes } })); }
+    let next: Project = { ...(est ? projetoDoEstilo(p, est) : p), ...(pl.camera != null && !isNaN(+pl.camera) ? { camera: Math.max(0, Math.min(3, Math.round(+pl.camera))) } : {}) };
     if ((pl.titulos || []).length) next = { ...next, titles: [...next.titles, ...pl.titulos.map((x: any) => ({ id: uid(), kind: Object.keys(TITLE_LABEL).includes(x.tipo) ? x.tipo : "gancho", text: String(x.texto || ""), sub: x.linha ? String(x.linha) : undefined, start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 2.5 }))] };
     if ((pl.zooms || []).length) next = { ...next, zooms: [...next.zooms, ...pl.zooms.map((z: any) => ({ id: uid(), start: +z.inicio, end: z.fim != null ? +z.fim : +z.inicio + 1.5, scale: +z.escala || 110 }))] };
     // B-roll do plano: casa pelo nome do arquivo que está no acervo
@@ -347,7 +315,7 @@ export default function Editor() {
     const s = createClient();
     await s.from("av_edit_sessions").update({ status: "aplicado", applied_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", plan.id);
     setPlan({ ...plan, status: "aplicado" });
-    setMsg(`Plano aplicado: ${cuts.length} cortes, ${(pl.zooms || []).length} zooms, ${(pl.titulos || []).length} textos${ins.length ? `, ${ins.length} B-rolls` : ""}. Espaço para ver.`);
+    setMsg(`Plano aplicado${est ? ` no estilo ${est.num} · ${est.nome}` : ""}: ${cuts.length} cortes, ${(pl.zooms || []).length} zooms, ${(pl.titulos || []).length} textos${ins.length ? `, ${ins.length} B-rolls` : ""}. Espaço para ver.`);
   }
 
   /* ---------- timeline ---------- */
@@ -371,7 +339,7 @@ export default function Editor() {
           <p className="text-sm text-fog mt-1 max-w-2xl">Cortes, legenda automática no estilo do cliente, títulos, B-roll e câmera, em 9:16 para Reels ou 16:9 para YouTube. Tudo roda no seu computador. Para vídeos maiores, use o <Link href="/audiovisual/premiere" className="text-mint">Premiere com o Claude</Link>.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <select className="input !w-auto" value={contentId} onChange={(e) => setContentId(e.target.value)}>
+          <select className="input !w-auto" value={contentId} onChange={(e) => { setContentId(e.target.value); const m = String(contents.find((c) => c.id === e.target.value)?.body || "").match(/Estilo de edição:\*\*\s*(\d{2})/); if (m && estiloByNum(m[1])) { setPreset(m[1]); setMsg(`O roteiro sugere o estilo ${m[1]} · ${estiloByNum(m[1])!.nome}. Clique nele à direita para aplicar.`); } }}>
             <option value="">Conteúdo do HUB…</option>
             {contents.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
@@ -515,8 +483,8 @@ export default function Editor() {
             <div className="space-y-3 text-sm">
               <p className="text-xs text-fog">Ajustes por cima do kit {baseKit ? `"${kits.find((k) => k.id === kitId)?.name}"` : "padrão"}. Para guardar de vez, edite na página <Link href="/audiovisual/kit" className="text-mint">Kit de estilo</Link>.</p>
               <div className="grid grid-cols-2 gap-1.5">
-                {[["impacto", "Impacto"], ["caixa", "Caixa"], ["editorial", "Editorial"], ["documental", "Documental"]].map(([v, l]) => (
-                  <button key={v} onClick={() => setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), estilo: v } }))} className={`rounded-lg border px-2 py-2 text-xs font-semibold ${kit.legenda?.estilo === v ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
+                {CAPTION_STYLES.map(([v, l]) => (
+                  <button key={v} title={l} onClick={() => setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), estilo: v } }))} className={`rounded-lg border px-2 py-2 text-xs font-semibold ${kit.legenda?.estilo === v ? "border-mint text-mint" : "border-line text-fog"}`}>{l.split(" (")[0]}</button>
                 ))}
               </div>
               <div className="flex items-center gap-2">
@@ -550,13 +518,21 @@ export default function Editor() {
 
         {/* ---------- direita ---------- */}
         <aside className="card p-3 min-w-0 order-3 space-y-2">
-          <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Estilo de edição</p>
-          {PRESETS.map((pr) => (
-            <button key={pr.key} disabled={!media.length || !!busy} onClick={() => applyPreset(pr.key)} className={`w-full text-left rounded-xl border p-3 disabled:opacity-50 ${preset === pr.key ? "border-mint bg-mint/5" : "border-line"}`}>
-              <p className="text-sm font-semibold">{pr.title}</p>
-              <p className="text-xs text-fog mt-0.5">{pr.desc}</p>
-            </button>
-          ))}
+          <div className="flex items-baseline justify-between">
+            <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Estilo de edição</p>
+            <Link href="/audiovisual/kit#catalogo" className="text-[11px] text-mint">ver catálogo</Link>
+          </div>
+          <div className="space-y-1 max-h-[420px] overflow-y-auto pr-1">
+            {catalogo.map((e) => {
+              const on = preset === e.num;
+              return (
+                <button key={e.num} disabled={!media.length || !!busy} onClick={() => applyPreset(e.num)} className={`w-full text-left rounded-xl border px-3 py-2 disabled:opacity-50 ${on ? "border-mint bg-mint/5" : "border-line"}`}>
+                  <p className="text-sm font-semibold"><span className="font-mono text-mint mr-1.5">{e.num}</span>{e.nome}{baseKit?.estilo === e.num && <span className="ml-1.5 text-[10px] font-mono text-amber-300">PADRÃO</span>}</p>
+                  {on ? <><p className="text-xs text-fog mt-0.5">{e.resumo}</p><p className="text-[10px] text-soft mt-1">{estiloTags(e).join(" · ")}</p></> : <p className="text-[11px] text-fog truncate">{e.uso}</p>}
+                </button>
+              );
+            })}
+          </div>
           <div className="rounded-xl border border-line p-3">
             <p className="text-sm font-semibold">Câmera que acompanha a fala</p>
             <p className="text-xs text-fog mt-0.5">Zoom in e zoom out lentos a cada frase, mais fundo nas perguntas e exclamações, e um toque rápido nas palavras fortes. Usa a legenda gerada.</p>
@@ -569,6 +545,15 @@ export default function Editor() {
               <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!p.jumpPunch} onChange={(e) => update((pp) => ({ ...pp, jumpPunch: e.target.checked ? 112 : undefined }))} />Punch alternado nos cortes</label>
               <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!p.fade} onChange={(e) => update((pp) => ({ ...pp, fade: e.target.checked }))} />Fade no começo e no fim</label>
             </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <label className="text-[11px] text-fog">Cor
+                <select value={p.look || "natural"} onChange={(e) => update((pp) => ({ ...pp, look: e.target.value }))} className="input !py-1 text-xs mt-0.5">{LOOKS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              </label>
+              <label className="text-[11px] text-fog">Transição
+                <select value={p.transicao || "corte"} onChange={(e) => update((pp) => ({ ...pp, transicao: e.target.value }))} className="input !py-1 text-xs mt-0.5">{TRANSITIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              </label>
+            </div>
+            <label className="flex items-center gap-1.5 text-xs mt-1.5"><input type="checkbox" checked={!!p.grao} onChange={(e) => update((pp) => ({ ...pp, grao: e.target.checked }))} />Grão de filme</label>
             {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
           </div>
           <div className="rounded-xl border border-purple-400/30 bg-purple-400/5 p-3 text-xs text-soft">
