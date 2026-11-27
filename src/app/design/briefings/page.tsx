@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { STATUS, briefingUrl, whatsLink, type Briefing } from "@/components/design/briefing/acoes";
+import Lixeira from "@/components/lixeira/Lixeira";
 
 const FILTROS = [["ativos", "Ativos"], ["respondido", "Respondidos"], ["aberto", "Aguardando"], ["projeto", "Viraram projeto"], ["arquivado", "Arquivados"]] as const;
 
@@ -18,10 +19,14 @@ export default function Briefings() {
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
+  const [lixo, setLixo] = useState<Briefing[]>([]);
 
   useEffect(() => {
     const sb = createClient();
-    sb.from("design_briefings").select("id,token,title,client_name,client_id,status,respondent,answered_at,brand_id,created_at,updated_at,marca:answers->>marca_nome").order("updated_at", { ascending: false }).then(({ data }) => setRows((data as any) || []));
+    sb.from("design_briefings").select("id,token,title,client_name,client_id,status,respondent,answered_at,brand_id,created_at,updated_at,deleted_at,marca:answers->>marca_nome").order("updated_at", { ascending: false }).then(({ data }) => {
+      const all = (data as any[]) || [];
+      setRows(all.filter((r) => !r.deleted_at)); setLixo(all.filter((r) => r.deleted_at));
+    });
     sb.from("ag_clients").select("id,name").order("name").then(({ data }) => setClients((data as any) || []));
   }, []);
 
@@ -32,6 +37,13 @@ export default function Briefings() {
       client_name: nome || null, title: form.title.trim() || nome || "Novo briefing", intro: form.intro.trim() || null, client_id: form.client_id || null,
     }).select("id").single();
     if (data) router.push(`/design/briefings/${data.id}`); else setBusy(false);
+  }
+  async function recuperar(id: string) {
+    const { error } = await createClient().from("design_briefings").update({ deleted_at: null }).eq("id", id);
+    if (error) return;
+    const b = lixo.find((x) => x.id === id);
+    setLixo((l) => l.filter((x) => x.id !== id));
+    if (b) setRows((r) => [{ ...b, deleted_at: null }, ...(r || [])]);
   }
   async function copiar(b: Briefing) { await navigator.clipboard.writeText(briefingUrl(b.token)); setCopied(b.id); setTimeout(() => setCopied(""), 1800); }
 
@@ -100,6 +112,7 @@ export default function Briefings() {
           ))}
         </div>
       )}
+      <Lixeira nome="Briefings" itens={lixo.map((b) => ({ id: b.id, titulo: (b as any).marca || b.title, sub: b.client_name || undefined, at: (b as any).deleted_at }))} onRecuperar={recuperar} />
     </>
   );
 }

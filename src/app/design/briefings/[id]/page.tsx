@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
 import { CORES, ESTILOS, ESTILO_FONTS, ETAPAS, LETRAS, TIPOS_LOGO, answerText, answersText, arqMix, blank, filledCount, totalCount, type Paleta, type RefImg } from "@/lib/briefing-cliente";
 import { loadFonts } from "@/lib/design";
+import { prazoTexto } from "@/lib/lixeira";
+import { useConfirmarExclusao } from "@/components/lixeira/ConfirmarExclusao";
 import { STATUS, briefingUrl, comVersao, criarProjeto, mudancas, whatsLink, type Briefing } from "@/components/design/briefing/acoes";
 
 export default function BriefingDetalhe() {
@@ -16,6 +18,7 @@ export default function BriefingDetalhe() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [ver, setVer] = useState<number | null>(null);
+  const { pedir, modal } = useConfirmarExclusao();
   const t = useRef<any>(null);
 
   useEffect(() => {
@@ -75,9 +78,15 @@ export default function BriefingDetalhe() {
     if (pid) router.push(`/design/marcas/${pid}`); else { setBusy(false); flash("Não deu para criar o projeto. Tente de novo."); }
   }
   async function excluir() {
-    if (!b || b.status === "projeto") return;
-    await createClient().from("design_briefings").delete().eq("id", b.id);
+    if (!b || !(await pedir({ oque: `o briefing ${b.answers?.marca_nome || b.title}` }))) return;
+    const { error } = await createClient().from("design_briefings").update({ deleted_at: new Date().toISOString() }).eq("id", b.id);
+    if (error) return flash("Não deu para excluir. Tente de novo.");
     router.push("/design/briefings");
+  }
+  async function recuperar() {
+    if (!b) return;
+    const { error } = await createClient().from("design_briefings").update({ deleted_at: null }).eq("id", b.id);
+    if (!error) { setB({ ...b, deleted_at: null }); flash("Briefing recuperado"); }
   }
 
   const refs: RefImg[] = a.refs || [];
@@ -118,6 +127,13 @@ export default function BriefingDetalhe() {
         </div>
       </section>
 
+      {b.deleted_at && (
+        <section className="card p-4 mb-6 border-danger/40 flex flex-col sm:flex-row sm:items-center gap-3">
+          <p className="flex-1 text-sm"><b>Na lixeira.</b> <span className="text-fog">{prazoTexto(b.deleted_at)}. O link do cliente está desligado.</span></p>
+          <button onClick={recuperar} className="btn btn-mint btn-sm">Recuperar</button>
+        </section>
+      )}
+
       {versao && (
         <section className="card p-4 mb-6 border-mint-dim">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -138,7 +154,7 @@ export default function BriefingDetalhe() {
           <label className="label">Mensagem de abertura que o cliente vê</label>
           <textarea value={b.intro || ""} onChange={(e) => save({ intro: e.target.value }, 700)} rows={3} className="input" placeholder="Em branco, entra o texto padrão." />
           <p className="text-xs text-fog mt-3">Quando o cliente enviar, você recebe um aviso no sino e o briefing aparece em Criação de marca, em Solicitações recebidas.</p>
-          {!versoes.length && <button onClick={excluir} className="btn btn-ghost btn-sm mt-4 text-fog hover:!text-danger"><I.trash className="w-3.5 h-3.5" />Excluir briefing</button>}
+          {!b.deleted_at && <button onClick={excluir} className="btn btn-ghost btn-sm mt-4 text-fog hover:!text-danger"><I.trash className="w-3.5 h-3.5" />Excluir briefing</button>}
           {Historico && <div className="mt-4">{Historico}</div>}
         </section>
       ) : (
@@ -237,6 +253,7 @@ export default function BriefingDetalhe() {
             <div className="pt-3 border-t border-line flex flex-wrap gap-2">
               {b.status !== "aberto" && <button onClick={() => { save({ status: "aberto" }); flash("O cliente já pode revisar e reenviar pelo mesmo link"); }} className="btn btn-ghost btn-sm" title="O cliente abre o link com as respostas atuais e pode ajustar">Pedir ajuste ao cliente</button>}
               <button onClick={refazer} className="btn btn-ghost btn-sm" title="Guarda as respostas no histórico e o cliente responde do zero">Refazer do zero</button>
+              {!b.deleted_at && <button onClick={excluir} className="btn btn-ghost btn-sm text-fog hover:!text-danger"><I.trash className="w-3.5 h-3.5" />Excluir</button>}
               {b.status !== "arquivado" ? <button onClick={() => save({ status: "arquivado" })} className="btn btn-ghost btn-sm">Arquivar</button>
                 : <button onClick={() => save({ status: b.brand_id ? "projeto" : "respondido" })} className="btn btn-ghost btn-sm">Desarquivar</button>}
             </div>
@@ -244,6 +261,7 @@ export default function BriefingDetalhe() {
           </aside>
         </div>
       )}
+      {modal}
     </>
   );
 }
