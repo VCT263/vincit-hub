@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmt } from "@/lib/useAccounts";
@@ -9,8 +9,8 @@ import Markdown from "@/components/Markdown";
 import { I } from "@/components/icons";
 import { pct, taxas } from "@/lib/mixModa";
 import { AreaChart, Spark, SignalColumns, HBar, LILAS, num } from "@/components/creator/Graficos";
-import { apagarComLixeira } from "@/lib/lixeira";
 import CompartilharPerfil from "@/components/creator/CompartilharPerfil";
+import RemoverPerfil from "@/components/creator/RemoverPerfil";
 
 const FORMATOS: Record<string, string> = { REELS: "Reels", CAROUSEL_ALBUM: "Carrossel", IMAGE: "Foto", VIDEO: "Vídeo" };
 const formato = (t?: string) => FORMATOS[t || ""] || t || "Outro";
@@ -28,7 +28,6 @@ type MK = (typeof METRICAS)[number]["k"];
 
 export default function Perfil() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [acc, setAcc] = useState<any>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
@@ -88,10 +87,6 @@ export default function Perfil() {
   async function save() {
     await createClient().from("ig_accounts").update({ niche: acc.niche, goals: acc.goals, followers_count: acc.followers_count, brand_voice: acc.brand_voice || null }).eq("id", id);
     setEdit(false);
-  }
-  async function remove() {
-    if (!(await apagarComLixeira({ tabela: "ig_accounts", filtro: { id }, oque: `@${acc.username} do Creator, com posts, automações e histórico dele`, rotulo: `Perfil: @${acc.username}`, link: "/creator/perfis" }))) return;
-    router.push("/creator/perfis");
   }
   async function diagnose() {
     const r = await ai.run<{ text: string }>("profile_diagnosis", { account: acc, posts, resultados: ins ? { dias: ins.days, atual: ins.current, anterior: ins.previous } : null });
@@ -391,7 +386,7 @@ export default function Perfil() {
               <div><label className="label">Nicho</label><input className="input" value={acc.niche || ""} onChange={(e) => setAcc({ ...acc, niche: e.target.value })} /></div>
               <div><label className="label">Objetivos</label><textarea className="input" value={acc.goals || ""} onChange={(e) => setAcc({ ...acc, goals: e.target.value })} /></div>
               {!acc.connected && <div><label className="label">Seguidores</label><input type="number" className="input" value={acc.followers_count || ""} onChange={(e) => setAcc({ ...acc, followers_count: Number(e.target.value) || null })} /></div>}
-              <button onClick={remove} className="text-xs text-danger flex items-center gap-1"><I.trash className="w-3.5 h-3.5" />Remover perfil</button>
+              <p className="text-xs text-fog">Para remover ou apagar o perfil, use o cartão no fim da página.</p>
             </div>
           ) : (
             <div className="text-sm space-y-2"><p><span className="text-fog">Nicho:</span> {acc.niche || "não definido"}</p><p><span className="text-fog">Objetivos:</span> {acc.goals || "não definidos"}</p><p className="text-xs text-fog pt-2">A IA usa esse contexto em todas as análises.</p></div>
@@ -408,7 +403,7 @@ export default function Perfil() {
           ) : <p className="text-sm whitespace-pre-wrap line-clamp-6">{acc.brand_voice || <span className="text-fog">Ainda não definida. Com ela, legendas, roteiros e respostas saem com o jeito da marca.</span>}</p>}
         </section>
       </div>
-      <div className="mt-3"><CompartilharPerfil accountId={acc.id} ownerId={acc.owner_id} /></div>
+      <div className="mt-3 grid lg:grid-cols-2 gap-3"><CompartilharPerfil accountId={acc.id} ownerId={acc.owner_id} /><RemoverPerfil acc={acc} /></div>
     </>
   );
 }
