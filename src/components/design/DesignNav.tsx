@@ -7,6 +7,7 @@ const items = [
   { href: "/design", label: "Visão geral", Icon: I.grid },
   { href: "/design/marcas", label: "Criação de marca", Icon: I.shapes, group: "01 · Marca" },
   { href: "/design/pecas", label: "Carrosséis e peças", Icon: I.cards, group: "02 · Peças" },
+  { href: "/design/mockups", label: "Mockups fotográficos", Icon: I.camera, group: "03 · Biblioteca" },
 ];
 
 export default function DesignNav() {

@@ -5,6 +5,7 @@ import { ARCHETYPES, MAP_AXES, NICHES, SCALES, archetypeMix } from "@/lib/brand-
 import { SvgView } from "../ui";
 import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
+import { MockupCover, type Mockup } from "./MockupView";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
    seção e página), divisores de capítulo com número gigante, um acento só, filetes finos.
@@ -18,7 +19,7 @@ type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; 
 
 const arr = (v: any): string[] => (Array.isArray(v) ? v : v ? [v] : []);
 
-export function useDeck(d: any, format: Format) {
+export function useDeck(d: any, format: Format, mockups: Mockup[] = []) {
   const pal: Swatch[] = d.palette || [];
   const C: Record<string, string> = { Primária: "#2d6a4f", Apoio: "#52796f", Destaque: "#e9c46a", Escuro: "#141414", Claro: "#f4f4f2", ...Object.fromEntries(pal.map((s) => [s.role, s.hex])) };
   const t = d.type || { title: "Bricolage Grotesque", body: "Inter", tw: 800 };
@@ -30,7 +31,7 @@ export function useDeck(d: any, format: Format) {
     G: (s = {}) => ({ fontFamily: `"${t.accent || t.title}"`, fontWeight: 400, lineHeight: 1, ...s }), hasG: !!t.accent,
     B: (s = {}) => ({ fontFamily: `"${t.body}"`, ...s }),
   };
-  return { x, slides: buildSlides(d, x, t) };
+  return { x, slides: buildSlides(d, x, t, mockups) };
 }
 
 /* grão de papel: tira a cara de tela lisa (como nos cases impressos do Behance) */
@@ -101,7 +102,7 @@ function construction(sys: string, cons: any, line: string, prot: string) {
 }
 
 /* ───────── os slides ───────── */
-function buildSlides(d: any, x0: Ctx, t: any): SlideDef[] {
+function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[] {
   const b = d.brief || {}; const st = d.strategy || {};
   const niche = NICHES.find((n) => n.k === st.nicho);
   const mix = archetypeMix(st);
@@ -372,10 +373,14 @@ function buildSlides(d: any, x0: Ctx, t: any): SlideDef[] {
 
   /* 06 Aplicações */
   chapter("Aplicações", "A marca no mundo real: redes, papelaria, embalagem e ponto de venda.");
-  S.push({ key: "mockups", tone: "light", section: "Aplicações", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });
-  /* objetos reais em cena (um por página, como nos cases do Behance) e fotos reais com o logo aplicado */
+  /* mockups fotográficos (PSD do mockups-design.com): um por página, sangrando, como nos cases do Behance */
+  const chosen: string[] | undefined = Array.isArray(d.mockups) ? d.mockups : undefined;
+  const arts: Record<string, string[]> = d.mockup_arts || {};
+  (chosen ? chosen.map((id) => mockups.find((m) => m.id === id)).filter(Boolean) as Mockup[] : mockups.slice(0, 12)).forEach((m) => S.push({ key: `mk-${m.id}`, tone: "dark", section: `Aplicações · ${m.title}`, bare: true, body: (x) => <MockupCover d={d} m={m} arts={arts[m.id]} W={x.W} H={x.H} /> }));
+  S.push({ key: "mockups", tone: "light", section: "Aplicações · redes e peças", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });
+  /* cenas desenhadas (opcionais) e fotos reais com o logo aplicado */
   const kit = sceneKit(d);
-  const cenas: string[] = Array.isArray(d.cenas) ? d.cenas : SCENES.map((c) => c.k);
+  const cenas: string[] = Array.isArray(d.cenas) ? d.cenas : [];
   SCENES.filter((c) => cenas.includes(c.k)).forEach((c) => S.push({ key: `cena-${c.k}`, tone: "light", section: `Aplicações · ${c.l}`, bare: true, body: (x) => <><SceneStyle /><Scene d={d} k={c.k} W={x.W} H={x.H} kit={kit} /></> }));
   ((d.fotos || []) as Foto[]).filter((f) => f.url).forEach((f) => S.push({ key: `foto-${f.id}`, tone: "dark", section: "Aplicações · foto", bare: true, body: (x) => <PhotoScene k={kit} f={f} W={x.W} H={x.H} /> }));
 
