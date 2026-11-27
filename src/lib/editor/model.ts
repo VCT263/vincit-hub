@@ -115,9 +115,9 @@ export function mergeKit(k?: Kit | null): Kit {
 }
 
 /** fontes do Google que o editor carrega; o kit pode citar qualquer uma delas */
-export const FONTS = ["Anton", "Inter", "Archivo Black", "Instrument Serif", "Bebas Neue", "Montserrat", "Poppins", "Bricolage Grotesque", "Playfair Display", "Cinzel", "JetBrains Mono"];
+export const FONTS = ["Anton", "Inter", "Archivo Black", "Instrument Serif", "Bebas Neue", "Montserrat", "Poppins", "Bricolage Grotesque", "Playfair Display", "Bodoni Moda", "Cinzel", "JetBrains Mono"];
 export const FONTS_CSS =
-  "https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Cinzel:wght@700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Serif:ital@0;1&family=Inter:wght@500;700;800;900&family=JetBrains+Mono:wght@500&family=Montserrat:wght@700;900&family=Poppins:wght@700;900&display=block";
+  "https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Bodoni+Moda:ital,wght@0,700;0,900;1,700&family=Cinzel:wght@700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Serif:ital@0;1&family=Inter:wght@500;700;800;900&family=JetBrains+Mono:wght@500&family=Montserrat:wght@700;900&family=Poppins:wght@700;900&display=block";
 
 /** "Inter Black" → { family: "Inter", weight: 900 } */
 export function parseFont(name?: string) {
