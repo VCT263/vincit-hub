@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { STEPS, sanitizeSvg, loadFonts } from "@/lib/design";
+import { STEPS, sanitizeSvg, loadFonts, stepOf, primaryLogo } from "@/lib/design";
 
 /** mostra um SVG limpo (inline, para usar as fontes carregadas na página) */
 export function SvgView({ svg, className, fonts }: { svg: string; className?: string; fonts?: string[] }) {
@@ -9,7 +9,8 @@ export function SvgView({ svg, className, fonts }: { svg: string; className?: st
   useEffect(() => { setClean(sanitizeSvg(svg).replace(/<svg /, '<svg preserveAspectRatio="xMidYMid meet" width="100%" height="100%" ')); }, [svg]);
   const fam = useMemo(() => fonts || Array.from(new Set(Array.from(svg.matchAll(/font-family="([^"]+)"/g)).map((m) => m[1].split(",")[0].replace(/['"]/g, "").trim()))), [svg, fonts]);
   useEffect(() => { loadFonts(fam); }, [fam]);
-  return <div className={className} dangerouslySetInnerHTML={{ __html: clean }} />;
+  // o SVG fica absoluto para não empurrar a altura do contêiner (assinaturas verticais estouravam a caixa)
+  return <div className={`relative ${className || ""}`}><div className="absolute inset-0" dangerouslySetInnerHTML={{ __html: clean }} /></div>;
 }
 
 /** campo de etiquetas: digite e aperte Enter */
@@ -30,12 +31,13 @@ export function BrandCard({ b }: { b: { id: string; title: string; step: string;
   const d = b.data || {};
   const logo = (d.logos || []).find((l: any) => l.id === d.logo_id) || (d.logos || [])[0];
   const pal: string[] = (d.palette || []).map((s: any) => s.hex);
-  const idx = STEPS.findIndex((s) => s.k === b.step);
+  const idx = STEPS.findIndex((s) => s.k === stepOf(b.step));
   const bg = pal[4] || "#1c1c1f";
+  const main = d.logotype || d.symbol_id ? primaryLogo(d) : "";
   return (
     <Link href={`/design/marcas/${b.id}`} className="block rounded-xl border border-line overflow-hidden hover:border-mint transition-colors">
       <div className="h-28 grid place-items-center p-4" style={{ background: bg }}>
-        {logo?.svg ? <SvgView svg={logo.svg} className="h-20 w-full" /> : logo?.img ? <img src={logo.img} alt="" className="max-h-20 max-w-full" /> : <span className="font-display font-extrabold text-2xl" style={{ color: pal[0] || "var(--color-fog)" }}>{d.brief?.nome || b.title}</span>}
+        {main ? <SvgView svg={main} className="h-20 w-full" /> : logo?.svg ? <SvgView svg={logo.svg} className="h-20 w-full" /> : logo?.img ? <img src={logo.img} alt="" className="max-h-20 max-w-full" /> : <span className="font-display font-extrabold text-2xl" style={{ color: pal[0] || "var(--color-fog)" }}>{d.brief?.nome || b.title}</span>}
       </div>
       <div className="flex h-2">{pal.map((c) => <span key={c} className="flex-1" style={{ background: c }} />)}</div>
       <div className="p-3">
