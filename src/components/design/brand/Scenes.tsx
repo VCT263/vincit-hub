@@ -2,6 +2,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { lockupSvg, patternSvg, primaryLogo, readableOn, svgUrl, type Pattern } from "@/lib/design";
 import { SvgView } from "../ui";
+import { grainBg, warmGrain } from "./grain";
 
 /* Aplicações em objetos reais, montadas só com CSS (perspectiva, luz e sombra) a partir do próprio sistema
    da marca: nada de imagem paga nem API. Cada cena é desenhada em W×H e serve tanto para a etapa
@@ -23,6 +24,7 @@ export const SCENES = [
 export type SceneKey = (typeof SCENES)[number]["k"];
 
 const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
+warmGrain(GRAIN);
 const SHADOW = "0 1px 1px rgba(0,0,0,.14), 0 6px 12px rgba(0,0,0,.12), 0 24px 48px rgba(0,0,0,.2), 0 60px 90px rgba(0,0,0,.16)";
 const SHEEN = "linear-gradient(125deg, rgba(255,255,255,.28), rgba(255,255,255,0) 38%, rgba(0,0,0,0) 62%, rgba(0,0,0,.08))";
 
@@ -57,7 +59,7 @@ const Svg = ({ svg, style }: { svg: string; style: CSSProperties }) => <div styl
 const Cap = ({ k, children, color }: { k: K; children: ReactNode; color: string }) => (
   <div style={k.B({ position: "absolute", left: 48, bottom: 36, color, fontSize: 13, letterSpacing: ".22em", textTransform: "uppercase", fontWeight: 600, opacity: .7 })}>{children}</div>
 );
-const Grain = ({ dark }: { dark?: boolean }) => <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: GRAIN, opacity: dark ? .14 : .09, mixBlendMode: dark ? "screen" : "multiply" }} />;
+const Grain = ({ dark }: { dark?: boolean }) => <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: grainBg(GRAIN), opacity: dark ? .14 : .09, mixBlendMode: dark ? "screen" : "multiply" }} />;
 /* luz de janela vinda do canto: dá volume à mesa ou à parede */
 const Light = ({ from = "20% 0%", s = .35 }: { from?: string; s?: number }) => <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(120% 90% at ${from}, rgba(255,255,255,${s}), rgba(255,255,255,0) 55%), radial-gradient(90% 80% at 90% 110%, rgba(0,0,0,${s * .6}), rgba(0,0,0,0) 60%)` }} />;
 

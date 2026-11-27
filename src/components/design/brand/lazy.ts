@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
+import { grainsReady } from "./grain";
 
 /* Desenha só o que está perto da tela. O manual e as aplicações têm dezenas de mockups
    fotográficos (cada um com várias camadas de luz em 1600 px); montar todos de uma vez
@@ -20,6 +21,7 @@ export const usePrintAll = () => useSyncExternalStore(subscribe, () => printing,
 
 /** monta o PDF inteiro: liga tudo, espera as imagens carregarem e abre a impressão */
 export async function printAll() {
+  await grainsReady();
   setPrintAll(true);
   await new Promise((r) => setTimeout(r, 400));
   await document.fonts?.ready;
