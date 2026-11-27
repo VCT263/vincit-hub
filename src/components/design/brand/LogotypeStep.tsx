@@ -25,6 +25,7 @@ export default function LogotypeStep({ d, set, go }: StepProps) {
             <div className="absolute inset-x-8 top-1/2 h-px bg-[#e03131]/30" />
             <SvgView svg={svg} className="w-full h-32" fonts={[lt.font]} />
           </div>
+          {lt.svg && <div className="mt-4 rounded-xl bg-panel2 p-3 text-xs flex flex-wrap items-center gap-2"><span className="flex-1 min-w-48">Logotipo desenhado em vetor (fonte própria). Os ajustes abaixo valem só para um logotipo digitado.</span><button onClick={() => L({ svg: undefined })} className="btn btn-ghost btn-sm">Usar logotipo digitado</button></div>}
           <p className="font-mono text-[10px] uppercase tracking-widest text-fog mt-4 mb-2">Ajuste entre pares (kerning óptico)</p>
           <div className="flex flex-wrap gap-1.5">
             {chars.slice(0, -1).map((c, i) => (
