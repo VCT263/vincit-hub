@@ -1,0 +1,502 @@
+"use client";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { AXES, LOCKUPS, cmyk, hexToRgb, loadFonts, lockupSvg, patternSvg, primaryLogo, readableOn, svgParts, type Pattern, type Swatch } from "@/lib/design";
+import { ARCHETYPES, MAP_AXES, NICHES, SCALES, archetypeMix } from "@/lib/brand-strategy";
+import { SvgView } from "../ui";
+import Mockups from "./Mockups";
+
+/* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
+   seção e página), divisores de capítulo com número gigante, um acento só, filetes finos.
+   Cada slide é desenhado em pixels fixos e escalado na tela; na impressão vira uma página do PDF. */
+
+export const FORMATS = { "16:9": { w: 1600, h: 900, l: "16:9 · tela e PDF padrão" }, "3:2": { w: 1600, h: 1067, l: "3:2 · Behance" }, "4:3": { w: 1600, h: 1200, l: "4:3 · tablet" } } as const;
+export type Format = keyof typeof FORMATS;
+
+type Ctx = { W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
+type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; body: (x: Ctx) => ReactNode; bare?: boolean };
+
+const arr = (v: any): string[] => (Array.isArray(v) ? v : v ? [v] : []);
+
+export function useDeck(d: any, format: Format) {
+  const pal: Swatch[] = d.palette || [];
+  const C: Record<string, string> = { Primária: "#2d6a4f", Apoio: "#52796f", Destaque: "#e9c46a", Escuro: "#141414", Claro: "#f4f4f2", ...Object.fromEntries(pal.map((s) => [s.role, s.hex])) };
+  const t = d.type || { title: "Bricolage Grotesque", body: "Inter", tw: 800 };
+  useEffect(() => { loadFonts([t.title, t.body, t.accent || ""].filter(Boolean)); }, [t.title, t.body, t.accent]);
+  const { w: W, h: H } = FORMATS[format];
+  const x: Ctx = {
+    W, H, C, ink: C["Escuro"], paper: C["Claro"], acc: C["Primária"], name: d.brief?.nome || "Marca", year: new Date().getFullYear(),
+    T: (s = {}) => ({ fontFamily: `"${t.title}"`, fontWeight: t.tw || 700, fontStyle: t.ti ? "italic" : "normal", lineHeight: .92, letterSpacing: "-.015em", ...s }),
+    G: (s = {}) => ({ fontFamily: `"${t.accent || t.title}"`, fontWeight: 400, lineHeight: 1, ...s }), hasG: !!t.accent,
+    B: (s = {}) => ({ fontFamily: `"${t.body}"`, ...s }),
+  };
+  return { x, slides: buildSlides(d, x, t) };
+}
+
+/* grão de papel: tira a cara de tela lisa (como nos cases impressos do Behance) */
+const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
+
+/* ───────── peças de layout ───────── */
+const Label = ({ x, children, style }: { x: Ctx; children: ReactNode; style?: CSSProperties }) => <p style={x.B({ fontSize: 13, letterSpacing: ".28em", textTransform: "uppercase", fontWeight: 600, ...style })}>{children}</p>;
+const Rule = ({ c, style }: { c: string; style?: CSSProperties }) => <div style={{ height: 1, background: c, opacity: .35, ...style }} />;
+
+function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: number; total: number; children: ReactNode }) {
+  const bg = s.tone === "dark" ? x.ink : s.tone === "acc" ? x.acc : x.paper;
+  const fg = readableOn(bg) === "#ffffff" ? (s.tone === "dark" ? x.paper : "#ffffff") : x.ink;
+  const strip = 72;
+  return (
+    <div className="deck-slide" style={{ width: x.W, height: x.H, background: bg, color: fg, position: "relative", overflow: "hidden" }}>
+      {s.bare ? children : (
+        <>
+          <div style={{ position: "absolute", inset: `0 ${strip}px 0 0`, padding: "0 72px" }}>
+            <div style={{ position: "absolute", left: 72, right: 56, top: 44, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{s.section}</Label>
+              <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{x.name} · {x.year}</Label>
+            </div>
+            <Rule c={fg} style={{ position: "absolute", left: 0, right: 0, top: 76 }} />
+            <div style={{ position: "absolute", left: 72, right: 56, top: 112, bottom: 64 }}>{children}</div>
+          </div>
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: strip, borderLeft: `1px solid ${fg}33`, display: "flex", flexDirection: "column" }}>
+            <div style={{ height: "30%", background: s.tone === "acc" ? x.ink : x.acc, color: readableOn(s.tone === "acc" ? x.ink : x.acc), display: "grid", placeItems: "center" }}>
+              <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 700 })}>{x.name}</span>
+            </div>
+            <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
+              <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", opacity: .6 })}>Identidade de marca</span>
+            </div>
+            <div style={{ height: strip, borderTop: `1px solid ${fg}33`, display: "grid", placeItems: "center" }}>
+              <span style={x.B({ fontSize: 15, fontWeight: 700 })}>{String(n).padStart(2, "0")}</span>
+            </div>
+          </div>
+        </>
+      )}
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: GRAIN, opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />
+      <span style={{ display: "none" }}>{total}</span>
+    </div>
+  );
+}
+
+/** divisor de capítulo: número gigante sangrando a margem, título enorme ao lado */
+const divider = (num: number, title: string, sub: string): SlideDef => ({
+  key: `div-${num}`, tone: "dark", section: title, body: (x) => (
+    <div style={{ position: "absolute", inset: 0 }}>
+      <span style={x.T({ position: "absolute", left: -110, bottom: -x.H * .14, fontSize: x.H * .78, color: x.acc, lineHeight: 1, letterSpacing: "-.06em" })}>{String(num).padStart(2, "0")}.</span>
+      <div style={{ position: "absolute", left: "50%", right: 40, top: "34%" }}>
+        <h2 style={x.T({ fontSize: 118, textTransform: "uppercase" })}>{title}</h2>
+        <Rule c={x.paper} style={{ margin: "28px 0 18px", opacity: .5 }} />
+        <p style={x.B({ fontSize: 22, opacity: .75, maxWidth: 520, lineHeight: 1.4 })}>{sub}</p>
+      </div>
+    </div>
+  ),
+});
+
+function Logo({ svg, x, style, color }: { svg: string; x: Ctx; style: CSSProperties; color?: string }) {
+  return svg ? <div style={style}><SvgView svg={svg} className="w-full h-full" /></div> : <div style={{ ...style, display: "grid", placeItems: "center" }}><span style={x.T({ fontSize: 120, color })}>{x.name}</span></div>;
+}
+
+function construction(sys: string, cons: any, line: string, prot: string) {
+  const sp = svgParts(sys); const xx = (Math.min(sp.w, sp.h) * (cons.x || 25)) / 100; const M = xx * 1.4; const u = xx / 2; const g: string[] = [];
+  for (let gx = -M; gx <= sp.w + M + .01; gx += u) g.push(`<line x1="${gx}" y1="${-M}" x2="${gx}" y2="${sp.h + M}" stroke="${line}" stroke-opacity=".22" stroke-width="${sp.w / 1000}"/>`);
+  for (let gy = -M; gy <= sp.h + M + .01; gy += u) g.push(`<line x1="${-M}" y1="${gy}" x2="${sp.w + M}" y2="${gy}" stroke="${line}" stroke-opacity=".22" stroke-width="${sp.w / 1000}"/>`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-M} ${-M} ${sp.w + 2 * M} ${sp.h + 2 * M}">${g.join("")}<svg x="0" y="0" width="${sp.w}" height="${sp.h}" viewBox="${sp.vb}">${sp.inner}</svg><rect x="${-xx}" y="${-xx}" width="${sp.w + 2 * xx}" height="${sp.h + 2 * xx}" fill="none" stroke="${prot}" stroke-dasharray="${xx / 4} ${xx / 6}" stroke-width="${sp.w / 450}"/><text x="${-xx}" y="${-xx - xx * .25}" font-family="Inter" font-size="${xx * .45}" fill="${prot}">x</text></svg>`;
+}
+
+/* ───────── os slides ───────── */
+function buildSlides(d: any, x0: Ctx, t: any): SlideDef[] {
+  const b = d.brief || {}; const st = d.strategy || {};
+  const niche = NICHES.find((n) => n.k === st.nicho);
+  const mix = archetypeMix(st);
+  const terr = (d.territories || []).find((v: any) => v.id === d.territory_id);
+  const sys = primaryLogo(d);
+  const pal: Swatch[] = d.palette?.length ? d.palette : Object.entries(x0.C).map(([role, hex]) => ({ role, hex }));
+  const locks = LOCKUPS.filter((k) => (k.k === "monograma" ? !!d.monogram : k.k === "logotipo" ? !!d.logotype : k.k === "simbolo" ? !!(d.symbol_id || d.logo_id) : !!d.logotype && !!(d.symbol_id || d.logo_id)));
+  const cons = d.construcao || { x: 25, min_px: 24, min_mm: 10 };
+  const pat: Pattern = { source: d.monogram ? "monograma" : "simbolo", scale: 120, gap: 60, rotate: 0, offset: true, opacity: 1, bg: x0.acc, fg: x0.ink, ...(d.pattern || {}) };
+  const hasPat = !!(d.symbol_id || d.logo_id || d.monogram);
+  const refs = (d.refs || []).filter((r: any) => r.img && r.tipo !== "evitar").slice(0, 8);
+  const ratio = t.scale || 1.25, base = t.base || 16;
+  const S: SlideDef[] = [];
+  const chapters: string[] = [];
+  const chapter = (title: string, sub: string) => { chapters.push(title); S.push(divider(chapters.length, title, sub)); };
+
+  // capa
+  S.push({ key: "capa", tone: "dark", section: "", bare: true, body: (x) => (
+    <div style={{ position: "absolute", inset: 0, padding: "56px 72px", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", justifyContent: "space-between" }}><Label x={x} style={{ opacity: .7 }}>Identidade de marca</Label><Label x={x} style={{ opacity: .7 }}>{x.year}</Label></div>
+      <Rule c={x.paper} style={{ margin: "22px -72px 0" }} />
+      <div style={{ flex: 1, display: "grid", placeItems: "center" }}><Logo svg={primaryLogo(d, x.paper)} x={x} color={x.paper} style={{ width: "62%", height: x.H * .36 }} /></div>
+      <Rule c={x.paper} style={{ margin: "0 -72px 22px" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <h1 style={x.T({ fontSize: 64, textTransform: "uppercase", color: x.acc, position: "relative" })}>Apresentação<br />de marca{x.hasG && <span style={x.G({ position: "absolute", left: "62%", top: "-38%", fontSize: 72, color: x.paper, textTransform: "none", transform: "rotate(-7deg)", whiteSpace: "nowrap" })}>{x.name.toLowerCase()}</span>}</h1>
+        <div style={x.B({ fontSize: 16, textAlign: "right", lineHeight: 1.7, opacity: .8 })}><p>Cliente: <b>{x.name}</b></p><p>Projeto: VINCIT</p></div>
+      </div>
+    </div>
+  ) });
+
+  // sumário (preenchido depois que os capítulos existirem)
+  const sumIdx = S.length;
+  S.push({ key: "sumario", tone: "light", section: "Sumário", body: () => null });
+
+  /* 01 Estratégia */
+  if (niche || st.posicao || st.mapa?.length) {
+    chapter("Estratégia", "O mercado em que a marca joga e o espaço que ela decide ocupar.");
+    if (niche) S.push({ key: "nicho", tone: "light", section: "Estratégia · nicho", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, height: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div><Label x={x} style={{ color: x.acc }}>Nicho</Label><h2 style={x.T({ fontSize: 96, marginTop: 14, textTransform: "uppercase" })}>{niche.l}</h2></div>
+          <div style={{ display: "flex", gap: 8 }}>{niche.cores.map((c) => <span key={c} style={{ flex: 1, height: 18, background: c }} />)}</div>
+        </div>
+        <div style={x.B({ fontSize: 20, lineHeight: 1.5, display: "flex", flexDirection: "column", gap: 26, justifyContent: "center" })}>
+          <div><Label x={x} style={{ opacity: .55, marginBottom: 8 }}>O código do nicho</Label><p>{niche.codigos}</p></div>
+          <Rule c={x.ink} />
+          <div><Label x={x} style={{ opacity: .55, marginBottom: 8 }}>Nossa decisão</Label><p style={x.T({ fontSize: 34, lineHeight: 1.1 })}>{st.codigo === "quebrar" ? "Quebrar o código para ser lembrada." : "Seguir o código com mais qualidade."}</p><p style={{ marginTop: 10 }}>{st.codigo === "quebrar" ? niche.quebrar : niche.codigos}</p></div>
+          <Rule c={x.ink} />
+          <div><Label x={x} style={{ opacity: .55, marginBottom: 8 }}>Clichês que evitamos</Label><p>{niche.evitar}</p></div>
+        </div>
+      </div>
+    ) });
+    if (st.mapa?.length) {
+      const ax: [string, string] = st.eixos || ["preco", "tom"]; const A = (k: string) => MAP_AXES.find((m) => m[0] === k) || MAP_AXES[0];
+      S.push({ key: "mapa", tone: "light", section: "Estratégia · posicionamento", body: (x) => (
+        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 56, height: "100%" }}>
+          <div style={{ position: "relative", border: `1px solid ${x.ink}40` }}>
+            <span style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: `${x.ink}40` }} /><span style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: `${x.ink}40` }} />
+            {[[A(ax[0])[1], { left: 14, top: "50%", transform: "translateY(-130%)" }], [A(ax[0])[2], { right: 14, top: "50%", transform: "translateY(-130%)" }], [A(ax[1])[2], { top: 12, left: "50%", transform: "translateX(12px)" }], [A(ax[1])[1], { bottom: 12, left: "50%", transform: "translateX(12px)" }]].map(([l, p]: any) => <Label key={l} x={x} style={{ position: "absolute", fontSize: 11, opacity: .6, ...p }}>{l}</Label>)}
+            {st.mapa.map((p: any) => <div key={p.id} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, transform: "translate(-50%,-50%)", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: p.me ? 26 : 12, height: p.me ? 26 : 12, borderRadius: 99, background: p.me ? x.acc : x.ink, opacity: p.me ? 1 : .45, boxShadow: p.me ? `0 0 0 10px ${x.acc}33` : "none" }} />
+              <span style={x.B({ fontSize: p.me ? 20 : 15, fontWeight: p.me ? 700 : 400, whiteSpace: "nowrap", opacity: p.me ? 1 : .7 })}>{p.me ? x.name : p.name}</span></div>)}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <Label x={x} style={{ color: x.acc }}>Posicionamento</Label>
+            <p style={x.T({ fontSize: 46, lineHeight: 1.05, marginTop: 18 })}>{st.posicao || "O espaço vazio do mapa é a oportunidade."}</p>
+          </div>
+        </div>
+      ) });
+    }
+  }
+
+  /* 02 Plataforma */
+  if (b.missao || b.proposito || arr(b.pilares).length || b.oque) {
+    chapter("Plataforma", "Por que a marca existe, o que ela promete e no que ela se apoia.");
+    S.push({ key: "essencia", tone: "light", section: "Plataforma · essência", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 72, height: "100%", alignItems: "center" }}>
+        <div><Label x={x} style={{ color: x.acc }}>Propósito</Label><p style={x.T({ fontSize: 58, lineHeight: 1.02, marginTop: 18 })}>{b.proposito || b.missao || b.oque}</p></div>
+        <div style={x.B({ fontSize: 19, lineHeight: 1.55, display: "grid", gap: 26 })}>
+          {[["O que fazemos", b.oque], ["Missão", b.missao], ["Para quem", b.publico], ["Valores", arr(b.valores).join(" · ")]].filter(([, v]) => v).map(([l, v]) => <div key={l as string}><Label x={x} style={{ opacity: .55, marginBottom: 8 }}>{l}</Label><p>{v}</p><Rule c={x.ink} style={{ marginTop: 22 }} /></div>)}
+        </div>
+      </div>
+    ) });
+    if (arr(b.pilares).length) S.push({ key: "pilares", tone: "dark", section: "Plataforma · pilares", body: (x) => (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <h2 style={x.T({ fontSize: 88, textTransform: "uppercase" })}>Pilares</h2>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${arr(b.pilares).length}, 1fr)`, marginTop: 40, borderTop: `1px solid ${x.paper}55` }}>
+          {arr(b.pilares).map((p, i) => <div key={p} style={{ padding: "28px 28px 0 0", borderRight: i < arr(b.pilares).length - 1 ? `1px solid ${x.paper}33` : "none", paddingLeft: i ? 28 : 0 }}>
+            <span style={x.T({ fontSize: 110, color: x.acc })}>{String(i + 1).padStart(2, "0")}</span>
+            <p style={x.T({ fontSize: 40, marginTop: 24, textTransform: "uppercase" })}>{p}</p></div>)}
+        </div>
+      </div>
+    ) });
+    if (b.eixos) S.push({ key: "personalidade", tone: "light", section: "Plataforma · personalidade", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 72, height: "100%", alignItems: "center" }}>
+        <div><h2 style={x.T({ fontSize: 88, textTransform: "uppercase" })}>Persona&shy;lidade</h2>{arr(b.palavras).length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 30 }}>{arr(b.palavras).map((p) => <span key={p} style={x.B({ padding: "8px 18px", background: x.ink, color: x.paper, borderRadius: 99, fontSize: 15, fontWeight: 600 })}>{p}</span>)}</div>}</div>
+        <div style={{ display: "grid", gap: 22 }}>{AXES.map(([k, a, z]) => { const v = b.eixos?.[k] ?? 50; return (
+          <div key={k} style={x.B({ display: "grid", gridTemplateColumns: "150px 1fr 150px", alignItems: "center", gap: 18, fontSize: 16 })}>
+            <span style={{ textAlign: "right", opacity: v < 50 ? 1 : .45, fontWeight: v < 50 ? 700 : 400 }}>{a}</span>
+            <div style={{ position: "relative", height: 2, background: `${x.ink}33` }}><span style={{ position: "absolute", top: -9, left: `calc(${v}% - 10px)`, width: 20, height: 20, borderRadius: 99, background: x.acc, border: `3px solid ${x.paper}`, boxShadow: `0 0 0 1px ${x.ink}` }} /></div>
+            <span style={{ opacity: v > 50 ? 1 : .45, fontWeight: v > 50 ? 700 : 400 }}>{z}</span></div>
+        ); })}</div>
+      </div>
+    ) });
+  }
+
+  /* 03 Arquétipos */
+  if (mix.length) {
+    chapter("Arquétipos", "A personalidade da marca em hierarquia: quem predomina, quem complementa, quem apoia.");
+    S.push({ key: "roda", tone: "light", section: "Arquétipos · hierarquia", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, height: "100%", alignItems: "center" }}>
+        <div style={{ display: "grid", gap: 34 }}>
+          {mix.map((m) => <div key={m.a.k}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><Label x={x} style={{ opacity: .6 }}>{m.role}</Label><span style={x.T({ fontSize: 30 })}>{m.pct}%</span></div>
+            <p style={x.T({ fontSize: 56, textTransform: "uppercase", margin: "6px 0 12px" })}>{m.a.l}</p>
+            <div style={{ height: 14, background: `${x.ink}18` }}><div style={{ width: `${m.pct}%`, height: "100%", background: x.ink }} /></div>
+            <p style={x.B({ fontSize: 16, marginTop: 10, opacity: .75 })}>{m.a.d} {m.a.narrativa}</p>
+          </div>)}
+        </div>
+        <Wheel x={x} mix={mix} />
+      </div>
+    ) });
+    S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => (
+      <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "grid", gridTemplateColumns: `200px repeat(${mix.length}, 1fr)`, borderBottom: `2px solid ${x.ink}` }}>
+          <span />{mix.map((m) => <div key={m.a.k} style={{ padding: "0 0 14px 20px" }}><span style={x.B({ background: x.ink, color: x.paper, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>{m.a.l} {m.pct}%</span></div>)}
+        </div>
+        {([["Narrativa", (a: any) => a.narrativa], ["Verbal", (a: any) => `${a.verbal} ${a.palavras.map((p: string) => `“${p}”`).join(" ")}`], ["Visual", (a: any) => `${a.forma} ${a.visual}.`], ["Fotografia", (a: any) => a.foto], ["Atração", (a: any) => a.atracao]] as const).map(([l, f]) => (
+          <div key={l} style={{ flex: 1, display: "grid", gridTemplateColumns: `200px repeat(${mix.length}, 1fr)`, borderBottom: `1px solid ${x.ink}30` }}>
+            <div style={{ display: "flex", alignItems: "center" }}><Label x={x} style={{ fontSize: 12 }}>{l}</Label></div>
+            {mix.map((m) => <div key={m.a.k} style={x.B({ padding: "0 20px", fontSize: 16, lineHeight: 1.4, display: "flex", alignItems: "center", borderLeft: `1px solid ${x.ink}20` })}>{f(m.a)}</div>)}
+          </div>
+        ))}
+      </div>
+    ) });
+  }
+
+  /* 04 Conceito */
+  if (terr) {
+    chapter("Conceito", "A grande ideia que dá sentido a cada forma, cor e palavra.");
+    S.push({ key: "territorio", tone: "acc", section: "Conceito · território", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 64, height: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <Label x={x}>Território criativo</Label>
+          <h2 style={x.T({ fontSize: 128, textTransform: "uppercase" })}>{terr.nome}</h2>
+          <p style={x.B({ fontSize: 24, lineHeight: 1.45, maxWidth: 680 })}>{terr.ideia}</p>
+        </div>
+        <div style={x.B({ fontSize: 18, lineHeight: 1.5, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 20 })}>
+          {terr.metafora && <div><Label x={x} style={{ opacity: .7, marginBottom: 6 }}>Metáfora</Label><p style={x.T({ fontSize: 30, lineHeight: 1.1 })}>{terr.metafora}</p></div>}
+          {[["Forma", terr.forma], ["Cor", terr.cor], ["Tipografia", terr.tipo]].filter(([, v]) => v).map(([l, v]) => <div key={l}><Rule c="currentColor" style={{ marginBottom: 12 }} /><Label x={x} style={{ opacity: .7, marginBottom: 4, fontSize: 11 }}>{l}</Label><p>{v}</p></div>)}
+        </div>
+      </div>
+    ) });
+    if (refs.length >= 3) S.push({ key: "moodboard", tone: "light", section: "Conceito · referências", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 40, height: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}><h2 style={x.T({ fontSize: 80, textTransform: "uppercase" })}>Estética</h2>{arr(terr.palavras).length > 0 && <div style={x.B({ fontSize: 18, lineHeight: 1.8 })}>{arr(terr.palavras).map((p) => <p key={p}>— {p}</p>)}</div>}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gap: 10 }}>
+          {refs.map((r: any, i: number) => <div key={r.id} style={{ background: `url("${r.img}") center/cover`, gridRow: i === 0 ? "span 2" : undefined }} />)}
+        </div>
+      </div>
+    ) });
+  }
+
+  /* 05 Identidade visual */
+  chapter("Identidade visual", "Logo, assinaturas, construção, cores, tipografia e grafismos.");
+  S.push({ key: "logo", tone: "light", section: "Identidade visual · logo", body: (x) => (
+    <div style={{ display: "grid", gridTemplateRows: "1fr auto", height: "100%" }}>
+      <div style={{ display: "grid", placeItems: "center" }}><Logo svg={sys} x={x} style={{ width: "64%", height: x.H * .42 }} /></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}><h2 style={x.T({ fontSize: 72, textTransform: "uppercase" })}>Logo</h2><p style={x.B({ fontSize: 17, maxWidth: 560, lineHeight: 1.5, opacity: .75 })}>{terr ? `Nasce do território "${terr.nome}". ` : ""}{mix[0] ? `Traduz o ${mix[0].a.l.toLowerCase()}: ${mix[0].a.forma.toLowerCase()}` : "A assinatura principal da marca."}</p></div>
+    </div>
+  ) });
+  S.push({ key: "versoes", tone: "light", section: "Identidade visual · versões", bare: true, body: (x) => (
+    <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr" }}>
+      {[[x.paper, undefined, "Positiva"], [x.ink, x.paper, "Negativa"], [x.acc, readableOn(x.acc), "Sobre a cor da marca"], ["#ffffff", x.ink, "Uma cor"]].map(([bg, mono, l]) => (
+        <div key={l as string} style={{ background: bg as string, color: readableOn(bg as string), position: "relative", display: "grid", placeItems: "center" }}>
+          <Logo svg={mono ? primaryLogo(d, mono as string) : sys} x={x} color={mono as string} style={{ width: "58%", height: "46%" }} />
+          <Label x={x} style={{ position: "absolute", left: 40, bottom: 32, fontSize: 11, opacity: .7 }}>{l}</Label>
+        </div>
+      ))}
+    </div>
+  ) });
+  if (locks.length > 1) S.push({ key: "assinaturas", tone: "light", section: "Identidade visual · assinaturas", body: (x) => (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(3, locks.length)}, 1fr)`, gridAutoRows: "1fr", gap: 0, height: "100%", borderTop: `1px solid ${x.ink}30`, borderLeft: `1px solid ${x.ink}30` }}>
+      {locks.map((k) => (
+        <div key={k.k} style={{ borderRight: `1px solid ${x.ink}30`, borderBottom: `1px solid ${x.ink}30`, padding: 28, display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, display: "grid", placeItems: "center" }}><Logo svg={lockupSvg(k.k, d)} x={x} style={{ width: "80%", height: locks.length > 3 ? x.H * .17 : x.H * .3 }} /></div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span style={x.T({ fontSize: 26, textTransform: "uppercase" })}>{k.l}</span><span style={x.B({ fontSize: 12, opacity: .6, maxWidth: 220, textAlign: "right" })}>{(d.principal || "horizontal") === k.k ? "Principal · " : ""}{k.d}</span></div>
+        </div>
+      ))}
+    </div>
+  ) });
+  if (sys) S.push({ key: "construcao", tone: "light", section: "Identidade visual · construção", body: (x) => (
+    <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 56, height: "100%" }}>
+      <div style={{ border: `1px solid ${x.ink}25`, display: "grid", placeItems: "center", padding: 30 }}><SvgView svg={construction(sys, cons, x.ink, x.acc === x.paper ? x.ink : x.acc)} className="w-full h-full" /></div>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <h2 style={x.T({ fontSize: 72, textTransform: "uppercase" })}>Constru&shy;ção</h2>
+        <div style={x.B({ fontSize: 16, lineHeight: 1.5, display: "grid", gap: 18 })}>
+          <div><Label x={x} style={{ fontSize: 11, marginBottom: 4 }}>Grade modular</Label><p>Módulo de meia unidade x. Formas e espaços se alinham a ela.</p></div>
+          <div><Label x={x} style={{ fontSize: 11, marginBottom: 4 }}>Área de proteção</Label><p>x = {cons.x}% da altura da assinatura, livre de qualquer outro elemento.</p></div>
+          <div><Label x={x} style={{ fontSize: 11, marginBottom: 4 }}>Redução mínima</Label><p>{cons.min_px} px na tela e {cons.min_mm} mm no impresso.</p></div>
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 28 }}>{[72, 44, cons.min_px].map((h, i) => { const sp = svgParts(sys); return <div key={i}><div style={{ height: h, width: (h * sp.w) / sp.h }}><SvgView svg={sys} className="w-full h-full" /></div><p style={x.B({ fontSize: 11, opacity: .6, marginTop: 6 })}>{h}px</p></div>; })}</div>
+      </div>
+    </div>
+  ) });
+  if (d.monogram) S.push({ key: "monograma", tone: "dark", section: "Identidade visual · monograma", body: (x) => (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, height: "100%", alignItems: "center" }}>
+      <div><h2 style={x.T({ fontSize: 96, textTransform: "uppercase" })}>Mono&shy;grama</h2><p style={x.B({ fontSize: 19, lineHeight: 1.5, marginTop: 24, opacity: .8, maxWidth: 520 })}>A forma reduzida da marca para favicon, avatar, etiqueta, bordado e carimbo: onde a assinatura completa não cabe.</p></div>
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, height: "70%" }}>
+        <div style={{ background: x.acc, display: "grid", placeItems: "center", padding: 40 }}><SvgView svg={lockupSvg("monograma", d, readableOn(x.acc))} className="w-full h-full" /></div>
+        <div style={{ display: "grid", gap: 16 }}><div style={{ background: x.paper, display: "grid", placeItems: "center", padding: 24 }}><SvgView svg={lockupSvg("monograma", d)} className="w-full h-full" /></div><div style={{ border: `1px solid ${x.paper}44`, display: "grid", placeItems: "center", padding: 24 }}><SvgView svg={lockupSvg("monograma", d, x.paper)} className="w-full h-full" /></div></div>
+      </div>
+    </div>
+  ) });
+  S.push({ key: "cores", tone: "light", section: "Identidade visual · cores", bare: true, body: (x) => (
+    <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: pal.map((_, i) => (i === 0 ? "2.2fr" : "1fr")).join(" ") }}>
+      {pal.map((s, i) => { const [r, g, bb] = hexToRgb(s.hex); const fg = readableOn(s.hex); return (
+        <div key={s.role + s.hex} style={{ background: s.hex, color: fg, padding: "48px 32px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          {i === 0 ? <h2 style={x.T({ fontSize: 120, textTransform: "uppercase" })}>Cores</h2> : <span />}
+          <div style={x.B({ fontSize: 14, lineHeight: 1.7 })}>
+            <Label x={x} style={{ fontSize: 11, marginBottom: 10, opacity: .8 }}>{s.role}</Label>
+            <p style={x.T({ fontSize: i === 0 ? 48 : 30, marginBottom: 10 })}>{s.hex.toUpperCase()}</p>
+            <p>RGB {r} {g} {bb}</p><p>CMYK {cmyk(s.hex).join(" ")}</p>
+          </div>
+        </div>
+      ); })}
+    </div>
+  ) });
+  S.push({ key: "proporcao", tone: "light", section: "Identidade visual · uso das cores", body: (x) => (
+    <div style={{ display: "grid", gridTemplateRows: "auto 1fr auto", height: "100%", gap: 30 }}>
+      <h2 style={x.T({ fontSize: 72, textTransform: "uppercase" })}>Proporção</h2>
+      <div style={{ display: "flex", border: `1px solid ${x.ink}22` }}>{[[x.paper, 55, "Fundos claros"], [x.ink, 20, "Texto e contraste"], [x.acc, 15, "Cor da marca"], [x.C["Apoio"], 7, "Apoio"], [x.C["Destaque"], 3, "Destaque"]].map(([c, p, l]) => (
+        <div key={l as string} style={{ width: `${p}%`, background: c as string, color: readableOn(c as string), padding: 18, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}><span style={x.T({ fontSize: 40 })}>{p}%</span>{(p as number) >= 7 && <span style={x.B({ fontSize: 12, marginTop: 6 })}>{l}</span>}</div>
+      ))}</div>
+      <p style={x.B({ fontSize: 16, opacity: .7 })}>Quanto mais rara a cor, mais ela chama atenção. CMYK é aproximado: confirme a prova com a gráfica.</p>
+    </div>
+  ) });
+  S.push({ key: "tipo", tone: "light", section: "Identidade visual · tipografia", bare: true, body: (x) => {
+    const bands: { role: string; font: string; why: string; word: string; st: CSSProperties; bg: string }[] = [
+      { role: "Editorial", font: `${t.title}${t.ti ? " Italic" : ""}`, why: "Leitura e interpretação", word: x.name, st: x.T({ fontSize: x.H * .3, lineHeight: 1 }), bg: x.paper },
+      { role: "Estrutura", font: t.body, why: "Clareza e responsabilidade", word: "Aa Bb Cc 123", st: x.B({ fontSize: x.H * .26, fontWeight: 600, lineHeight: 1, letterSpacing: "-.03em" }), bg: x.C["Apoio"] },
+      ...(x.hasG ? [{ role: "Gesto", font: t.accent, why: "Realidade e movimento", word: x.name.toLowerCase(), st: x.G({ fontSize: x.H * .3 }), bg: x.paper }] : []),
+    ];
+    return (
+      <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateRows: `repeat(${bands.length}, 1fr)` }}>
+        {bands.map((bd, i) => { const fg = readableOn(bd.bg) === "#ffffff" ? "#ffffff" : x.ink; return (
+          <div key={bd.role} style={{ background: bd.bg, color: fg, position: "relative", overflow: "hidden", borderTop: i ? `1px solid ${x.ink}22` : "none" }}>
+            <div style={x.B({ position: "absolute", left: 56, right: 56, top: 22, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 600 })}>
+              <span>{i === 0 ? "Tipografias" : bd.role}</span><span style={{ textAlign: "center" }}>{bd.font}</span><span style={{ textAlign: "right", opacity: .7 }}>{bd.why}</span>
+            </div>
+            <p style={{ ...bd.st, position: "absolute", right: 56, bottom: -x.H * .05, whiteSpace: "nowrap" }}>{bd.word}</p>
+            {i === 0 && <p style={x.B({ position: "absolute", left: 56, bottom: 22, fontSize: 12, opacity: .6 })}>escala {[4, 3, 2, 1, 0].map((n) => Math.round(base * ratio ** n)).join(" · ")} px</p>}
+          </div>
+        ); })}
+      </div>
+    );
+  } });
+  if (hasPat) S.push({ key: "grafismo", tone: "dark", section: "Identidade visual · grafismos", bare: true, body: (x) => (
+    <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "1.6fr 1fr" }}>
+      <div style={{ overflow: "hidden" }}><SvgView svg={patternSvg(d, pat, 1000, 900)} className="w-full h-full" /></div>
+      <div style={{ padding: "56px 56px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <Label x={x} style={{ opacity: .6 }}>Grafismos</Label>
+        <div><h2 style={x.T({ fontSize: 84, textTransform: "uppercase" })}>Padrão</h2><p style={x.B({ fontSize: 18, lineHeight: 1.55, marginTop: 22, opacity: .8 })}>Nasce do {pat.source === "monograma" ? "monograma" : "símbolo"}. Cheio em embalagens e fundos de destaque; sutil atrás de texto.</p></div>
+        <div style={{ height: "28%", overflow: "hidden" }}><SvgView svg={patternSvg(d, { ...pat, bg: x.paper, fg: x.acc, opacity: .5 }, 600, 260)} className="w-full h-full" /></div>
+      </div>
+    </div>
+  ) });
+
+  /* 06 Aplicações */
+  chapter("Aplicações", "A marca no mundo real: redes, papelaria, embalagem e ponto de venda.");
+  S.push({ key: "mockups", tone: "light", section: "Aplicações", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });
+
+  /* 07 Expressão verbal */
+  if (arr(b.fala).length || arr(b.nunca).length || mix.length) {
+    chapter("Expressão verbal", "Como a marca fala, as palavras que são dela e as que ela nunca usa.");
+    const fala = arr(b.fala).length ? arr(b.fala) : mix[0]?.a.palavras || [];
+    const nunca = arr(b.nunca).length ? arr(b.nunca) : mix.map((m) => m.a.nunca);
+    S.push({ key: "verbal", tone: "light", section: "Expressão verbal · tom de voz", body: (x) => (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%", borderTop: `2px solid ${x.ink}` }}>
+        <div style={{ paddingTop: 28, paddingRight: 48, borderRight: `1px solid ${x.ink}30` }}>
+          <span style={x.B({ background: x.ink, color: x.paper, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>A marca fala</span>
+          <div style={{ marginTop: 34, display: "grid", gap: 20 }}>{fala.slice(0, 5).map((f) => <p key={f} style={x.T({ fontSize: 40, lineHeight: 1.05 })}>“{f}”</p>)}</div>
+        </div>
+        <div style={{ paddingTop: 28, paddingLeft: 48 }}>
+          <span style={x.B({ border: `1.5px solid ${x.ink}`, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>A marca nunca diz</span>
+          <div style={{ marginTop: 34, display: "grid", gap: 16 }}>{nunca.slice(0, 5).map((f) => <p key={f} style={x.B({ fontSize: 24, textDecoration: "line-through", opacity: .5 })}>{f}</p>)}</div>
+          {mix[0] && <p style={x.B({ fontSize: 17, lineHeight: 1.5, marginTop: 40, opacity: .8 })}><b>Tom:</b> {(archetypeOfK(st.ativ_verbal) || mix[0].a).verbal}</p>}
+        </div>
+      </div>
+    ) });
+  }
+
+  /* não fazer */
+  if (sys) S.push({ key: "naofazer", tone: "light", section: "Uso incorreto", body: (x) => (
+    <div style={{ display: "grid", gridTemplateRows: "auto 1fr", height: "100%", gap: 28 }}>
+      <h2 style={x.T({ fontSize: 72, textTransform: "uppercase" })}>Não fazer</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
+        {([["Distorcer", { transform: "scaleX(1.5)" }], ["Girar", { transform: "rotate(-15deg)" }], ["Trocar as cores", { filter: "hue-rotate(140deg) saturate(1.6)" }], ["Sem contraste", { opacity: .18 }]] as const).map(([l, st2]) => (
+          <div key={l} style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: 1, border: `1px solid ${x.ink}25`, display: "grid", placeItems: "center", position: "relative", overflow: "hidden" }}>
+              <div style={{ width: "70%", height: "34%", ...st2 }}><SvgView svg={sys} className="w-full h-full" /></div>
+              <span style={{ position: "absolute", top: 14, right: 14, width: 30, height: 30, borderRadius: 99, background: "#e03131", color: "#fff", display: "grid", placeItems: "center", fontSize: 18 }}>×</span>
+            </div>
+            <p style={x.B({ fontSize: 15, marginTop: 12, fontWeight: 600 })}>{l}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) });
+
+  // encerramento
+  S.push({ key: "fim", tone: "dark", section: "", bare: true, body: (x) => (
+    <div style={{ position: "absolute", inset: 0, padding: "56px 72px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <Logo svg={primaryLogo(d, x.paper)} x={x} color={x.paper} style={{ width: 280, height: 90 }} />
+      <h2 style={x.T({ fontSize: x.H * .19, textTransform: "uppercase", lineHeight: .86 })}>Isso nunca<br /><span style={x.hasG ? x.G({ color: x.acc, textTransform: "none", fontSize: x.H * .24 }) : { color: x.acc }}>é o fim.</span></h2>
+      <div style={{ display: "flex", justifyContent: "space-between" }}><Label x={x} style={{ opacity: .6 }}>{x.name} · identidade de marca</Label><Label x={x} style={{ opacity: .6 }}>VINCIT · {x.year}</Label></div>
+    </div>
+  ) });
+
+  // sumário com os capítulos reais
+  S[sumIdx] = { key: "sumario", tone: "light", section: "Sumário", body: (x) => (
+    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 56, height: "100%" }}>
+      <div style={{ display: "flex", alignItems: "flex-end" }}><span style={x.T({ fontSize: 120, writingMode: "vertical-rl", transform: "rotate(180deg)", textTransform: "uppercase" })}>Sumário</span></div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 56, alignContent: "end" }}>
+        {chapters.map((c, i) => (
+          <div key={c} style={{ display: "flex", alignItems: "baseline", gap: 22, borderTop: `1px solid ${x.ink}35`, padding: "20px 0" }}>
+            <span style={x.T({ fontSize: 44, color: x.acc === x.paper ? x.ink : x.acc })}>{String(i + 1).padStart(2, "0")}.</span>
+            <span style={x.T({ fontSize: 34, textTransform: "uppercase" })}>{c}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) };
+  return S;
+}
+
+const archetypeOfK = (k?: string) => ARCHETYPES.find((a) => a.k === k);
+
+function Wheel({ x, mix }: { x: Ctx; mix: { a: (typeof ARCHETYPES)[number]; pct: number }[] }) {
+  const n = ARCHETYPES.length, R = 300, r0 = 110, c = 320;
+  const P = (a: number, r: number) => `${(c + r * Math.cos(a)).toFixed(1)} ${(c + r * Math.sin(a)).toFixed(1)}`;
+  return (
+    <svg viewBox="0 0 640 640" style={{ width: "100%", height: x.H * .64 }}>
+      <circle cx={c} cy={c} r={R + 12} fill="none" stroke={x.ink} strokeOpacity=".25" />
+      {ARCHETYPES.map((a, i) => {
+        const a0 = (i / n) * Math.PI * 2 - Math.PI / 2, a1 = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2, mid = (a0 + a1) / 2;
+        const m = mix.find((v) => v.a.k === a.k);
+        return (
+          <g key={a.k}>
+            <path d={`M${P(a0, r0)} L${P(a0, R)} A${R} ${R} 0 0 1 ${P(a1, R)} L${P(a1, r0)} A${r0} ${r0} 0 0 0 ${P(a0, r0)}Z`} fill={m ? x.ink : "transparent"} fillOpacity={m ? .25 + m.pct / 90 : 0} stroke={x.ink} strokeOpacity=".3" />
+            <text x={c + 208 * Math.cos(mid)} y={c + 208 * Math.sin(mid)} textAnchor="middle" dominantBaseline="middle" fontFamily={x.B().fontFamily as string} fontSize="17" fontWeight={m ? 700 : 400} fill={m && m.pct > 25 ? x.paper : x.ink} opacity={m ? 1 : .6}>{a.l.split(" ")[0]}</text>
+            {m && <circle cx={c + (R + 12) * Math.cos(mid)} cy={c + (R + 12) * Math.sin(mid)} r="12" fill={x.acc === x.paper ? x.ink : x.acc} />}
+          </g>
+        );
+      })}
+      <circle cx={c} cy={c} r={r0 - 6} fill={x.ink} />
+      <text x={c} y={c - 8} textAnchor="middle" fontFamily={x.B().fontFamily as string} fontSize="15" letterSpacing="4" fill={x.paper} opacity=".7">ARQUÉTIPOS</text>
+      <text x={c} y={c + 24} textAnchor="middle" fontFamily={x.T().fontFamily as string} fontWeight="700" fontSize="26" fill={x.paper}>{mix[0]?.a.l}</text>
+    </svg>
+  );
+}
+
+/** um slide escalado para caber na largura do contêiner (na impressão, tamanho real) */
+export function ScaledSlide({ x, s, n, total }: { x: Ctx; s: SlideDef; n: number; total: number }) {
+  const ref = useRef<HTMLDivElement>(null); const [k, setK] = useState(.5);
+  useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver(() => setK(el.clientWidth / x.W)); ro.observe(el); setK(el.clientWidth / x.W);
+    return () => ro.disconnect();
+  }, [x.W]);
+  return (
+    <div ref={ref} className="deck-wrap w-full relative overflow-hidden rounded-lg shadow-2xl" style={{ height: x.H * k }}>
+      <div className="deck-scale" style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>
+        <Frame x={x} s={s} n={n} total={total}>{s.body(x)}</Frame>
+      </div>
+    </div>
+  );
+}
+
+/** apresentação em tela cheia: setas para navegar, Esc para sair */
+export function Presenter({ x, slides, start, onClose }: { x: Ctx; slides: SlideDef[]; start: number; onClose: () => void }) {
+  const [i, setI] = useState(start);
+  const [vp, setVp] = useState({ w: 1600, h: 900 });
+  useEffect(() => {
+    const fit = () => setVp({ w: window.innerWidth, h: window.innerHeight }); fit();
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); if (["ArrowRight", " ", "PageDown"].includes(e.key)) setI((v) => Math.min(slides.length - 1, v + 1)); if (["ArrowLeft", "PageUp"].includes(e.key)) setI((v) => Math.max(0, v - 1)); };
+    window.addEventListener("resize", fit); window.addEventListener("keydown", key);
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    return () => { window.removeEventListener("resize", fit); window.removeEventListener("keydown", key); if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); };
+  }, []); // eslint-disable-line
+  const k = Math.min(vp.w / x.W, vp.h / x.H);
+  return (
+    <div className="fixed inset-0 z-[100] bg-black grid place-items-center print:hidden" onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setI((v) => (e.clientX - r.left > r.width / 2 ? Math.min(slides.length - 1, v + 1) : Math.max(0, v - 1))); }}>
+      <div style={{ width: x.W * k, height: x.H * k }}><div style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}><Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame></div></div>
+      <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white/60 hover:text-white text-sm font-mono">Esc · sair</button>
+      <span className="absolute bottom-4 right-4 text-white/50 text-xs font-mono">{i + 1} / {slides.length}</span>
+    </div>
+  );
+}

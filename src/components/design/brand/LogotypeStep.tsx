@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { ALL_FONTS, LOCKUPS, loadFonts, lockupSvg, logotypeSvg, type Logotype } from "@/lib/design";
-import { SvgView } from "../ui";
+import { fontDef } from "@/lib/fonts";
+import { SvgView, FontSelect } from "../ui";
 import type { StepProps } from "./types";
 
 export default function LogotypeStep({ d, set, go }: StepProps) {
@@ -41,11 +42,15 @@ export default function LogotypeStep({ d, set, go }: StepProps) {
         </div>
         <div className="space-y-3">
           <div><label className="label">Nome</label><input value={lt.text} onChange={(e) => L({ text: e.target.value, kern: [] })} className="input" /></div>
-          <div><label className="label">Fonte</label><select value={lt.font} onChange={(e) => L({ font: e.target.value })} className="input">{ALL_FONTS.map((f) => <option key={f}>{f}</option>)}</select></div>
+          <div><label className="label">Fonte</label><FontSelect value={lt.font} onChange={(f) => L({ font: f })} /></div>
           <div className="grid grid-cols-2 gap-2">
             <div><label className="label">Peso</label><select value={lt.weight} onChange={(e) => L({ weight: +e.target.value })} className="input">{[400, 600, 700, 800].map((w) => <option key={w}>{w}</option>)}</select></div>
-            <div><label className="label">Caixa</label><select value={lt.upper ? "a" : "b"} onChange={(e) => L({ upper: e.target.value === "a", kern: [] })} className="input"><option value="a">ALTA</option><option value="b">Como digitado</option></select></div>
+            <div><label className="label">Caixa</label><select value={lt.upper ? "a" : lt.lower ? "c" : "b"} onChange={(e) => L({ upper: e.target.value === "a", lower: e.target.value === "c", kern: [] })} className="input"><option value="a">ALTA</option><option value="c">minúscula</option><option value="b">Como digitado</option></select></div>
           </div>
+          <div><label className="label">Forma</label><div className="flex gap-1.5">{([["linha", "Linha"], ["empilhado", "Empilhado"], ["selo", "Selo"]] as const).map(([k, l]) => <button key={k} onClick={() => L({ form: k })} className={`chip !px-3 !py-1 ${(lt.form || "linha") === k ? "chip-mint" : ""}`}>{l}</button>)}
+            {fontDef(lt.font)?.it && <button onClick={() => L({ italic: !lt.italic })} className={`chip !px-3 !py-1 italic ${lt.italic ? "chip-mint" : ""}`}>Itálico</button>}</div></div>
+          {lt.form && lt.form !== "linha" && <div><label className="label">Entrelinha: {lt.lead ?? 86}%</label><input type="range" min={55} max={120} value={lt.lead ?? 86} onChange={(e) => L({ lead: +e.target.value })} className="w-full accent-[var(--color-mint)]" /></div>}
+          <div><label className="label">Gesto (variação de ângulo e altura): {lt.vary || 0}</label><input type="range" min={0} max={100} value={lt.vary || 0} onChange={(e) => L({ vary: +e.target.value })} className="w-full accent-[var(--color-mint)]" /><p className="text-[10px] text-fog mt-0.5">Um pouco de gesto tira a cara de "digitado". Use pouco em marcas sérias.</p></div>
           <div><label className="label">Espaçamento geral (tracking): {lt.tracking}</label><input type="range" min={-60} max={400} value={lt.tracking} onChange={(e) => L({ tracking: +e.target.value })} className="w-full accent-[var(--color-mint)]" /></div>
           <div><label className="label">Descritor abaixo (opcional)</label><input value={lt.sub || ""} onChange={(e) => L({ sub: e.target.value })} className="input" placeholder="Ex.: DESIGN MOBILIÁRIO" /></div>
           <div><label className="label">Cor</label><div className="flex gap-1.5">{Object.values(pal).map((c) => <button key={c} onClick={() => L({ color: c })} className={`w-6 h-6 rounded-md border ${lt.color === c ? "ring-2 ring-mint border-paper" : "border-line"}`} style={{ background: c }} aria-label={c} />)}</div></div>
