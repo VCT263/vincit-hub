@@ -3,6 +3,7 @@ import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/server";
 import { brl, brlShort } from "@/lib/agency";
 import { occurrences } from "@/components/tasks/shared";
+import { MAX_REVISIONS } from "@/lib/content";
 import { hubAllowed, type Access } from "@/lib/access";
 import TodayTasks from "@/components/dia/TodayTasks";
 import AgendaHoje, { type AgendaItem } from "@/components/dia/AgendaHoje";
@@ -73,8 +74,8 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
   const lateContent = C.filter((c) => c.planned_for && c.planned_for < today && !isPublished(c));
   const fallback: Aviso[] = [
     ...lateContent.slice(0, 4).map((c) => ({ id: "c" + c.id, title: `"${c.title}" passou da data de publicação`, href: statusList ? "/creator/producao?c=" + c.id : "/creator/pauta", action: "Abrir conteúdo", tone: "danger" as const })),
-    ...C.filter((c) => Number(c.revisions) > 3).map((c) => ({ id: "r" + c.id, title: `"${c.title}" passou de 3 revisões`, href: "/creator/producao?c=" + c.id, action: "Abrir conteúdo", tone: "warn" as const })),
-    ...P.filter((p) => Number(p.revisions) > 3 && p.stage !== "entregue").map((p) => ({ id: "p" + p.id, title: `${p.title} passou de 3 revisões`, href: `/tarefas?projeto=${p.id}`, action: "Abrir projeto", tone: "warn" as const })),
+    ...C.filter((c) => Number(c.revisions) > MAX_REVISIONS).map((c) => ({ id: "r" + c.id, title: `"${c.title}" passou de ${MAX_REVISIONS} revisões`, href: "/creator/producao?c=" + c.id, action: "Abrir conteúdo", tone: "warn" as const })),
+    ...P.filter((p) => Number(p.revisions) > MAX_REVISIONS && p.stage !== "entregue").map((p) => ({ id: "p" + p.id, title: `${p.title} passou de ${MAX_REVISIONS} revisões`, href: `/tarefas?projeto=${p.id}`, action: "Abrir projeto", tone: "warn" as const })),
     ...T.filter((t) => t.kind === "entrada" && !t.paid && t.due_date < today).slice(0, 4).map((t) => ({ id: "t" + t.id, title: `Cobrança ${t.description ? `de ${t.description} ` : ""}venceu em ${t.due_date.slice(8)}/${t.due_date.slice(5, 7)}`, href: "/agency/financeiro", action: "Abrir Financeiro", tone: "danger" as const })),
     ...(proposals || []).filter((p) => ["enviada", "visualizada"].includes(p.status) && p.created_at < new Date(Date.now() - 5 * 864e5).toISOString()).map((p) => ({ id: "x" + p.id, title: `Proposta ${p.title || ""} sem resposta há ${Math.floor((Date.now() - new Date(p.created_at).getTime()) / 864e5)} dias`, href: `/agency/propostas/${p.id}`, action: "Abrir proposta", tone: "muted" as const })),
   ];

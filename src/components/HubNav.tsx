@@ -1,17 +1,30 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { useAccess } from "@/lib/useAccess";
 import { can, toolForPath } from "@/lib/access";
 
-export type NavItem = { href: string; label: string; Icon: (p: { className?: string }) => any; group?: string; also?: string[] };
+export type NavItem = { href: string; label: string; Icon: (p: { className?: string }) => any; group?: string; also?: string[]; needsIg?: boolean };
 
 /** Menu do hub ativo: lateral no desktop, chips roláveis no celular. A troca de hub fica na TopBar. */
 export default function HubNav({ title, desc, root, items }: { title: string; desc?: string; root: string; items: NavItem[] }) {
   const path = usePathname();
   const acc = useAccess();
   // esconde as ferramentas que não estão no plano do usuário
-  const visible = items.filter((it) => { const t = toolForPath(it.href); return !t || !acc || can(acc.tools, t); });
+  // itens que só fazem sentido com um Instagram conectado (ig_user_id preenchido)
+  const wantsIg = items.some((it) => it.needsIg);
+  const [hasIg, setHasIg] = useState(false);
+  useEffect(() => {
+    if (!wantsIg) return;
+    createClient().from("ig_accounts").select("id", { count: "exact", head: true }).not("ig_user_id", "is", null)
+      .then(({ count }) => setHasIg((count || 0) > 0));
+  }, [wantsIg]);
+  const visible = items.filter((it) => {
+    if (it.needsIg && !hasIg && !path.startsWith(it.href)) return false;
+    const t = toolForPath(it.href); return !t || !acc || can(acc.tools, t);
+  });
   const isActive = (h: string, also: string[] = []) => (h === root ? path === h : [h, ...also].some((x) => path.startsWith(x)));
   let lastGroup: string | undefined;
   return (

@@ -57,6 +57,22 @@ export default function OrdemDoDia() {
     if (Array.isArray(cfg?.checklist_template) && cfg.checklist_template.length) setTemplate(cfg.checklist_template);
   }, []);
   useEffect(() => { load(); }, [load]);
+  // ?c=<conteúdo> (vindo do Quadro de produção): abre uma ordem do dia nova já com o conteúdo e a data de gravação
+  const [fromCard, setFromCard] = useState<string | null>(null);
+  useEffect(() => { setFromCard(new URLSearchParams(window.location.search).get("c")); }, []);
+  useEffect(() => {
+    if (!fromCard || shoots === null) return;
+    const it = ideas.find((i) => i.id === fromCard);
+    setFromCard(null);
+    if (!it) return;
+    const f = empty();
+    f.checklist = template.map((t) => ({ t, done: false }));
+    f.title = `Gravação · ${it.title}`.slice(0, 120);
+    if (it.record_date) f.date = it.record_date;
+    if (it.client_id) f.client_id = it.client_id;
+    f.content_ids = [it.id];
+    setForm(f);
+  }, [fromCard, shoots, ideas, template]);
 
   const t0 = today();
   const upcoming = (shoots || []).filter((s) => s.date >= t0);
