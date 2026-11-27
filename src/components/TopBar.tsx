@@ -47,6 +47,7 @@ export default function TopBar() {
         <form action="/auth/signout" method="post" className="ml-auto flex items-center gap-2">
           <Bell />
           {acc?.role === "superadmin" && <Link href="/admin" className="btn btn-ghost btn-sm text-mint">Admin</Link>}
+          <Link href="/conta/lixeira" className="btn btn-ghost btn-sm" aria-label="Lixeira" title="Lixeira"><I.trash className="w-3.5 h-3.5" /></Link>
           <Link href="/conta" className="btn btn-ghost btn-sm"><I.user className="w-3.5 h-3.5" /><span className="hidden sm:inline">Minha conta</span></Link>
           <button className="btn btn-ghost btn-sm" aria-label="Sair"><I.logout className="w-3.5 h-3.5" /><span className="hidden sm:inline">Sair</span></button>
         </form>

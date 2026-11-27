@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { cardDueDate, todayBR } from "./useFinance";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const uuid = () => (crypto as any).randomUUID();
 const addMonths = (d: string, n: number) => { const x = new Date(d + "T12:00:00"); const day = x.getDate(); x.setDate(1); x.setMonth(x.getMonth() + n); x.setDate(Math.min(day, new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate())); return x.toISOString().slice(0, 10); };
@@ -59,10 +60,10 @@ export default function TxForm({ init, fin, onClose }: { init: any; fin: any; on
     setBusy(false);
   }
   async function del(all = false) {
-    const s = createClient();
-    if (f.transfer_id) await s.from("ag_transactions").delete().eq("transfer_id", f.transfer_id);
-    else if (all && f.recurrence_group) await s.from("ag_transactions").delete().eq("recurrence_group", f.recurrence_group).eq("paid", false);
-    else await s.from("ag_transactions").delete().eq("id", f.id);
+    const nome = f.description || (f.kind === "saida" ? "despesa" : "receita");
+    const filtro = f.transfer_id ? { transfer_id: f.transfer_id } : all && f.recurrence_group ? { recurrence_group: f.recurrence_group, paid: false } : { id: f.id };
+    const oque = f.transfer_id ? "a transferência" : all && f.recurrence_group ? `"${nome}" e as próximas parcelas em aberto` : `o lançamento "${nome}"`;
+    if (!(await apagarComLixeira({ tabela: "ag_transactions", filtro, oque, rotulo: `Lançamento: ${nome}`, link: "/agency/financeiro" }))) return;
     await fin.reload(); onClose();
   }
 

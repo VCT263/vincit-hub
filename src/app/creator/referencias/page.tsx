@@ -8,6 +8,7 @@ import PageHead from "@/components/PageHead";
 import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import RefProfiles from "@/components/creator/RefProfiles";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const empty = { title: "", url: "", handle: "", format: "Reels", content: "", tags: "", views: "", followers: "", median_views: "" };
 const num = (v: string) => (v ? Number(String(v).replace(/\D/g, "")) || null : null);
@@ -45,7 +46,7 @@ export default function Referencias() {
     }).select().single();
     setF(empty); await load(); if (data) setOpen(data.id);
   }
-  async function del(id: string) { if (confirm("Excluir referência?")) { await createClient().from("references_lib").delete().eq("id", id); load(); } }
+  async function del(id: string) { if (await apagarComLixeira({ tabela: "references_lib", filtro: { id }, oque: "esta referência", rotulo: "Referência", link: "/creator/referencias" })) load(); }
   async function toIdeas(r: any) {
     const a = r.analysis || {};
     await createClient().from("content_ideas").insert((a.adaptacoes || []).map((x: string) => ({ kind: "ideia", title: x.slice(0, 120), body: `Baseado na referência: ${r.title}\n\n${x}\n\n**Modelo de copy:**\n${a.modelo_de_copy || ""}`, format: r.format })));

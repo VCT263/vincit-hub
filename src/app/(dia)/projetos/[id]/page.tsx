@@ -8,6 +8,7 @@ import Fields from "@/components/agency/Fields";
 import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import { A } from "@/components/agency/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 export default function Projeto() {
   const { id } = useParams<{ id: string }>();
@@ -78,8 +79,8 @@ export default function Projeto() {
     if (clash?.length) return setMsg(`Equipamento já reservado nessas datas${(clash[0] as any).ag_projects?.title ? ` (${(clash[0] as any).ag_projects.title})` : ""}.`);
     await s().from("ag_bookings").insert({ ...newBk, end_date: end, project_id: id }); setNewBk({ equipment_id: "", start_date: "", end_date: "" }); setMsg(null); load();
   }
-  async function delBooking(b: any) { await s().from("ag_bookings").delete().eq("id", b.id); load(); }
-  async function removeProject() { if (!confirm("Excluir este projeto, com tarefas, histórico e reservas?")) return; await s().from("ag_projects").delete().eq("id", id); router.push("/tarefas?view=projetos"); }
+  async function delBooking(b: any) { if (await apagarComLixeira({ tabela: "ag_bookings", filtro: { id: b.id }, oque: "esta reserva de equipamento", rotulo: "Reserva de equipamento", link: `/projetos/${id}` })) load(); }
+  async function removeProject() { if (!(await apagarComLixeira({ tabela: "ag_projects", filtro: { id }, oque: "este projeto, com tarefas, eventos e reservas", rotulo: "Projeto: " + (p?.title || "sem título"), link: `/projetos/${id}` }))) return; router.push("/tarefas?view=projetos"); }
 
   if (!p) return <p className="text-fog">Carregando…</p>;
   const reviewLink = `${origin}/r/${p.review_token}`;

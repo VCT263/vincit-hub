@@ -9,6 +9,7 @@ import Markdown from "@/components/Markdown";
 import { I } from "@/components/icons";
 import { pct, taxas } from "@/lib/mixModa";
 import { AreaChart, Spark, SignalColumns, HBar, LILAS, num } from "@/components/creator/Graficos";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const FORMATOS: Record<string, string> = { REELS: "Reels", CAROUSEL_ALBUM: "Carrossel", IMAGE: "Foto", VIDEO: "Vídeo" };
 const formato = (t?: string) => FORMATOS[t || ""] || t || "Outro";
@@ -88,8 +89,7 @@ export default function Perfil() {
     setEdit(false);
   }
   async function remove() {
-    if (!confirm(`Remover @${acc.username} do Creator? Posts e automações dele também serão removidos.`)) return;
-    await createClient().from("ig_accounts").delete().eq("id", id);
+    if (!(await apagarComLixeira({ tabela: "ig_accounts", filtro: { id }, oque: `@${acc.username} do Creator, com posts, automações e histórico dele`, rotulo: `Perfil: @${acc.username}`, link: "/creator/perfis" }))) return;
     router.push("/creator/perfis");
   }
   async function diagnose() {

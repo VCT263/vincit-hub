@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { STAGES } from "@/lib/content";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Props = { open: boolean; onClose: () => void; statuses: any[]; items: any[]; onChanged: () => void };
 
@@ -33,9 +34,9 @@ export default function StatusSettings({ open, onClose, statuses, items, onChang
     const i = st.findIndex((y) => y.id === x.id);
     const target = st[i - 1] || st[i + 1];
     const n = items.filter((t) => t.status_id === x.id).length;
-    if (!confirm(`Excluir o status "${x.name}"?${n ? ` ${n} conteúdo(s) vão para "${target.name}".` : ""}`)) return;
+    if (n && !confirm(`${n} conteúdo(s) do status "${x.name}" vão para "${target.name}". Continuar?`)) return;
     if (n) await s().from("content_ideas").update({ status_id: target.id }).eq("status_id", x.id);
-    await s().from("content_statuses").delete().eq("id", x.id); onChanged();
+    await apagarComLixeira({ tabela: "content_statuses", filtro: { id: x.id }, oque: `o status "${x.name}"`, rotulo: `Status do quadro: ${x.name}` }); onChanged();
   }
 
   return (

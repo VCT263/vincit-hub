@@ -6,8 +6,8 @@ import { LIXEIRA_DIAS, prazoTexto } from "@/lib/lixeira";
 /* Seção "Lixeira" para qualquer lista do HUB: mostra o que foi excluído, quanto tempo falta e o botão Recuperar. */
 export type ItemLixeira = { id: string; titulo: string; sub?: string; at: string; antes?: React.ReactNode };
 
-export default function Lixeira({ itens, onRecuperar, nome = "Itens" }: { itens: ItemLixeira[]; onRecuperar: (id: string) => void | Promise<void>; nome?: string }) {
-  const [aberta, setAberta] = useState(false);
+export default function Lixeira({ itens, onRecuperar, nome = "Itens", inicial = false }: { itens: ItemLixeira[]; onRecuperar: (id: string) => void | Promise<void>; nome?: string; inicial?: boolean }) {
+  const [aberta, setAberta] = useState(inicial);
   if (!itens.length) return null;
   return (
     <section className="mt-10">

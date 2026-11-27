@@ -9,6 +9,7 @@ import { A } from "@/components/agency/icons";
 import { useFinance, ACCOUNT_KINDS, todayBR } from "@/components/finance/useFinance";
 import TxForm from "@/components/finance/TxForm";
 import Charges from "@/components/finance/Charges";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const TABS = [["geral", "Visão geral"], ["lancamentos", "Lançamentos"], ["contas", "Contas & cartões"], ["categorias", "Categorias & orçamento"], ["cobrancas", "Cobranças"]] as const;
 type Tab = (typeof TABS)[number][0];
@@ -82,7 +83,7 @@ export default function Financeiro() {
   }
   async function addCat(e: React.FormEvent) { e.preventDefault(); if (!catNew.name.trim()) return; await createClient().from("fin_categories").insert({ ...catNew, name: catNew.name.trim() }); setCatNew({ ...catNew, name: "" }); fin.reload(); }
   async function updCat(c: any, v: any) { await createClient().from("fin_categories").update(v).eq("id", c.id); fin.reload(); }
-  async function delCat(c: any) { if (!confirm(`Excluir a categoria ${c.name}? Os lançamentos mantêm o nome.`)) return; await createClient().from("fin_categories").delete().eq("id", c.id); fin.reload(); }
+  async function delCat(c: any) { if (!(await apagarComLixeira({ tabela: "fin_categories", filtro: { id: c.id }, oque: `a categoria ${c.name} (os lançamentos mantêm o nome)`, rotulo: `Categoria: ${c.name}`, link: "/agency/financeiro" }))) return; fin.reload(); }
 
   const MonthNav = () => (
     <div className="flex items-center gap-2">

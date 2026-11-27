@@ -10,6 +10,7 @@ import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import Metrics from "@/components/admin/Metrics";
 import { hideCPF, isValidCPF, maskCPF, maskPhone, onlyDigits } from "@/lib/br";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const STATUS: Record<string, { l: string; c: string }> = {
   ativo: { l: "Ativo", c: "#6eefb6" }, pendente: { l: "Pendente", c: "#f5c84c" }, suspenso: { l: "Suspenso", c: "#ff6b6b" }, expirado: { l: "Vencido", c: "#ff6b6b" },
@@ -107,8 +108,8 @@ export default function Admin() {
   }
   async function delPlan(p: any) {
     if (clients.some((u) => u.plan_id === p.id)) return setErr("Há usuários nesse plano. Mova-os antes de excluir ou desative o plano.");
-    if (!confirm(`Excluir o plano ${p.name}?`)) return;
-    await createClient().from("plans").delete().eq("id", p.id); setEditP(null); load();
+    if (!(await apagarComLixeira({ tabela: "plans", filtro: { id: p.id }, oque: `o plano ${p.name}`, rotulo: `Plano: ${p.name}`, link: "/admin" }))) return;
+    setEditP(null); load();
   }
   async function saveInvite(e: React.FormEvent) {
     e.preventDefault(); setBusy(true);
@@ -123,7 +124,7 @@ export default function Admin() {
     }
     setBusy(false); setInv({ ...inv, done: existing ? "Usuário já tinha conta: plano aplicado e acesso liberado." : "Convite criado. Envie o link abaixo para a pessoa se cadastrar." }); load();
   }
-  async function delInvite(i: any) { await createClient().from("invites").delete().eq("id", i.id); load(); }
+  async function delInvite(i: any) { if (await apagarComLixeira({ tabela: "invites", filtro: { id: i.id }, oque: `o convite de ${i.email}`, rotulo: `Convite: ${i.email}`, link: "/admin" })) load(); }
   const signupLink = (email: string) => `${typeof location !== "undefined" ? location.origin : "https://vincit-hub.vercel.app"}/login?cadastro=1&email=${encodeURIComponent(email)}`;
 
   const Chip = ({ s }: { s: string }) => <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: STATUS[s]?.c + "22", color: STATUS[s]?.c }}>{STATUS[s]?.l || s}</span>;

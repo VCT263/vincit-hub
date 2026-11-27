@@ -15,6 +15,7 @@ import ProjectsBoard from "@/components/tasks/ProjectsBoard";
 import ProjectPanel from "@/components/tasks/ProjectPanel";
 import { isProjectsSpace } from "@/components/dia/DiaNav";
 import { syncTask, unsyncTask } from "@/lib/gsync";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const TYPE_COLOR: Record<string, string> = { aberto: "#8a8f94", andamento: "#f5c84c", concluido: "#6eefb6" };
 const ls = { get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch {} } };
@@ -152,9 +153,10 @@ function Tarefas() {
     await createClient().from("ag_tasks").update({ inbox: false, space_id: spaceId, list_id: null, status_id: stOf(spaceId)[0]?.id }).eq("id", t.id); load();
   }
   async function discard(t: any) {
+    if (!(await apagarComLixeira({ tabela: "ag_tasks", filtro: { id: t.id }, oque: `a tarefa "${t.title}"`, rotulo: `Tarefa: ${t.title}`, link: "/tarefas" }))) return;
     setD((p) => ({ ...p, tasks: p.tasks.filter((x) => x.id !== t.id) }));
     unsyncTask(t.id);
-    await createClient().from("ag_tasks").delete().eq("id", t.id); load();
+    load();
   }
   async function newTask() {
     const spaceId = targetSpace(); if (!spaceId) return;

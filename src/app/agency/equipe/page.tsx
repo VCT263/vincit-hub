@@ -59,7 +59,7 @@ export default function Equipe() {
       </div>
       <Modal open={!!form} title={form?.id ? form.name : "Nova pessoa"} onClose={() => setForm(null)}>
         <form onSubmit={submit}><Fields fields={fields} value={form} onChange={setForm} />
-          <div className="flex justify-between mt-6">{form?.id ? <button type="button" className="btn btn-ghost" onClick={async () => { await m.remove(form.id); setForm(null); }}><I.trash className="w-4 h-4" /></button> : <span />}<button className="btn btn-mint">Salvar</button></div></form>
+          <div className="flex justify-between mt-6">{form?.id ? <button type="button" className="btn btn-ghost" onClick={async () => { if (await m.remove(form.id, form.name, "/agency/equipe")) setForm(null); }}><I.trash className="w-4 h-4" /></button> : <span />}<button className="btn btn-mint">Salvar</button></div></form>
       </Modal>
     </>
   );

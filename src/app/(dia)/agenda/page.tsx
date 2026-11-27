@@ -11,6 +11,7 @@ import TaskDrawer from "@/components/tasks/TaskDrawer";
 import { RECUR, recurLabel, occurrences, Recur } from "@/components/tasks/shared";
 import { I } from "@/components/icons";
 import { A } from "@/components/agency/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const WD = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const KINDS = [...EVENT_KINDS, { k: "tarefa", l: "Tarefas", c: "#c084fc" }, { k: "google", l: "Google Agenda", c: "#7aa7ff" }];
@@ -119,10 +120,11 @@ export default function Agenda() {
     setBusy(false);
   }
   async function removeEvent() {
-    const s = createClient();
-    await s.from("ag_tasks").delete().eq("event_id", form.id).eq("done", false);
     const gid = ev.rows.find((x) => x.id === form.id)?.google_event_id;
-    await ev.remove(form.id);
+    const ok = await apagarComLixeira({ passos: [{ tabela: "ag_tasks", filtro: { event_id: form.id, done: false } }, { tabela: "ag_events", filtro: { id: form.id } }],
+      oque: `o evento "${form.title || "sem título"}"`, rotulo: `Evento: ${form.title || "sem título"}`, link: "/agenda" });
+    if (!ok) return;
+    await ev.reload();
     if (gid) gsync({ delete: gid }); await loadTasks(); setForm(null);
   }
   async function skipOccurrence() {

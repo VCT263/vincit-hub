@@ -6,6 +6,7 @@ import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { syncTask } from "@/lib/gsync";
 import { brl, fmtDay, KINDS, num, STATUS, type EcAction, type Item } from "@/lib/ecommerce";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const PH: [keyof EcAction, string, string][] = [
   ["before_items", "Antes", "aquecimento"],
@@ -68,11 +69,9 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
   }
 
   async function remove() {
-    if (!confirmDelete) return setConfirmDelete(true);
-    await createClient().from("ec_actions").delete().eq("id", a.id);
+    if (!(await apagarComLixeira({ tabela: "ec_actions", filtro: { id: a.id }, oque: `a ação "${a.title || "sem título"}"`, rotulo: `Ação do e-commerce: ${a.title || "sem título"}`, link: "/ecommerce" }))) return;
     onDelete();
   }
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const c = a.campaign;
   return (
@@ -182,7 +181,7 @@ export default function ActionDrawer({ action, store, onClose, onChange, onDelet
         {msg && <p className="text-sm text-mint">{msg}</p>}
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4">
           <button onClick={makeTasks} disabled={busy} className="btn btn-ghost btn-sm"><I.calendar className="w-4 h-4" />Criar tarefas em Seu dia</button>
-          <button onClick={remove} className="btn btn-ghost btn-sm text-fog hover:text-danger"><I.trash className="w-4 h-4" />{confirmDelete ? "Clique de novo para apagar" : "Apagar ação"}</button>
+          <button onClick={remove} className="btn btn-ghost btn-sm text-fog hover:text-danger"><I.trash className="w-4 h-4" />Apagar ação</button>
         </div>
       </div>
     </Modal>

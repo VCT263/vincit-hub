@@ -85,7 +85,7 @@ export default function Funil() {
       <Modal open={!!form} title={form?.id ? "Oportunidade" : "Nova oportunidade"} onClose={() => setForm(null)}>
         <form onSubmit={submit}><Fields fields={fields} value={form} onChange={setForm} />
           <div className="flex justify-between gap-2 mt-6">
-            {form?.id ? <button type="button" className="btn btn-ghost" onClick={async () => { await d.remove(form.id); setForm(null); }}><I.trash className="w-4 h-4" /></button> : <span />}
+            {form?.id ? <button type="button" className="btn btn-ghost" onClick={async () => { if (await d.remove(form.id, form.title, "/agency/funil")) setForm(null); }}><I.trash className="w-4 h-4" /></button> : <span />}
             <div className="flex gap-2">{form?.id && <button type="button" className="btn btn-ghost" onClick={() => router.push(`/agency/propostas?deal=${form.id}${form.client_id ? `&cliente=${form.client_id}` : ""}`)}>Criar proposta</button>}<button className="btn btn-mint">Salvar</button></div>
           </div></form>
       </Modal>

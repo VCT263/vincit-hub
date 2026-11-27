@@ -9,6 +9,7 @@ import { FRAMINGS } from "@/lib/shots";
 import { MOVES, PARTS, mmss, rowsFromScript, scriptExtras, speechSeconds } from "@/lib/roteiro";
 import { kitFrom } from "@/lib/design";
 import { parseFont } from "@/lib/editor/model";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Props = {
   item: any;
@@ -162,7 +163,7 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
 
   async function insertRows(list: any[], replace: boolean) {
     const c = s();
-    if (replace) await c.from("av_shots").delete().eq("content_id", id);
+    if (replace && shots?.length) await apagarComLixeira({ tabela: "av_shots", filtro: { content_id: id }, oque: "a tabela anterior", rotulo: "Roteiro técnico substituído", link: "/creator/producao", semSenha: true });
     const base = replace ? 0 : (shots?.[shots.length - 1]?.position || 0) + 1;
     if (list.length) {
       const { error } = await c.from("av_shots").insert(list.map((x, i) => ({ content_id: id, position: base + i, ...x })));
@@ -190,8 +191,9 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
     }
   }
   async function removeShot(sid: string) {
+    const sh = shots?.find((x) => x.id === sid);
+    if (!(await apagarComLixeira({ tabela: "av_shots", filtro: { id: sid }, oque: "esta linha do roteiro técnico", rotulo: `Linha do roteiro: ${(sh?.line || sh?.description || "sem texto").slice(0, 60)}` }))) return;
     setShots((l) => (l || []).filter((x) => x.id !== sid));
-    await s().from("av_shots").delete().eq("id", sid);
   }
   async function moveShot(i: number, d: -1 | 1) {
     if (!shots) return;

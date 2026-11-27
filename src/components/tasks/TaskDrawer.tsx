@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
 import { PRIORITIES, Flag, RECUR } from "./shared";
 import { syncTask, unsyncTask } from "@/lib/gsync";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Props = {
   task: any | null; onClose: () => void; onChanged: () => void;
@@ -41,11 +42,11 @@ export default function TaskDrawer({ task, onClose, onChanged, spaces, statuses,
     setSub(""); onChanged();
   }
   async function toggleSub(x: any) { await s().from("ag_tasks").update({ done: !x.done }).eq("id", x.id); onChanged(); }
-  async function delSub(x: any) { await s().from("ag_tasks").delete().eq("id", x.id); onChanged(); }
+  async function delSub(x: any) { if (await apagarComLixeira({ tabela: "ag_tasks", filtro: { id: x.id }, oque: `a subtarefa "${x.title}"`, rotulo: `Subtarefa: ${x.title}` })) onChanged(); }
   async function del() {
-    if (!confirm(`Excluir "${t.title}"${subs.length ? ` e ${subs.length} subtarefa(s)` : ""}?`)) return;
+    if (!(await apagarComLixeira({ tabela: "ag_tasks", filtro: { id: t.id }, oque: `a tarefa "${t.title}"${subs.length ? ` e ${subs.length} subtarefa(s)` : ""}`, rotulo: `Tarefa: ${t.title}`, link: "/tarefas" }))) return;
     unsyncTask(t.id);
-    await s().from("ag_tasks").delete().eq("id", t.id); onChanged(); onClose();
+    onChanged(); onClose();
   }
 
   const st = statuses.filter((x) => x.space_id === t.space_id).sort((a, b) => a.position - b.position);

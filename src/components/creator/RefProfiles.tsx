@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAccounts, fmt } from "@/lib/useAccounts";
 import { FORMATS } from "@/lib/formats";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const ESTILO: Record<string, string> = { tom: "Tom", estetica: "Estética", ritmo_edicao: "Edição", persona: "Persona", frequencia: "Frequência" };
 const typeName = (t?: string) => (t === "CAROUSEL_ALBUM" ? "Carrossel" : t === "IMAGE" ? "Foto" : t === "VIDEO" ? "Vídeo" : t || "Post");
@@ -67,7 +68,7 @@ export default function RefProfiles() {
     })));
     await saveSel(); setMsg(`${items.length} ideia(s) no Quadro, na coluna Ideia.`);
   }
-  async function del(r: any) { if (!confirm(`Excluir a análise de ${r.handle}?`)) return; await createClient().from("ref_profiles").delete().eq("id", r.id); setOpen(null); load(); }
+  async function del(r: any) { if (!(await apagarComLixeira({ tabela: "ref_profiles", filtro: { id: r.id }, oque: `a análise de ${r.handle}`, rotulo: `Perfil de referência: ${r.handle}`, link: "/creator/referencias" }))) return; setOpen(null); load(); }
 
   const a = open?.analysis || {};
   const items: any[] = a.itens || [];

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAccounts } from "@/lib/useAccounts";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const KINDS: Record<string, { l: string; d: string; accept: string; multi?: boolean }> = {
   image: { l: "Post (imagem)", d: "1 imagem JPG no feed", accept: "image/jpeg,image/png" },
@@ -88,7 +89,7 @@ export default function PostScheduler() {
     if (error) return setErr(error.message);
     setF(null); load();
   }
-  async function del(p: any) { if (!confirm("Excluir esta publicação?")) return; await createClient().from("scheduled_posts").delete().eq("id", p.id); setF(null); load(); }
+  async function del(p: any) { if (!(await apagarComLixeira({ tabela: "scheduled_posts", filtro: { id: p.id }, oque: "esta publicação agendada", rotulo: "Publicação agendada: " + ((p.caption || "sem legenda").slice(0, 50)), link: "/creator/automacoes" }))) return; setF(null); load(); }
 
   const Thumb = ({ u, className = "w-full h-full" }: { u?: string; className?: string }) => !u ? <div className={`${className} bg-panel2`} /> : isVideo(u) ? <video src={u} className={`${className} object-cover`} muted /> : <img loading="lazy" decoding="async" src={u} alt="" className={`${className} object-cover`} />;
   const tags = (f?.caption || "").match(/#[\p{L}\d_]+/gu) || [];
