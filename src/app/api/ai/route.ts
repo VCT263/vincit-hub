@@ -189,23 +189,41 @@ Use só esses números; quando faltar um dado, diga que falta. Responda em markd
       return NextResponse.json({ text });
     }
 
+    if (task === "brand_territories") {
+      const text = await callClaude({
+        maxTokens: 3000,
+        prompt: `Você é diretor de criação de um estúdio de branding de nível Behance. Proponha 3 territórios criativos MUITO diferentes entre si para a marca abaixo. Território é a grande ideia: uma metáfora que vira forma, cor e tipografia, ligada à estratégia.
+Marca: ${data.nome}
+Estratégia:
+${(data.estrategia || "").slice(0, 3000)}
+Briefing:
+${(data.brief || "").slice(0, 3000)}
+Regras:
+- Um território segue os códigos do nicho com mais qualidade, outro quebra os códigos de propósito, outro vem de fora do nicho (uma referência cultural, de material ou de ofício).
+- Cada um precisa ser desenhável: diga a direção de forma do símbolo (geometria, traço, peso), a direção de cor e a de tipografia (serifa, grotesca, script, mono) de modo concreto.
+- Nada de clichê do nicho nem de frases genéricas de IA.
+- busca: 3 buscas curtas em inglês para achar referências no Behance (ex.: "minimal fashion branding serif").
+- paleta: 5 hex nesta ordem: primária, apoio, destaque, escuro (quase preto), claro (quase branco).
+Responda SOMENTE com JSON: {"territorios":[{"nome":"nome curto","ideia":"1-2 frases","metafora":"","palavras":["4 palavras visuais"],"forma":"","cor":"","tipo":"","busca":["","",""],"paleta":["#hex","#hex","#hex","#hex","#hex"]}]}`,
+      });
+      return NextResponse.json(extractJson(text));
+    }
+
     if (task === "brand_concepts") {
       const fonts = (data.fonts || []).join(", ");
       const text = await callClaude({
-        maxTokens: 6000,
-        prompt: `Você é diretor de arte de um estúdio de branding. A partir do briefing, proponha 3 caminhos de logo bem diferentes entre si: 1) tipográfico (só o nome, com um detalhe próprio), 2) símbolo + nome, 3) monograma ou selo.
+        maxTokens: 7000,
+        prompt: `Você é diretor de arte de um estúdio de branding de nível Behance. A partir da estratégia e do território, proponha 4 símbolos bem diferentes entre si: 1) abstrato geométrico, 2) figurativo simplificado (ligado à metáfora), 3) monograma com as iniciais, 4) selo ou emblema.
 Marca: ${data.nome}
-Briefing:
-${(data.brief || "").slice(0, 4000)}
-${data.refs?.length ? `Notas do moodboard:\n${data.refs.join("\n")}\n` : ""}
-Regras do SVG:
-- Um <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 240"> por conceito, sem width/height.
+${data.estrategia ? `Estratégia e território:\n${String(data.estrategia).slice(0, 3000)}\n` : ""}Briefing:
+${(data.brief || "").slice(0, 3000)}
+${data.refs?.length ? `Notas do moodboard:\n${data.refs.join("\n")}\n` : ""}Regras do SVG:
+- Um <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"> por símbolo, sem width/height, SÓ o símbolo (o nome é desenhado em outra etapa). Para o monograma, as letras em <text> com font-family de UMA destas fontes do Google: ${fonts}.
 - Só path, rect, circle, ellipse, polygon, line, g e text. Sem imagem, script, filtro, link ou fonte externa.
-- O nome escrito exatamente "${data.nome}" em <text> com font-family de UMA destas fontes do Google: ${fonts}.
-- Símbolos simples, geométricos, que funcionem pequenos e em uma cor. No máximo 3 cores por logo, sobre fundo claro (não desenhe o fundo).
-- Nada de clichê do nicho (lâmpada, globo, engrenagem) a não ser que o briefing peça.
-Para cada conceito dê também uma paleta de 5 cores em hexadecimal nesta ordem: primária, apoio, destaque, escuro (quase preto), claro (quase branco), e um par de fontes da lista.
-Responda SOMENTE com JSON: {"conceitos":[{"nome":"nome curto do caminho","ideia":"o conceito em 1-2 frases, ligando ao briefing","svg":"<svg ...>...</svg>","paleta":["#hex","#hex","#hex","#hex","#hex"],"fontes":{"titulo":"fonte","texto":"fonte"}}]}`,
+- Construção intencional: use uma grade (múltiplos de 20), formas que se repetem, ângulos e raios coerentes. Deve funcionar em 16 px e em uma cor só. No máximo 2 cores, sobre fundo claro (não desenhe o fundo).
+- Nada de clichê do nicho (lâmpada, globo, engrenagem, folha genérica) a não ser que o território peça.
+Para cada símbolo dê uma paleta de 5 cores em hex (primária, apoio, destaque, escuro, claro) e um par de fontes da lista.
+Responda SOMENTE com JSON: {"conceitos":[{"nome":"nome curto do caminho","ideia":"o conceito em 1-2 frases, ligando à estratégia","svg":"<svg ...>...</svg>","paleta":["#hex","#hex","#hex","#hex","#hex"],"fontes":{"titulo":"fonte","texto":"fonte"}}]}`,
       });
       return NextResponse.json(extractJson(text));
     }
