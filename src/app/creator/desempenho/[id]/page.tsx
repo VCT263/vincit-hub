@@ -60,7 +60,7 @@ export default function Perfil() {
     if (!acc?.connected) return;
     setInsLoading(true); setInsErr(null);
     try {
-      const r = await fetch(`/api/meta/insights?account_id=${id}&days=${days}`);
+      const r = await fetch(`/api/meta/insights?account_id=${id}&days=${days}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Não foi possível ler os resultados da Meta.");
       setIns(j);
