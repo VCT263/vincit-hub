@@ -89,7 +89,7 @@ export default function BriefingPublico() {
       <h1 className="text-[46px] md:text-[76px] leading-[.98] mt-4 tracking-[-.01em]" style={SERIF}>Vamos começar<br /><i>pela sua história.</i></h1>
       <p className="text-[17px] text-[#4a463f] mt-7 leading-relaxed max-w-lg whitespace-pre-wrap">{b.intro || "Antes de desenhar qualquer coisa, a gente precisa te conhecer: o que você faz, para quem, o que você ama e o que não quer ver de jeito nenhum. Responda do seu jeito, sem termos técnicos."}</p>
       <div className="mt-10 grid grid-cols-3 border-y border-[#d9d4cb] divide-x divide-[#d9d4cb] text-center">
-        {[["8", "etapas curtas"], ["15", "minutos, mais ou menos"], ["0", "termos técnicos"]].map(([n, l]) => <div key={l} className="py-5 px-2"><p className="text-[34px] leading-none" style={SERIF}>{n}</p><p className="text-[12px] text-[#8a847a] mt-2 leading-tight">{l}</p></div>)}
+        {[[String(ETAPAS.length), "etapas curtas"], ["15", "minutos, mais ou menos"], ["0", "termos técnicos"]].map(([n, l]) => <div key={l} className="py-5 px-2"><p className="text-[34px] leading-none" style={SERIF}>{n}</p><p className="text-[12px] text-[#8a847a] mt-2 leading-tight">{l}</p></div>)}
       </div>
       <p className="text-[13px] text-[#8a847a] mt-5">Suas respostas ficam salvas neste aparelho enquanto você preenche. Pode parar e voltar depois pelo mesmo link.</p>
       {b.status === "respondido" && <p className="text-[14px] mt-4 bg-white/70 border border-[#d9d4cb] rounded-xl px-4 py-3">Você já enviou este briefing{b.answered_at ? ` em ${new Date(b.answered_at).toLocaleDateString("pt-BR")}` : ""}. Pode revisar e reenviar se quiser mudar algo.</p>}

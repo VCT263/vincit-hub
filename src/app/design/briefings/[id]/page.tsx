@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
-import { CORES, ESTILOS, ESTILO_FONTS, ETAPAS, TIPOS_LOGO, answerText, answersText, blank, filledCount, totalCount, type RefImg } from "@/lib/briefing-cliente";
+import { CORES, ESTILOS, ESTILO_FONTS, ETAPAS, LETRAS, TIPOS_LOGO, answerText, answersText, arqMix, blank, filledCount, totalCount, type Paleta, type RefImg } from "@/lib/briefing-cliente";
 import { loadFonts } from "@/lib/design";
 import { STATUS, briefingUrl, criarProjeto, whatsLink, type Briefing } from "@/components/design/briefing/acoes";
 
@@ -115,6 +115,22 @@ export default function BriefingDetalhe() {
                   </div>
                 )}
               </div>
+              {(arqMix(a.arq).length > 0 || !!a.paletas?.length) && (
+                <div className="grid sm:grid-cols-2 gap-5 mt-5">
+                  {arqMix(a.arq).length > 0 && <div><p className="label">Personalidade (arquétipos)</p>{arqMix(a.arq).map((m) => (
+                    <div key={m.a.k} className="mb-1.5"><div className="flex justify-between text-sm"><span>{m.a.l}</span><span className="font-mono text-xs">{m.pct}%</span></div><div className="h-1 bg-line rounded-full"><div className="h-full bg-mint rounded-full" style={{ width: `${m.pct}%` }} /></div></div>
+                  ))}</div>}
+                  {!!a.paletas?.length && <div><p className="label">Paletas que montou</p><div className="space-y-1.5">{(a.paletas as Paleta[]).map((p, i) => <div key={i} className="flex h-7 rounded-lg overflow-hidden border border-line">{p.cores.map((c, j) => <span key={j} className="flex-1" style={{ background: c }} title={c} />)}</div>)}</div></div>}
+                </div>
+              )}
+              {!!a.letras?.length && (
+                <div className="mt-5">
+                  <p className="label">Tipos de letra que marcou</p>
+                  <div className="flex gap-2 overflow-x-auto scroll-thin pb-1">{(a.letras as string[]).map((k) => { const c = LETRAS.find((x) => x.k === k); if (!c) return null; return (
+                    <div key={k} className="shrink-0 w-40 rounded-xl border border-line bg-paper text-ink p-2.5"><p className="text-xl truncate" style={{ fontFamily: `"${c.ex}"`, fontWeight: c.w || 400 }}>{a.marca_nome || "Marca"}</p><p className="text-[11px] mt-1 opacity-70">{c.l}</p></div>
+                  ); })}</div>
+                </div>
+              )}
               {!!a.estilos?.length && (
                 <div className="mt-5">
                   <p className="label">Estilos que marcou</p>

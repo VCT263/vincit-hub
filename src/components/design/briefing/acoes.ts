@@ -19,9 +19,10 @@ export const whatsLink = (b: Pick<Briefing, "token" | "client_name">) =>
 /** briefing respondido → projeto de marca na Criação de marca, já com briefing e referências preenchidos */
 export async function criarProjeto(b: Briefing): Promise<string | null> {
   const sb = createClient();
-  const { brief, refs } = toBrief(b.answers);
+  const { brief, refs, strategy, palette } = toBrief(b.answers);
   const nome = brief.nome || b.client_name || b.title;
-  const data = { brief, refs, cliente: { briefing_id: b.id, respondent: b.respondent, answered_at: b.answered_at, notas: b.notes || "" } };
+  const a = b.answers || {};
+  const data = { brief, refs, ...(strategy ? { strategy } : {}), ...(palette ? { palette } : {}), cliente: { briefing_id: b.id, respondent: b.respondent, answered_at: b.answered_at, notas: b.notes || "", paletas: a.paletas || [], letras: a.letras || [], letra_eixos: a.letra_eixos || {} } };
   const { data: row, error } = await sb.from("design_projects").insert({ kind: "marca", title: nome, client_id: b.client_id || null, briefing_id: b.id, step: "estrategia", data }).select("id").single();
   if (error || !row) return null;
   await sb.from("design_briefings").update({ status: "projeto", brand_id: row.id }).eq("id", b.id);
