@@ -4,6 +4,8 @@
    de fontes (Google Fonts, Fontshare, Velvetyne, Collletttivo, uncut.wtf, DaFont).
    Usado pela etapa de Tipografia, pela Apresentação e pelos pedidos ao Claude. */
 
+import type { FontCat } from "./fonts";
+
 /** as vozes de um sistema tipográfico de estúdio: cada fonte tem um papel e um porquê */
 export const VOICES = [
   { k: "estrutura", l: "Estrutura", d: "Grotesca para texto, interface, legendas e informação. Clareza e responsabilidade." },
@@ -69,12 +71,46 @@ export const FONT_SOURCES = [
   { l: "DaFont", url: "https://www.dafont.com", lic: "Cuidado: a maioria é só para uso pessoal. Para marca, use só as marcadas como 100% Free ou Public domain, e ainda assim prefira vetorizar e ajustar." },
 ];
 
+/** Guia dos tipos de letra: o que cada família é, o que passa, quando usar e quando evitar.
+    Serve para conversar com o cliente antes de escolher fonte (base: caderno de amostras da Alanis Gomes, 27/11). */
+export type TypeClass = { k: string; grupo: string; l: string; cat: FontCat; ex: string; it?: boolean; w?: number; oque: string; sente: string; usar: string; evitar: string };
+export const TYPE_GROUPS = [
+  { k: "serifa", l: "Serifadas", d: "Têm pequenos traços (serifas) nas pontas das letras. Passam tradição, cuidado e sofisticação; funcionam bem impressas e em textos longos." },
+  { k: "sans", l: "Sem serifa", d: "Traço limpo, sem os 'pezinhos'. Leem bem em tela e passam modernidade, clareza e proximidade." },
+  { k: "script", l: "Manuscritas", d: "Imitam caligrafia ou assinatura. Trazem afeto e gesto humano, mas cansam rápido: use como detalhe." },
+  { k: "display", l: "Display e decorativas", d: "Feitas para chamar atenção em logo, capa e cartaz. Têm muita personalidade e pouca leitura em bloco." },
+  { k: "mono", l: "Monoespaçadas", d: "Cada letra ocupa a mesma largura, como máquina de escrever ou código. Técnicas e honestas: ótimas em rótulos e detalhes." },
+] as const;
+export const TYPE_GUIDE: TypeClass[] = [
+  { k: "didone", grupo: "serifa", l: "Didone (alto contraste)", cat: "didone", ex: "Bodoni Moda", oque: "Traço muito grosso ao lado de traço finíssimo, serifa reta e fina.", sente: "Moda, luxo, revista.", usar: "Nome grande, títulos, embalagem premium.", evitar: "Texto pequeno ou tela de celular em corpo baixo: o traço fino some." },
+  { k: "garalde", grupo: "serifa", l: "Clássica (garalde)", cat: "serifa", ex: "Cormorant Garamond", oque: "Contraste suave e eixo inclinado, herdado da escrita com pena.", sente: "Delicada, literária, atemporal.", usar: "Marcas de cuidado, papelaria, textos longos impressos.", evitar: "Marca que precisa parecer jovem e digital." },
+  { k: "contemporanea", grupo: "serifa", l: "Serifa contemporânea", cat: "serifa", ex: "Fraunces", oque: "Serifa redesenhada hoje: cantos macios, formas abertas, às vezes com toque retrô.", sente: "Editorial e acolhedora, chique sem ser antiga.", usar: "Beleza, bem-estar, alimentação autoral.", evitar: "Quando o cliente quer frieza e precisão." },
+  { k: "slab", grupo: "serifa", l: "Serifa quadrada (slab)", cat: "slab", ex: "Zilla Slab", oque: "Serifas grossas e retangulares, quase sem contraste.", sente: "Robusta, artesanal, industrial.", usar: "Comida, cerveja, ferramentas, marcas de bairro.", evitar: "Luxo e delicadeza." },
+  { k: "grotesca", grupo: "sans", l: "Grotesca", cat: "grotesca", ex: "Hanken Grotesk", oque: "Sem serifa neutra, de desenho levemente irregular.", sente: "Direta, contemporânea, versátil.", usar: "Texto, interface, legendas; a 'voz de estrutura' da marca.", evitar: "Como única fonte de uma marca que precisa de emoção." },
+  { k: "geometrica", grupo: "sans", l: "Geométrica", cat: "geometrica", ex: "Jost", w: 300, oque: "Construída com círculo e reta: O redondo, A pontudo.", sente: "Limpa, moderna, de estúdio.", usar: "Logotipo em caixa alta espaçada, tecnologia, wellness.", evitar: "Texto muito longo em peso fino." },
+  { k: "humanista", grupo: "sans", l: "Humanista", cat: "humanista", ex: "Figtree", oque: "Sem serifa com traço que lembra a caligrafia, aberta e variada.", sente: "Próxima, calma, fácil de ler.", usar: "Clínicas, saúde, educação, texto corrido.", evitar: "Quando precisa de impacto de pôster." },
+  { k: "condensada", grupo: "sans", l: "Condensada", cat: "condensada", ex: "Bebas Neue", oque: "Letras altas e estreitas, muitas vezes pesadas.", sente: "Força, energia, esporte, urgência.", usar: "Fitness, títulos de conteúdo, cartaz, moda urbana.", evitar: "Marcas delicadas e silenciosas." },
+  { k: "formal", grupo: "script", l: "Caligráfica formal", cat: "script", ex: "Pinyon Script", oque: "Letra cursiva de pena, ligada, com hastes longas.", sente: "Elegância clássica, convite, cerimônia.", usar: "Um selo, uma palavra, assinatura no rótulo.", evitar: "Nome principal pequeno ou em tela: fica ilegível." },
+  { k: "assinatura", grupo: "script", l: "Assinatura e casual", cat: "script", ex: "Mr Dafoe", oque: "Escrita rápida, como caneta ou pincel.", sente: "Pessoal, feito à mão, autoral.", usar: "Ao lado de uma grotesca rígida, para provar que tem gente por trás.", evitar: "Usar em tudo: perde a força." },
+  { k: "display", grupo: "display", l: "Display", cat: "display", ex: "Unbounded", oque: "Desenho expressivo: largo, gordo, estranho ou ornamental.", sente: "Autoral, cultural, memorável.", usar: "Logo, capa, campanha.", evitar: "Texto corrido e marcas que querem discrição." },
+  { k: "mono", grupo: "mono", l: "Monoespaçada", cat: "mono", ex: "DM Mono", oque: "Todas as letras com a mesma largura.", sente: "Técnica, honesta, de laboratório.", usar: "Rótulos, medidas, fórmulas, numeração de peças.", evitar: "Como fonte principal de marca afetiva." },
+];
+/** os eixos que diferenciam uma fonte da outra dentro do mesmo tipo */
+export const TYPE_AXES = [
+  { l: "Peso", d: "Fino passa delicadeza e preço alto; forte passa energia e juventude." },
+  { l: "Largura", d: "Condensada é vertical e urgente; larga é calma e luxuosa." },
+  { l: "Contraste", d: "Alto contraste é moda; traço igual é neutro e moderno." },
+  { l: "Inclinação", d: "Itálico traz gesto e feminilidade; reta traz firmeza." },
+  { l: "Caixa", d: "Maiúsculas espaçadas soam caras e silenciosas; minúsculas soam próximas." },
+];
+
 /** regras que vão junto nos pedidos ao Claude */
 export function knowledgeText() {
   return [
     "Critérios de estúdio (Behance) para não parecer feito por IA:",
     ...ANTI_AI.map(([a, b]) => `- Em vez de "${a}": ${b}.`),
     "Sistema tipográfico em 3 vozes: estrutura (grotesca: clareza), editorial (serifa ou condensada: interpretação) e gesto (manuscrita: movimento, usada pouco).",
+    "Tipos de letra e o que passam: " + TYPE_GUIDE.map((c) => `${c.l} (${c.sente.replace(/\.$/, "")})`).join("; ") + ".",
   ].join("\n");
 }
 
