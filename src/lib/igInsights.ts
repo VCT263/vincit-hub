@@ -12,7 +12,7 @@ const tv = (data: any[], name: string) => {
   return it ? Number(it.total_value?.value ?? it.values?.[0]?.value ?? 0) : null;
 };
 
-async function totals(id: string, token: string, since: number, until: number, metrics = DAILY) {
+export async function totals(id: string, token: string, since: number, until: number, metrics = DAILY) {
   try {
     const j = await gget(`${id}/insights`, { access_token: token, metric: metrics.join(","), period: "day", metric_type: "total_value", since: String(since), until: String(until) });
     return Object.fromEntries(metrics.map((m) => [m, tv(j.data, m)]));

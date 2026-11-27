@@ -412,44 +412,59 @@ export default function Perfil() {
 }
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-/** soma por mês do histórico diário guardado no HUB, em pequenos gráficos (um por métrica, cada um na sua escala) */
+const MCAMPOS = ["views", "total_interactions", "profile_views", "follows"];
+/** últimos 4 meses (o mês atual e os 3 anteriores) somados do histórico diário guardado no HUB, um gráfico por métrica */
 function MesAMes({ rows }: { rows: any[] }) {
-  const m: Record<string, any> = {};
-  for (const r of rows) {
-    const k = String(r.day).slice(0, 7);
-    m[k] ??= { mes: k, dias: 0, views: 0, total_interactions: 0, profile_views: 0, follows: 0 };
-    m[k].dias++;
-    for (const c of ["views", "total_interactions", "profile_views", "follows"]) m[k][c] += Number(r[c]) || 0;
+  const br = new Date(Date.now() - 3 * 3600e3);
+  const meses = Array.from({ length: 4 }, (_, i) => {
+    const d = new Date(Date.UTC(br.getUTCFullYear(), br.getUTCMonth() - 3 + i, 1));
+    return { mes: d.toISOString().slice(0, 7), dias: 0, views: 0, total_interactions: 0, profile_views: 0, follows: 0 } as any;
+  });
+  const idx = Object.fromEntries(meses.map((x, i) => [x.mes, i]));
+  const comDado = rows.filter((r) => MCAMPOS.some((c) => r[c] != null));
+  for (const r of comDado) {
+    const x = meses[idx[String(r.day).slice(0, 7)]];
+    if (!x) continue;
+    x.dias++;
+    for (const c of MCAMPOS) x[c] += Number(r[c]) || 0;
   }
-  const meses = Object.values(m).sort((a: any, b: any) => a.mes.localeCompare(b.mes)).slice(-6) as any[];
-  const diasNoMes = (k: string) => new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate();
-  const nome = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]}${k.slice(0, 4) !== String(new Date().getFullYear()) ? "/" + k.slice(2, 4) : ""}`;
-  const desde = new Date(rows[0].day + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
+  const atual = meses[3].mes;
+  const diasNoMes = (k: string) => (k === atual ? br.getUTCDate() - 1 : new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)), 0).getDate());
+  const nome = (k: string) => `${MESES[Number(k.slice(5, 7)) - 1]}${k.slice(0, 4) !== String(br.getUTCFullYear()) ? "/" + k.slice(2, 4) : ""}`;
+  const desde = comDado[0] ? new Date(comDado[0].day + "T12:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "") : "–";
+  const vazios = meses.filter((x) => !x.dias).length;
   return (
     <div className="card p-4 md:p-5 mt-3">
       <div className="mb-4">
-        <p className="font-display font-bold">Mês a mês</p>
-        <p className="text-xs text-fog">O Instagram só mostra 30 dias; o HUB guarda cada dia desde {desde}. Mês com menos dias guardados aparece mais claro.</p>
+        <p className="font-display font-bold">Últimos 4 meses</p>
+        <p className="text-xs text-fog">
+          Soma de cada mês com os dias que o HUB guardou (desde {desde}). Barra mais clara = mês com dias faltando{vazios ? "; mês sem barra ainda não tem dados do Instagram" : ""}.
+        </p>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-5">
         {[["views", "Visualizações"], ["total_interactions", "Interações"], ["profile_views", "Visitas ao perfil"], ["follows", "Novos seguidores"]].map(([k, l]) => {
           const max = Math.max(...meses.map((x) => x[k]), 1);
-          const last = meses[meses.length - 1], prev = meses[meses.length - 2];
+          const total = meses.reduce((a, x) => a + x[k], 0);
           return (
             <div key={k}>
               <p className="text-xs text-fog">{l}</p>
-              <p className="font-display text-xl font-bold">{num(last?.[k])} <span className="text-[11px] font-normal text-fog">em {nome(last.mes)}{prev ? ` · ${nome(prev.mes)}: ${num(prev[k])}` : ""}</span></p>
-              <div className="flex items-end gap-1.5 h-20 mt-2">
+              <p className="font-display text-xl font-bold">{num(total)} <span className="text-[11px] font-normal text-fog">em 4 meses</span></p>
+              <div className="flex items-end gap-1.5 h-24 mt-2">
                 {meses.map((x) => {
                   const parcial = x.dias < diasNoMes(x.mes);
                   return (
-                    <div key={x.mes} className="flex-1 flex flex-col items-center justify-end h-full" title={`${nome(x.mes)}: ${num(x[k])} (${x.dias} dias guardados)`}>
-                      <div className="w-full max-w-[24px] rounded-t-[4px] bg-mint" style={{ height: `${Math.max(2, (x[k] / max) * 100)}%`, opacity: parcial ? 0.45 : 1 }} />
+                    <div key={x.mes} className="flex-1 flex flex-col items-center justify-end h-full" title={`${nome(x.mes)}: ${x.dias ? num(x[k]) : "sem dados"} (${x.dias} dias guardados)`}>
+                      {x.dias ? (
+                        <>
+                          <span className="text-[10px] text-paper mb-0.5" style={{ fontVariantNumeric: "tabular-nums" }}>{num(x[k])}</span>
+                          <div className="w-full max-w-[28px] rounded-t-[4px] bg-mint" style={{ height: `${Math.max(2, (x[k] / max) * 80)}%`, opacity: parcial ? 0.45 : 1 }} />
+                        </>
+                      ) : <div className="w-full max-w-[28px] h-px border-t border-dashed border-line" />}
                     </div>
                   );
                 })}
               </div>
-              <div className="flex gap-1.5 mt-1">{meses.map((x) => <span key={x.mes} className="flex-1 text-center text-[10px] text-fog">{nome(x.mes)}</span>)}</div>
+              <div className="flex gap-1.5 mt-1 border-t border-line pt-1">{meses.map((x) => <span key={x.mes} className={`flex-1 text-center text-[10px] ${x.mes === atual ? "text-paper" : "text-fog"}`}>{nome(x.mes)}</span>)}</div>
             </div>
           );
         })}

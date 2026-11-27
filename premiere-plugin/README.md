@@ -17,5 +17,5 @@ Requer Premiere Pro 25.6 ou mais novo (UXP estável). A API usada está em `@ado
 ## Gerar o .ccx
 
 ```
-cd premiere-plugin && zip -r ../public/downloads/vincit-hub-premiere.ccx manifest.json index.html style.css hub.js premiere.js main.js
+cd premiere-plugin && zip -r ../public/downloads/vincit-hub-premiere.ccx manifest.json index.html style.css logo.png hub.js premiere.js main.js
 ```
