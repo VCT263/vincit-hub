@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, hubAllowed, type Access } from "@/lib/access";
+import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -181,15 +182,16 @@ export const TOOLS: Tool[] = [
     description: "Grava um roteiro de vídeo no Quadro de produção, na etapa Roteiro (gancho, roteiro com cenas e texto de teleprompter, legenda).",
     inputSchema: {
       type: "object", required: ["titulo", "roteiro"],
-      properties: { perfil_id: accountId, titulo: { type: "string" }, formato: { type: "string", enum: ["Reels", "Carrossel", "Stories", "Foto", "YouTube", "Live"] }, gancho: { type: "string" }, roteiro: { type: "string", description: "Cenas, falas e texto do teleprompter" }, legenda: { type: "string" }, data: date, pilar: { type: "string" } },
+      properties: { perfil_id: accountId, titulo: { type: "string" }, formato: { type: "string", enum: ["Reels", "Carrossel", "Stories", "Foto", "YouTube", "Live"] }, gancho: { type: "string" }, roteiro: { type: "string", description: "Cenas, falas e texto do teleprompter" }, legenda: { type: "string" }, data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
     },
     needs: "creator:producao",
     run: async (ctx, a) => {
       await account(ctx, a.perfil_id);
       const status_id = await statusFor(ctx, "roteiro");
+      const est = estiloByNum(a.estilo);
       const { data, error } = await ctx.sb.from("content_ideas").insert({
         account_id: a.perfil_id || null, kind: "copy", status_id, title: clip(a.titulo, 120), format: a.formato || "Reels", hook: clip(a.gancho, 300), planned_for: a.data || null, pillar: clip(a.pilar, 80),
-        body: `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${a.roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}\n\n_${ORIGIN}_`,
+        body: `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${a.roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}${est ? `\n\n**Estilo de edição:** ${est.num} · ${est.nome}` : ""}\n\n_${ORIGIN}_`,
         caption: a.legenda || null,
       }).select("id").single();
       if (error) fail(error.message);
@@ -310,7 +312,9 @@ export const TOOLS: Tool[] = [
           insercoes: "[{inicio, fim, midia, motivo, modo?}] midia = nome do arquivo (no Editor do HUB, um dos B-rolls listados no pedido entra sozinho por cima da fala); modo = 'cheia' | 'esquerda' | 'direita' (cartão lateral)",
           marcadores: "[{inicio, texto}] observações livres para o editor",
           camera: "0 a 3 (só no Editor do HUB): câmera que acompanha a fala com zoom in e out por frase; 0 parada, 1 suave, 2 média, 3 forte",
+          estilo: "'01' a '12' (só no Editor do HUB): número do catálogo de estilos. Aplica lettering, câmera, cor, transição e jump cut do estilo; seus cortes, zooms e títulos entram por cima. Use o estilo pedido, senão o padrão do kit (kit_de_estilo.data.estilo), senão sugira o que combina com o roteiro",
         },
+        catalogo_de_estilos: ESTILOS.map((e) => ({ numero: e.num, nome: e.nome, resumo: e.resumo, bom_para: e.uso, definicao: estiloTags(e).join(" · ") })),
         regras: "Use só tempos que existem na transcrição/timeline. Respeite o kit de estilo e o pedido do editor. Nada é aplicado sem o editor revisar no Premiere.",
       };
     },
@@ -321,7 +325,7 @@ export const TOOLS: Tool[] = [
     description: "Envia o plano de edição (JSON no formato de listar_edicoes_premiere) para uma sequência. O plugin do Premiere ou o Editor do HUB mostra o plano e a pessoa escolhe o que aplicar. No Editor do HUB os cortes são aplicados de verdade na timeline.",
     inputSchema: {
       type: "object", required: ["id", "plano"],
-      properties: { id: { type: "string" }, plano: { type: "object", description: "{resumo, cortes, legendas, titulos, zooms, insercoes, marcadores, camera}" }, observacao: { type: "string" } },
+      properties: { id: { type: "string" }, plano: { type: "object", description: "{resumo, cortes, legendas, titulos, zooms, insercoes, marcadores, camera, estilo}" }, observacao: { type: "string" } },
     },
     needs: "audiovisual:premiere",
     run: async (ctx, a) => {
@@ -331,6 +335,8 @@ export const TOOLS: Tool[] = [
       const keys = ["cortes", "legendas", "titulos", "zooms", "insercoes", "marcadores"];
       const plan: any = { resumo: clip(p.resumo, 1000) || "" };
       if (p.camera != null && Number.isFinite(+p.camera)) plan.camera = Math.max(0, Math.min(3, Math.round(+p.camera)));
+      const est = estiloByNum(p.estilo);
+      if (est) plan.estilo = est.num;
       for (const k of keys) {
         const arr = Array.isArray(p[k]) ? p[k] : [];
         plan[k] = arr.filter((x: any) => x && Number.isFinite(+x.inicio)).slice(0, 2000).map((x: any) => {
@@ -354,7 +360,7 @@ export const TOOLS: Tool[] = [
       type: "object", required: ["nome", "kit"],
       properties: {
         id: { type: "string", description: "id do kit para atualizar (opcional)" }, nome: { type: "string" }, perfil_id: accountId,
-        kit: { type: "object", description: "{cores:{destaque, texto, fundo}, fontes:{titulo, legenda}, legenda:{estilo, palavras_por_tela, caixa_alta}, motion:[...], regras:{corte_max_s, silencio_ms, trilha_db}, mogrts:{legenda, gancho, cta, lower_third} (caminho do .mogrt no computador do editor)}" },
+        kit: { type: "object", description: "{cores:{destaque, texto, fundo}, fontes:{titulo, legenda}, legenda:{estilo, palavras_por_tela, caixa_alta}, motion:[...], regras:{corte_max_s, silencio_ms, trilha_db}, estilo: '01' a '12' (estilo padrão do cliente no catálogo), mogrts:{legenda, gancho, cta, lower_third} (caminho do .mogrt no computador do editor)}" },
       },
     },
     needs: "audiovisual:premiere",
