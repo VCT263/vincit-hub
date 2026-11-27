@@ -76,5 +76,17 @@ export async function mediaRow(m: any, token: string, base: { owner_id: string; 
       break;
     } catch {}
   }
+  // Reels: tempo assistido (médio e total, em ms), que o algoritmo pesa junto com compartilhamentos e salvamentos
+  if (row.media_type === "REELS") {
+    try {
+      const ins = await gget(`${m.id}/insights`, { access_token: token, metric: "ig_reels_avg_watch_time,ig_reels_video_view_total_time" });
+      for (const it of ins.data || []) {
+        const v = Number(it.values?.[0]?.value ?? it.total_value?.value);
+        if (!Number.isFinite(v)) continue;
+        if (it.name === "ig_reels_avg_watch_time") row.avg_watch_ms = Math.round(v);
+        if (it.name === "ig_reels_video_view_total_time") row.total_watch_ms = Math.round(v);
+      }
+    } catch {}
+  }
   return row;
 }

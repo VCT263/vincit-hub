@@ -8,7 +8,7 @@ import {
   QUALITY_HIGH, canEncodeAudio, canEncodeVideo,
 } from "mediabunny";
 import * as M from "./model";
-import { activeOverlays, drawInsert, setFormat, cameraLevel, captionScreens, drawCover, speechCamera, drawOverlays, layout, outputWords, segLen, totalDuration, zoomAt, type Kit, type Media, type Project } from "./model";
+import { activeOverlays, drawInsert, setFormat, shakeAt, cameraLevel, captionScreens, drawCover, speechCamera, drawOverlays, layout, outputWords, segLen, totalDuration, zoomAt, type Kit, type Media, type Project } from "./model";
 
 const RATE = 48000;
 
@@ -82,7 +82,7 @@ export async function exportMp4(p: Project, media: Media[], kit: Kit, onProgress
     for await (const wc of sink.canvasesAtTimestamps(times)) {
       if (signal?.cancel) { await output.cancel(); throw new Error("Exportação cancelada."); }
       const t = l.start + i / FPS;
-      if (wc) drawCover(ctx, wc.canvas, wc.canvas.width, wc.canvas.height, zoomAt(p, t, cam));
+      if (wc) drawCover(ctx, wc.canvas, wc.canvas.width, wc.canvas.height, zoomAt(p, t, cam), false, shakeAt(p, t));
       for (const ov of activeOverlays(p, t)) {
         const fr = await inserts.frame(ov, t);
         if (fr) drawInsert(ctx, ov, fr, fr.width, fr.height, t);

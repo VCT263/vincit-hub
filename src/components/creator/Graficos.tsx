@@ -66,7 +66,7 @@ export function AreaChart({ data, label, fmtV = (v: number) => num(v), height = 
             <text x={L - 8} y={y(t) + 4} textAnchor="end" className="fill-fog" fontSize={11} style={{ fontVariantNumeric: "tabular-nums" }}>{num(t)}</text>
           </g>
         ))}
-        {data.map((d, i) => (i % step === 0 || i === n - 1) && (i === n - 1 || n - 1 - i >= step / 2) ? (
+        {data.map((d, i) => (i % step === 0 || i === n - 1) && (i === n - 1 || n - 1 - i >= step * 0.75) ? (
           <text key={d.date} x={x(i)} y={H - 6} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"} className="fill-fog" fontSize={11}>{diaCurto(d.date)}</text>
         ) : null)}
         <path d={area} fill={MINT} opacity={0.1} />

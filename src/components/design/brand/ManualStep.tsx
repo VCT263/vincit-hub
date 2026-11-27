@@ -4,8 +4,12 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CANVA_BRAND_KIT, download, loadImg, primaryLogo, svgUrl, svgWithFonts, type Logo, type Swatch } from "@/lib/design";
 import { FORMATS, Presenter, ScaledSlide, useDeck, type Format } from "./Presentation";
+import LogoMotion from "./LogoMotion";
 import { I } from "@/components/icons";
 import type { StepProps } from "./types";
+
+/* processo de entrega (Design Academy): escopo, apresentação e aprovação, entrega dos arquivos */
+const ENTREGAVEIS = ["Logo principal (SVG e PNG)", "Versões e assinaturas", "Monograma e favicon", "Paleta com HEX, RGB e CMYK", "Fontes e onde baixar", "Grafismo", "Apresentação em PDF", "Logo animado (vídeo)"];
 
 const fontsOf = (svg: string) => Array.from(new Set(Array.from(svg.matchAll(/font-family="([^"]+)"/g)).map((m) => m[1].split(",")[0].replace(/['"]/g, "").trim())));
 
@@ -23,6 +27,8 @@ export default function ManualStep({ d, id, set }: StepProps) {
   const [format, setFormat] = useState<Format>((d.deck_format as Format) in FORMATS ? d.deck_format : "16:9");
   const { x, slides } = useDeck(d, format);
   const [show, setShow] = useState<number | null>(null);
+  const ent = d.entrega || {};
+  const setEnt = (patch: any) => set({ entrega: { ...ent, ...patch } });
   useEffect(() => {
     // cada slide vira uma página do PDF no tamanho do formato escolhido
     const st = document.createElement("style");
@@ -62,6 +68,22 @@ export default function ManualStep({ d, id, set }: StepProps) {
         <button onClick={carrossel} className="btn btn-ghost btn-sm ml-auto"><I.cards className="w-3.5 h-3.5" />Criar carrossel com a marca</button>
         {msg && <p className="w-full text-xs text-fog">{msg}</p>}
         <p className="w-full text-[11px] text-fog">{slides.length} slides em {FORMATS[format].l}. No PDF, escolha "Salvar como PDF" e ative "Gráficos de fundo"; o tamanho da página já vem certo. Clique num slide para apresentar a partir dele.</p>
+      </div>
+
+      <LogoMotion d={d} name={name} />
+
+      <div className="card p-4 print:hidden">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <p className="font-semibold text-sm mr-auto">Aprovação e entrega</p>
+          {ent.aprovado
+            ? <span className="chip chip-mint">Aprovada pelo cliente em {new Date(ent.aprovado).toLocaleDateString("pt-BR")}</span>
+            : <button onClick={() => setEnt({ aprovado: new Date().toISOString() })} className="btn btn-ghost btn-sm">Marcar como aprovada pelo cliente</button>}
+          {ent.aprovado && <button onClick={() => setEnt({ aprovado: null })} className="text-xs text-fog underline">desfazer</button>}
+        </div>
+        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">{ENTREGAVEIS.map((e) => (
+          <label key={e} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!ent.itens?.[e]} onChange={(ev) => setEnt({ itens: { ...(ent.itens || {}), [e]: ev.target.checked } })} />{e}</label>
+        ))}</div>
+        <p className="text-[11px] text-fog mt-2">{Object.values(ent.itens || {}).filter(Boolean).length} de {ENTREGAVEIS.length} entregues. Apresente, colete o ok do cliente e só então envie os arquivos.</p>
       </div>
 
       <div className="deck-list space-y-6">
