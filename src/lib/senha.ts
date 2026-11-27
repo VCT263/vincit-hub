@@ -15,7 +15,9 @@ export function erroSenha(e: { message?: string; code?: string } | null | undefi
   if (e?.code === "weak_password" || /at least \d+ characters|weak/i.test(m)) return SENHA_AVISO;
   if (e?.code === "reauthentication_needed") return "Por segurança, confirme a senha atual para trocar.";
   if (/session/i.test(m)) return "O link expirou. Peça um novo em Esqueci minha senha.";
-  if (/rate limit|only request this after/i.test(m)) return "Aguarde alguns segundos antes de pedir de novo.";
+  if (/only request this after/i.test(m)) return "Aguarde alguns segundos antes de pedir de novo.";
+  // o e-mail padrão do Supabase manda só 2 e-mails por hora no projeto inteiro
+  if (/rate limit/i.test(m)) return "O limite de e-mails do sistema nesta hora acabou. Tente de novo em até 1 hora e use o e-mail que chegar por último.";
   return m || "Não foi possível salvar a senha.";
 }
 
