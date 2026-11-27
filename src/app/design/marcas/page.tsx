@@ -68,7 +68,7 @@ export default function Marcas() {
         ))}</div>
       )}
       {undo && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 card px-4 py-3 flex items-center gap-3 text-sm shadow-xl">
+        <div className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-5 left-1/2 -translate-x-1/2 z-50 card px-4 py-3 flex items-center gap-3 text-sm shadow-xl">
           <span><b>{undo.data?.brief?.nome || undo.title}</b> foi para a lixeira. Some sozinha em 15 dias.</span>
           <button onClick={() => recuperar(undo)} className="btn btn-ghost !py-1 text-mint">Desfazer</button>
           <button onClick={() => setUndo(null)} className="text-fog hover:text-white" aria-label="Fechar">×</button>
