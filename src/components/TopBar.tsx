@@ -30,7 +30,7 @@ export default function TopBar() {
     <nav className="flex gap-1 bg-panel border border-line rounded-xl p-1 overflow-x-auto scroll-thin">
       {visible.map(({ href, label, Icon }) => (
         <Link key={href} href={href}
-          className={`flex-1 shrink-0 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-1.5 rounded-[9px] text-sm font-semibold transition-colors ${isActive(href) ? "bg-mint text-[var(--color-on-mint,#06140e)]" : "text-fog hover:text-paper hover:bg-panel2"}`}>
+          className={`flex-1 shrink-0 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-1.5 rounded-[9px] text-sm font-semibold whitespace-nowrap transition-colors ${isActive(href) ? "bg-mint text-[var(--color-on-mint,#06140e)]" : "text-fog hover:text-paper hover:bg-panel2"}`}>
           <Icon className="w-4 h-4" /> {label}
         </Link>
       ))}

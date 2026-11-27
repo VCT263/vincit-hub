@@ -288,7 +288,7 @@ export const SIZES = [
   { k: "9x16", l: "Stories 9:16", w: 1080, h: 1920 },
 ];
 export type Slide = { id: string; layout: "capa" | "texto" | "lista" | "citacao" | "cta"; kicker?: string; title: string; body?: string; img?: string; bg: "primaria" | "escuro" | "claro" | "imagem" | "destaque" };
-export type Kit = { colors: Record<string, string>; title: string; body: string; tw: number; logo?: string; name?: string };
+export type Kit = { colors: Record<string, string>; title: string; body: string; tw: number; logo?: string; logoSvg?: string; name?: string };
 
 export const DEFAULT_KIT: Kit = { colors: { Primária: "#6eefb6", Apoio: "#3d525a", Destaque: "#f5c84c", Escuro: "#0c0c0d", Claro: "#f1f1f1" }, title: "Bricolage Grotesque", body: "Inter", tw: 800, name: "VINCIT" };
 
@@ -298,7 +298,9 @@ export function kitFrom(brand: any): Kit {
   for (const s of (d.palette || []) as Swatch[]) colors[s.role] = s.hex;
   const pair = d.type || {};
   const fav = ((d.logos || []) as Logo[]).find((l) => l.id === d.logo_id) || ((d.logos || []) as Logo[]).find((l) => l.fav);
-  return { colors, title: pair.title || DEFAULT_KIT.title, body: pair.body || DEFAULT_KIT.body, tw: pair.tw || 800, logo: fav?.svg ? svgUrl(fav.svg) : fav?.img, name: d.brief?.nome || brand?.title };
+  // logotipo da v2 (vetor desenhado) vale mais que o logo antigo da v1; nas peças ele ganha a cor do texto
+  const lt = d.logotype?.svg as string | undefined;
+  return { colors, title: pair.title || DEFAULT_KIT.title, body: pair.body || DEFAULT_KIT.body, tw: pair.tw || 800, logo: lt ? svgUrl(lt) : fav?.svg ? svgUrl(fav.svg) : fav?.img, logoSvg: lt || fav?.svg, name: d.brief?.nome || brand?.title };
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -397,7 +399,7 @@ export async function drawSlide(cv: HTMLCanvasElement, s: Slide, kit: Kit, size:
   // rodapé: logo ou nome + paginação
   const fy = H - P * .6;
   if (kit.logo) {
-    try { const lg = await loadImg(kit.logo); const lh = W * .045, lw = Math.min(W * .3, (lg.width / lg.height) * lh); ctx.drawImage(lg, P, fy - lh, lw, lh); } catch {}
+    try { const lg = await loadImg(kit.logoSvg ? svgUrl(monoSvg(kit.logoSvg, fg)) : kit.logo); const lh = W * .045, lw = Math.min(W * .3, (lg.width / lg.height) * lh); ctx.drawImage(lg, P, fy - lh, lw, lh); } catch {}
   } else if (kit.name) { ctx.fillStyle = fg; ctx.globalAlpha = .7; ctx.font = `700 ${W * .026}px "${kit.title}"`; ctx.fillText(kit.name, P, fy); ctx.globalAlpha = 1; }
   if (total > 1) { ctx.fillStyle = fg; ctx.globalAlpha = .6; ctx.font = `600 ${W * .026}px "${kit.body}"`; const t = `${n}/${total}`; ctx.fillText(t, W - P - ctx.measureText(t).width, fy); ctx.globalAlpha = 1; }
   if (s.layout === "capa" && total > 1) { ctx.fillStyle = accent; ctx.font = `700 ${W * .028}px "${kit.body}"`; const t = "arraste →"; ctx.fillText(t, W - P - ctx.measureText(t).width, P + W * .02); }
