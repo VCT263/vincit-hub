@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 // Recomeçar do zero: escolhe o que zerar, confirma a senha (etapa 1) e digita ZERAR (etapa 2).
 export default function ResetSettings({ gestor = true }: { gestor?: boolean }) {
   const [open, setOpen] = useState(false);
   const [fin, setFin] = useState(gestor);
+  useEffect(() => setFin(gestor), [gestor]); // o acesso ao Gestor chega depois do primeiro render
   const [dia, setDia] = useState(true);
   const [step, setStep] = useState<1 | 2>(1);
   const [pw, setPw] = useState("");
