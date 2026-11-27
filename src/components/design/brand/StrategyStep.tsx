@@ -1,7 +1,7 @@
 "use client";
-import { useRef, useState } from "react";
-import { ARCHETYPES, MAP_AXES, NICHES } from "@/lib/brand-strategy";
-import { behanceSearch, uid } from "@/lib/design";
+import { useEffect, useRef, useState } from "react";
+import { ARCHETYPES, ARCH_GROUPS, ARCH_ROLES, MAP_AXES, NICHES, archetypeMix, type Archetype } from "@/lib/brand-strategy";
+import { behanceSearch, loadFonts, uid } from "@/lib/design";
 import { I } from "@/components/icons";
 import type { StepProps } from "./types";
 
@@ -15,6 +15,15 @@ export default function StrategyStep({ d, set }: StepProps) {
   const ax: [string, string] = s.eixos || ["preco", "tom"];
   const A = (k: string) => MAP_AXES.find((x) => x[0] === k)!;
   const name = d.brief?.nome || "Sua marca";
+  const mix = archetypeMix(s);
+  useEffect(() => { loadFonts(mix.flatMap((m) => m.a.fontes)); }, [mix.map((m) => m.a.k).join()]); // eslint-disable-line
+  const toggle = (k: string) => {
+    const i = arch.indexOf(k);
+    if (i >= 0) { const p = [...(s.pesos || [50, 30, 20])]; p.splice(i, 1); up({ arquetipos: arch.filter((x) => x !== k), pesos: p }); return; }
+    if (arch.length >= 3) return;
+    const p = [...(s.pesos || [50, 30, 20]).slice(0, arch.length), [50, 30, 20][arch.length]];
+    up({ arquetipos: [...arch, k], pesos: p });
+  };
   const dots: Dot[] = s.mapa?.length ? s.mapa : [{ id: "me", name, x: 70, y: 30, me: true }, ...((d.brief?.concorrentes || []) as string[]).slice(0, 6).map((c, i) => ({ id: `c${i}`, name: c, x: 20 + i * 12, y: 60 - (i % 3) * 15 }))];
   const box = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<string | null>(null);
@@ -53,17 +62,60 @@ export default function StrategyStep({ d, set }: StepProps) {
         </label>
       </section>
 
-      <section className="card p-5 rise">
-        <div className="flex items-baseline justify-between gap-3 mb-3"><p className="font-mono text-[10px] uppercase tracking-widest text-fog">02 · Arquétipo</p><p className="text-xs text-fog">Escolha 1 principal e até 1 de apoio</p></div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-          {ARCHETYPES.map((a) => { const i = arch.indexOf(a.k); return (
-            <button key={a.k} onClick={() => up({ arquetipos: i >= 0 ? arch.filter((x) => x !== a.k) : [...arch, a.k].slice(-2) })} className={`rounded-xl border p-3 text-left ${i >= 0 ? "border-mint bg-mint/10" : "border-line hover:border-fog"}`}>
-              <div className="flex items-center justify-between"><p className="font-semibold text-sm">{a.l}</p>{i >= 0 && <span className="chip chip-mint !text-[10px]">{i === 0 ? "principal" : "apoio"}</span>}</div>
-              <p className="text-xs text-fog mt-1">{a.d}</p>
-              <p className="text-[11px] text-fog/70 mt-1.5 italic">{a.visual}</p>
-            </button>
-          ); })}
+      <section className="card p-5 rise space-y-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3"><p className="font-mono text-[10px] uppercase tracking-widest text-fog">02 · Expressão arquetípica</p><p className="text-xs text-fog">Escolha até 3, na ordem: predominante, secundário e apoio</p></div>
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
+          {ARCH_GROUPS.map((g) => (
+            <div key={g.k}>
+              <p className="text-[11px] text-fog mb-1.5"><b className="text-paper">{g.l}</b> · {g.d}</p>
+              <div className="space-y-1.5">
+                {ARCHETYPES.filter((a) => a.grupo === g.k).map((a) => { const i = arch.indexOf(a.k); return (
+                  <button key={a.k} onClick={() => toggle(a.k)} className={`w-full rounded-xl border p-3 text-left ${i >= 0 ? "border-mint bg-mint/10" : "border-line hover:border-fog"}`}>
+                    <div className="flex items-center justify-between gap-2"><p className="font-semibold text-sm">{a.l}</p>{i >= 0 && <span className="chip chip-mint !text-[10px]">{ARCH_ROLES[i].toLowerCase()} · {mix[i]?.pct}%</span>}</div>
+                    <p className="text-xs text-fog mt-0.5">{a.d}</p>
+                  </button>
+                ); })}
+              </div>
+            </div>
+          ))}
         </div>
+
+        {mix.length > 0 && (
+          <div className="grid lg:grid-cols-[260px_1fr] gap-5 items-start">
+            <div className="space-y-4">
+              <ArchWheel mix={mix} />
+              <div className="space-y-3">
+                {mix.map((m, i) => (
+                  <div key={m.a.k}>
+                    <div className="flex items-center justify-between text-xs"><span><span className="text-fog">{m.role}</span> · <b>{m.a.l}</b></span><span className="font-mono">{m.pct}%</span></div>
+                    <input type="range" min={5} max={80} value={m.pct} onChange={(e) => { const p = mix.map((x) => x.pct); p[i] = +e.target.value; up({ pesos: p }); }} className="w-full accent-[var(--color-mint)]" />
+                  </div>
+                ))}
+                {mix.reduce((t, m) => t + m.pct, 0) !== 100 && <p className="text-[11px] text-fog">Soma {mix.reduce((t, m) => t + m.pct, 0)}%. O ideal é fechar em 100%.</p>}
+              </div>
+              {mix.length > 1 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {([["ativ_verbal", "Puxa o verbal"], ["ativ_visual", "Puxa o visual"]] as const).map(([k, l]) => (
+                    <div key={k}><label className="label">{l}</label><select value={s[k] || mix[0].a.k} onChange={(e) => up({ [k]: e.target.value })} className="input !py-1.5 text-xs">{mix.map((m) => <option key={m.a.k} value={m.a.k}>{m.a.l}</option>)}</select></div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="overflow-x-auto scroll-thin">
+              <table className="w-full text-xs border-collapse min-w-[560px]">
+                <thead><tr><th className="text-left font-mono text-[10px] uppercase tracking-widest text-fog font-normal pb-2 w-28">Aspecto</th>{mix.map((m) => <th key={m.a.k} className="text-left pb-2 pr-3"><span className="font-display text-base">{m.a.l}</span> <span className="text-fog font-normal">{m.pct}%</span></th>)}</tr></thead>
+                <tbody>
+                  {ROWS.map(([l, f]) => (
+                    <tr key={l} className="border-t border-line align-top">
+                      <td className="py-2.5 pr-3 text-fog">{l}</td>
+                      {mix.map((m) => <td key={m.a.k} className="py-2.5 pr-3">{f(m.a)}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="card p-5 rise">
@@ -103,5 +155,40 @@ export default function StrategyStep({ d, set }: StepProps) {
         </div>
       </section>
     </div>
+  );
+}
+
+const ROWS: [string, (a: Archetype) => React.ReactNode][] = [
+  ["Narrativa", (a) => a.narrativa],
+  ["Verbal", (a) => <>{a.verbal}<div className="flex flex-wrap gap-1 mt-1.5">{a.palavras.map((p) => <span key={p} className="chip !text-[10px]">{p}</span>)}</div></>],
+  ["Nunca diz", (a) => <span className="text-fog">{a.nunca}</span>],
+  ["Forma", (a) => a.forma],
+  ["Cor", (a) => <><div className="flex gap-1 mb-1">{a.cores.map((c) => <span key={c} className="w-6 h-6 rounded-md border border-line" style={{ background: c }} title={c} />)}</div><span className="text-fog">{a.visual}</span></>],
+  ["Tipografia", (a) => <div className="space-y-0.5">{a.fontes.map((f) => <p key={f} className="text-base leading-tight" style={{ fontFamily: `"${f}"` }}>{f}</p>)}</div>],
+  ["Fotografia", (a) => a.foto],
+  ["Atração", (a) => a.atracao],
+  ["Referências", (a) => <><span className="text-fog">{a.marcas}</span><a href={behanceSearch(a.busca)} target="_blank" rel="noreferrer" className="block text-mint mt-1">Behance: {a.busca} ↗</a></>],
+];
+
+/** roda dos 12 arquétipos com a hierarquia marcada */
+function ArchWheel({ mix }: { mix: { a: Archetype; pct: number }[] }) {
+  const R = 100, r0 = 38, n = ARCHETYPES.length;
+  const seg = (i: number) => {
+    const a0 = (i / n) * Math.PI * 2 - Math.PI / 2, a1 = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2;
+    const p = (a: number, rr: number) => `${(110 + rr * Math.cos(a)).toFixed(2)} ${(110 + rr * Math.sin(a)).toFixed(2)}`;
+    return `M${p(a0, r0)} L${p(a0, R)} A${R} ${R} 0 0 1 ${p(a1, R)} L${p(a1, r0)} A${r0} ${r0} 0 0 0 ${p(a0, r0)}Z`;
+  };
+  return (
+    <svg viewBox="0 0 220 220" className="w-full max-w-[260px] mx-auto">
+      {ARCHETYPES.map((a, i) => { const m = mix.find((x) => x.a.k === a.k); const mid = ((i + .5) / n) * Math.PI * 2 - Math.PI / 2; return (
+        <g key={a.k}>
+          <path d={seg(i)} fill={m ? "var(--color-mint)" : "transparent"} fillOpacity={m ? .25 + m.pct / 100 : 0} stroke="var(--color-line)" strokeWidth="1" />
+          <text x={110 + 70 * Math.cos(mid)} y={110 + 70 * Math.sin(mid)} textAnchor="middle" dominantBaseline="middle" fontSize="7.5" fill={m ? "var(--color-paper)" : "var(--color-fog)"} fontWeight={m ? 700 : 400}>{a.l.split(" ")[0]}</text>
+        </g>
+      ); })}
+      <circle cx="110" cy="110" r={r0 - 2} fill="var(--color-panel2, #1c1c1f)" />
+      <text x="110" y="106" textAnchor="middle" fontSize="8" fill="var(--color-fog)">ARQUÉTIPOS</text>
+      <text x="110" y="118" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--color-mint)">{mix[0]?.a.l || ""}</text>
+    </svg>
   );
 }
