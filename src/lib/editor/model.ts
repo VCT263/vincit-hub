@@ -6,23 +6,23 @@
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
-export type TitleKind = "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra" | "frase" | "letreiro" | "data" | "lista" | "rec" | "vazado"
+export type TitleKind = "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra" | "frase" | "letreiro" | "data" | "lista" | "rec" | "vazado" | "riscado"
   | "numero" | "grafico" | "checklist" | "seta" | "relogio" | "progresso";
 /** lettering: textos de destaque que entram e saem em momentos da fala */
-export const LETTERING_KINDS: TitleKind[] = ["gancho", "palavra", "vazado", "frase", "letreiro", "lower_third", "cta", "episodio", "capitulo", "data", "lista", "rec"];
+export const LETTERING_KINDS: TitleKind[] = ["gancho", "palavra", "vazado", "riscado", "frase", "letreiro", "lower_third", "cta", "episodio", "capitulo", "data", "lista", "rec"];
 /** motion: animações desenhadas no próprio HUB, nas cores do kit (alternativa à imagem de inserção) */
 export const MOTION_KINDS: TitleKind[] = ["numero", "grafico", "checklist", "seta", "relogio", "progresso"];
 export const TITLE_KINDS: TitleKind[] = [...LETTERING_KINDS, ...MOTION_KINDS];
 export const TITLE_LABEL: Record<TitleKind, string> = {
   gancho: "Gancho", cta: "CTA", lower_third: "Nome na tela", episodio: "Abertura do episódio", capitulo: "Capítulo (roda)", palavra: "Palavra-chave",
-  frase: "Frase de impacto", letreiro: "Letreiro espaçado", data: "Data e lugar", lista: "Tela de explicação", rec: "Câmera REC", vazado: "Texto vazado (no espaço vazio)",
+  frase: "Frase de impacto", letreiro: "Letreiro espaçado", data: "Data e lugar", lista: "Tela de explicação", rec: "Câmera REC", vazado: "Texto vazado (no espaço vazio)", riscado: "Riscado e corrigido",
   numero: "Número subindo", grafico: "Gráfico crescendo", checklist: "Checklist", seta: "Seta desenhada", relogio: "Relógio", progresso: "Barra de progresso",
 };
 /** o que cada texto/motion espera em "sub" */
 export const TITLE_SUB_HINT: Partial<Record<TitleKind, string>> = {
   episodio: "Linha de baixo (ex.: EP. 03 · 2026)", capitulo: "Linha pequena (opcional)", lower_third: "Cargo ou @perfil", palavra: "Linha pequena",
   frase: "Palavras na cor de destaque (ex.: conforto)", data: "Segunda linha (ex.: domingo · Floripa)", lista: "Itens separados por | (ex.: dormir | treinar | escrever)", rec: "Canto de baixo (ex.: 4K UHD)",
-  vazado: "Segunda linha, em itálico (ex.: no CapCut)", numero: "Legenda do número (ex.: das vendas)", grafico: "Legenda (ex.: faturamento em 3 meses)",
+  vazado: "Segunda linha, em itálico (ex.: no CapCut)", riscado: "A palavra certa, que entra embaixo (ex.: estratégia)", numero: "Legenda do número (ex.: das vendas)", grafico: "Legenda (ex.: faturamento em 3 meses)",
   checklist: "Itens separados por |", seta: "Para onde aponta: esquerda, direita, cima ou baixo", relogio: "Legenda (ex.: por dia)", progresso: "Legenda (ex.: da meta)",
 };
 /** sub = linha pequena de cima (ex.: "EP. 03 · Nome da série" ou "Capítulo 2") */
@@ -53,8 +53,8 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   estilo?: string;
 };
 /** B-roll por cima da fala: o vídeo/imagem cobre a tela (cheia) ou entra num cartão do lado; o som continua o da fala */
-export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade";
-export const OVERLAY_MODES: [OverlayMode, string][] = [["cheia", "Tela cheia"], ["esquerda", "Cartão à esquerda"], ["direita", "Cartão à direita"], ["polaroid", "Polaroid inclinada"], ["circulo", "Círculo"], ["metade", "Metade de cima"]];
+export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade" | "pagina";
+export const OVERLAY_MODES: [OverlayMode, string][] = [["cheia", "Tela cheia"], ["esquerda", "Cartão à esquerda"], ["direita", "Cartão à direita"], ["polaroid", "Polaroid inclinada"], ["circulo", "Círculo"], ["metade", "Metade de cima"], ["pagina", "Página branca (foto em cartão, fundo claro)"]];
 export type Overlay = { id: string; mediaId: string; start: number; end: number; in: number; mode: OverlayMode };
 
 export type Kit = {
@@ -93,7 +93,7 @@ export const DEFAULT_KIT: Kit = {
   legenda: { estilo: "impacto", palavras_por_tela: 3, caixa_alta: true, altura: 0.64 },
   regras: { corte_max_s: 4, silencio_ms: 350, trilha_db: -18 },
   camera: { intensidade: 2, movimentos: ["punch", "push", "tremida"] },
-  lettering: { tipos: ["gancho", "palavra", "vazado", "frase", "cta"], frequencia: "medio" },
+  lettering: { tipos: ["gancho", "palavra", "vazado", "riscado", "frase", "cta"], frequencia: "medio" },
   insercao: { modo: "cheia", frequencia: "medio" },
   motion: { tipos: ["numero", "grafico", "checklist", "relogio", "progresso"], frequencia: "medio" },
 };
@@ -385,8 +385,10 @@ export const CAPTION_STYLES: [string, string][] = [
   ["documental", "Documental (faixa simples embaixo)"],
   ["classico", "Clássico (branca sobre faixa translúcida)"],
   ["maquina", "Máquina de escrever (letra a letra, monoespaçada)"],
+  ["revelar", "Revelar (a frase inteira aparece apagada e acende conforme é dita)"],
+  ["brilho", "Brilho (branca grande com brilho suave, uma ideia por tela)"],
 ];
-export const CAPTION_ANIMS: [string, string][] = [["pop", "Pop (cresce e assenta)"], ["sobe", "Sobe (entra de baixo)"], ["desfoque", "Desfoque (entra nítida)"], ["nenhuma", "Sem animação"]];
+export const CAPTION_ANIMS: [string, string][] = [["pop", "Pop (cresce e assenta)"], ["sobe", "Sobe (entra de baixo)"], ["desfoque", "Desfoque (entra nítida)"], ["flash", "Flash (cada palavra pisca numa caixa branca ao entrar)"], ["nenhuma", "Sem animação"]];
 
 /** legenda da tela atual no estilo do kit */
 export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number] | undefined, t: number, kit: Kit) {
@@ -397,6 +399,10 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
     const said = screen.words.filter((w) => t >= w.start);
     const cur = said[said.length - 1] || screen.words[0];
     screen = { ...screen, words: [cur] };
+  } else if (st === "brilho") {
+    // brilho: só o que já foi dito, sempre centralizado
+    const said = screen.words.filter((w) => t >= w.start);
+    screen = { ...screen, words: said.length ? said : screen.words.slice(0, 1) };
   }
   const idx = Math.round(screen.start * 7) % 3;
   const anim = kit.legenda?.animacao || "pop";
@@ -418,16 +424,16 @@ function drawCaptionInner(ctx: Ctx, screen: ReturnType<typeof captionScreens>[nu
   const hi = kit.cores?.destaque || "#F5C84C";
   const fg = kit.cores?.texto || "#FFFFFF";
   const bg = kit.cores?.fundo || "#0c0c0d";
-  const upper = (!!kit.legenda?.caixa_alta && !["editorial", "minimal", "serifa", "palavra"].includes(st)) || st === "hormozi";
+  const upper = (!!kit.legenda?.caixa_alta && !["editorial", "minimal", "serifa", "palavra", "revelar", "brilho"].includes(st)) || st === "hormozi";
   let y0 = H * (isWide() ? kit.legenda?.altura_h || 0.84 : kit.legenda?.altura || 0.64);
   if (kit.legenda?.posicao === "variavel" && !isWide()) y0 = H * [0.62, 0.42, 0.72][idx];
   if (st === "palavra") y0 = H * (isWide() ? 0.5 : 0.5);
-  const base = ({ editorial: 92, documental: 54, caixa: 70, minimal: 52, serifa: 74, bloco: 72, neon: 80, karaoke: 84, palavra: 58, bold: 82, hormozi: 86, classico: 56 } as Record<string, number>)[st] ?? 84;
+  const base = ({ editorial: 92, documental: 54, caixa: 70, minimal: 52, serifa: 74, bloco: 72, neon: 80, karaoke: 84, palavra: 58, bold: 82, hormozi: 86, classico: 56, revelar: 76, brilho: 104 } as Record<string, number>)[st] ?? 84;
   const size = U * base;
   const fontOf = (raw: string) => {
     if (st === "editorial") return css("Instrument Serif", size, true);
     if (st === "minimal" || st === "classico") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Medium", size);
-    if (st === "palavra") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Bold", size);
+    if (st === "palavra" || st === "revelar") return css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Bold", size);
     if (st === "serifa" && isHot(raw)) return css("Instrument Serif", size * 1.25, true);
     return css(kit.fontes?.legenda, size);
   };
@@ -458,7 +464,20 @@ function drawCaptionInner(ctx: Ctx, screen: ReturnType<typeof captionScreens>[nu
       const hot = active || (said && isHot(word.t));
       ctx.save();
       ctx.font = it.font;
-      if (st === "impacto") {
+      if (kit.legenda?.animacao === "flash" && said && t - word.start < 0.09) {
+        // flash: nos primeiros quadros a palavra aparece invertida numa caixa branca
+        ctx.fillStyle = "#fff"; ctx.fillRect(x - 10, y - size * 0.62, ww + 20, size * 1.24);
+        ctx.fillStyle = "#0c0c0d"; ctx.fillText(w, x, y);
+      } else if (st === "revelar") {
+        ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 18;
+        ctx.fillStyle = said && isHot(word.t) ? hi : fg; ctx.globalAlpha = said ? 1 : 0.32;
+        ctx.fillText(w, x, y);
+      } else if (st === "brilho") {
+        if (!said) { ctx.restore(); x += ww + space; return; }
+        ctx.shadowColor = "rgba(255,255,255,.9)"; ctx.shadowBlur = active ? 46 : 30;
+        ctx.fillStyle = "#fff"; ctx.fillText(w, x, y);
+        ctx.shadowBlur = 10; ctx.fillText(w, x, y);
+      } else if (st === "impacto") {
         const pop = active ? 1 + 0.12 * Math.max(0, 1 - (t - word.start) / 0.12) : 1;
         ctx.translate(x + ww / 2, y); ctx.scale(pop, pop); ctx.translate(-(x + ww / 2), -y);
         ctx.lineJoin = "round"; ctx.lineWidth = size * 0.16; ctx.strokeStyle = "#000";
@@ -805,6 +824,24 @@ export function drawTitle(ctx: Ctx, tt: Title, t: number, kit: Kit, all: Title[]
     ctx.font = css(kit.fontes?.titulo, big);
     ctx.fillStyle = fg; ctx.fillText(tt.text.toLowerCase(), x0, y0 + (1 - k) * 40);
     if (tt.sub) { ctx.font = css("Instrument Serif", big * 0.78, true); ctx.fillStyle = hi; ctx.fillText(tt.sub.toLowerCase(), x0 + big * 0.35, y0 + big * 0.86 + (1 - k) * 60); }
+  } else if (tt.kind === "riscado") {
+    // riscado e corrigido: a palavra "errada" aparece, um traço a corta e a certa entra embaixo
+    const size = wide ? 110 : 120;
+    const cx = wide ? W * 0.74 : W / 2, cy = wide ? H * 0.4 : H * 0.24;
+    ctx.globalAlpha = Math.max(0, Math.min(k, out));
+    ctx.font = css((kit.fontes?.legenda || "Inter").replace(/\s+(Black|ExtraBold|Bold)$/i, "") + " Medium", size);
+    const a = tt.text.toLowerCase(), aw = ctx.measureText(a).width;
+    ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 20;
+    ctx.fillStyle = fg; ctx.fillText(a, cx - aw / 2, cy);
+    const el = t - tt.start;
+    const f = Math.max(0, Math.min(1, (el - 0.35) / 0.25));
+    if (f > 0) { ctx.shadowColor = "transparent"; ctx.strokeStyle = "#e5242b"; ctx.lineWidth = size * 0.08; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(cx - aw / 2 - 10, cy + size * 0.04); ctx.lineTo(cx - aw / 2 - 10 + (aw + 20) * f, cy - size * 0.04); ctx.stroke(); }
+    const g = Math.max(0, Math.min(1, (el - 0.65) / 0.2));
+    if (tt.sub && g > 0) {
+      ctx.globalAlpha = Math.max(0, Math.min(g, out)); ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 20;
+      ctx.font = css(kit.fontes?.legenda, size * 1.05); const b = tt.sub.toLowerCase(), bw = ctx.measureText(b).width;
+      ctx.fillStyle = fg; ctx.fillText(b, cx - bw / 2, cy + size * 1.05 + (1 - g) * 30);
+    }
   } else if (MOTION_KINDS.includes(tt.kind)) {
     drawMotion(ctx, tt, t, kit, Math.max(0, Math.min(k, out)));
   } else if (tt.kind === "palavra") {
@@ -951,6 +988,21 @@ export function drawInsert(ctx: Ctx, ov: Overlay, src: CanvasImageSource, sw: nu
   if (!sw || !sh) return;
   const k = Math.min(1, (t - ov.start) / 0.25, (ov.end - t) / 0.25);
   ctx.save();
+  if (ov.mode === "pagina") {
+    // página branca: fundo claro cobre a fala e a foto entra num cartão arredondado, levemente girado
+    const wide = isWide(), e = Math.max(0, Math.min(1, k));
+    ctx.globalAlpha = Math.min(1, e * 1.6);
+    ctx.fillStyle = "#f6f5f2"; ctx.fillRect(0, 0, W, H);
+    const cw = wide ? W * 0.46 : W * 0.78, ch = cw * (wide ? 0.62 : 0.8), cx = W / 2, cy = H * (wide ? 0.54 : 0.52);
+    const pop = 0.86 + 0.14 * (1 - Math.pow(1 - e, 3));
+    ctx.translate(cx, cy + (1 - e) * 40); ctx.rotate((Math.round(ov.start * 5) % 2 ? 1 : -1) * 0.025); ctx.scale(pop, pop); ctx.translate(-cx, -cy);
+    ctx.shadowColor = "rgba(0,0,0,.22)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+    roundRect(ctx, cx - cw / 2, cy - ch / 2, cw, ch, 36); ctx.fillStyle = "#fff"; ctx.fill(); ctx.shadowColor = "transparent";
+    roundRect(ctx, cx - cw / 2, cy - ch / 2, cw, ch, 36); ctx.clip();
+    const s = Math.max(cw / sw, ch / sh); ctx.drawImage(src, cx - (sw * s) / 2, cy - (sh * s) / 2, sw * s, sh * s);
+    ctx.restore();
+    return;
+  }
   if (ov.mode === "polaroid" || ov.mode === "circulo" || ov.mode === "metade") {
     const wide = isWide();
     const pop = 0.7 + 0.3 * (1 - Math.pow(1 - Math.max(0, Math.min(1, k)), 3)) + 0.05 * Math.sin(Math.min(1, k) * Math.PI);
@@ -1025,7 +1077,10 @@ export function drawOverlays(ctx: Ctx, p: Project, screens: ReturnType<typeof ca
   for (const tt of on) drawTitle(ctx, tt, t, kit, p.titles);
   // telas cheias (motion, frase, explicação, abertura) tiram a legenda da frente
   const full = on.some((tt) => MOTION_KINDS.includes(tt.kind) || ["frase", "lista", "episodio", "capitulo"].includes(tt.kind));
-  if (p.captionsOn && !full) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kit);
+  // na página branca a legenda fica escura para continuar legível
+  const pagina = (p.overlays || []).some((o) => o.mode === "pagina" && t >= o.start && t < o.end);
+  const kitLeg = pagina ? { ...kit, cores: { ...kit.cores, texto: "#141414" } } : kit;
+  if (p.captionsOn && !full) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kitLeg);
   drawFade(ctx, p, t);
 }
 

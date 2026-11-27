@@ -177,7 +177,12 @@
       const ini = Math.max(c.start, +z.inicio), fim = Math.min(c.end, z.fim != null ? +z.fim : +z.inicio + 1.5);
       const acts = [];
       if (!scale.isTimeVarying()) acts.push(scale.createSetTimeVaryingAction(true));
-      acts.push(kf(Math.max(c.start, ini - 0.04), 100), kf(ini, val), kf(fim, val), kf(Math.min(c.end, fim + 0.04), 100));
+      // tipo do movimento (vem do Editor do HUB): punch entra seco, push aproxima devagar, pull afasta devagar, chicote passa rápido
+      const tipo = z.tipo || "punch";
+      if (tipo === "push") acts.push(kf(ini, 100), kf(fim, val), kf(Math.min(c.end, fim + 0.04), 100));
+      else if (tipo === "pull") acts.push(kf(Math.max(c.start, ini - 0.04), 100), kf(ini, val), kf(fim, 100));
+      else if (tipo === "chicote") acts.push(kf(ini, 100), kf(Math.min(fim, ini + 0.12), val), kf(fim, 100));
+      else acts.push(kf(Math.max(c.start, ini - 0.04), 100), kf(ini, val), kf(fim, val), kf(Math.min(c.end, fim + 0.04), 100));
       return acts;
     }
     return null;
@@ -196,7 +201,7 @@
     const mk = [];
     const marker = (name, ini, fim, note) => mk.push(markers.createAddMarkerAction(String(name).slice(0, 120), "Comment", T(ini), T(Math.max(0, (fim != null ? fim : ini) - ini)), note || ""));
     const mogrts = (kit && kit.data && kit.data.mogrts) || {};
-    const res = { marcadores: 0, legendas: 0, titulos: 0, zooms: 0, insercoes: 0, avisos: [] };
+    const res = { marcadores: 0, legendas: 0, titulos: 0, motion: 0, zooms: 0, insercoes: 0, avisos: [] };
 
     if (pick.cortes) (plan.cortes || []).forEach((c) => marker(`✂ Cortar ${fmt(c.inicio)}–${fmt(c.fim)}`, c.inicio, c.fim, c.motivo));
     if (pick.marcadores) (plan.marcadores || []).forEach((m) => marker(m.texto || "Nota do Claude", m.inicio, m.fim, m.texto));
@@ -207,7 +212,7 @@
       const queue = [];
       for (const x of list) {
         const path = pathFor(x);
-        if (!path) { marker(`${label}: ${x.texto}`, x.inicio, x.fim); continue; }
+        if (!path) { marker(`${x.nome || label}: ${x.texto}${x.linha ? " · " + x.linha : ""}`, x.inicio, x.fim, [x.nome || label, x.texto, x.linha].filter(Boolean).join(" | ")); continue; }
         queue.push({ x, path });
       }
       if (!queue.length) return;
@@ -236,6 +241,9 @@
     }
     if (pick.legendas) await placeMogrts(plan.legendas || [], () => mogrts.legenda, "Legenda", "legendas");
     if (pick.titulos) await placeMogrts(plan.titulos || [], (t) => mogrts[t.tipo] || mogrts.gancho, "Título", "titulos");
+    // motion (número, gráfico, checklist…): só com o MOGRT do próprio tipo; sem ele, marcador com a instrução
+    if (pick.motion) await placeMogrts(plan.motion || [], (t) => mogrts[t.tipo], "Motion", "motion");
+    if (pick.zooms) (plan.zooms || []).filter((z) => z.tipo === "tremida").forEach((z) => marker(`Tremida (impacto) ${z.escala || 108}%`, z.inicio, z.fim, "Adicione um shake curto neste trecho"));
 
     // zoom: keyframes de Escala no clipe de V1 que cobre o trecho
     if (pick.zooms && (plan.zooms || []).length) {
@@ -256,7 +264,7 @@
       const vIdx = 1; // V2
       for (const ins of plan.insercoes) {
         const pi = await findProjectItem(project, ins.midia);
-        if (!pi) { marker(`B-roll: ${ins.midia}`, ins.inicio, ins.fim, ins.motivo); continue; }
+        if (!pi) { marker(`B-roll: ${ins.midia}${ins.modo && ins.modo !== "cheia" ? " (" + ins.modo + ")" : ""}`, ins.inicio, ins.fim, ins.motivo); continue; }
         const dur = ins.fim != null ? Math.max(0.2, +ins.fim - +ins.inicio) : 3;
         let clip = null;
         try { clip = ppro.ClipProjectItem.cast(pi); } catch (e) {}

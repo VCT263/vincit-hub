@@ -16,7 +16,7 @@ export type Estilo = {
   /** para quê serve melhor */
   uso: string;
   formato: "ambos" | "9:16" | "16:9";
-  legenda: { estilo: string; caixa_alta: boolean; palavras_por_tela: number };
+  legenda: { estilo: string; caixa_alta: boolean; palavras_por_tela: number; animacao?: string };
   fontes: { titulo: string; legenda: string };
   /** false: legenda desligada */
   captions: boolean;
@@ -154,6 +154,24 @@ export const ESTILOS: Estilo[] = [
     legenda: { estilo: "caixa", caixa_alta: false, palavras_por_tela: 4 }, fontes: { titulo: "Montserrat Black", legenda: "Inter Black" },
     captions: true, cut: 0, camera: 2, zoom: true, transicao: "zoom", look: "natural", fade: true,
     textos: { nome: true, palavras: "palavra", cta: true },
+  },
+  {
+    num: "13", nome: "Revelar", formato: "ambos",
+    resumo: "A frase inteira aparece apagada e cada palavra acende quando é dita. Cada palavra pisca numa caixa branca ao entrar. Riscado e corrigido nos contrastes.",
+    referencia: "Reels do app Captions e de legendas dinâmicas no Premiere (pesquisa de 27/11).",
+    uso: "Talking head de opinião, aula curta, conteúdo para ler junto.",
+    legenda: { estilo: "revelar", caixa_alta: false, palavras_por_tela: 5, animacao: "flash" }, fontes: { titulo: "Inter Black", legenda: "Inter Bold" },
+    captions: true, cut: 0, camera: 2, zoom: true, transicao: "corte", look: "natural", fade: false,
+    textos: { abertura: "gancho", palavras: "palavra", cta: true },
+  },
+  {
+    num: "14", nome: "Brilho", formato: "ambos",
+    resumo: "Uma ideia por tela em branco grande com brilho suave, câmera que respira e fotos em cartão sobre página branca.",
+    referencia: "Reels de criadores com legenda em glow e B-roll em cartão (Submagic, Captions, pesquisa de 27/11).",
+    uso: "Storytelling, bastidores, conteúdo aspiracional.",
+    legenda: { estilo: "brilho", caixa_alta: false, palavras_por_tela: 2, animacao: "desfoque" }, fontes: { titulo: "Inter Black", legenda: "Inter Black" },
+    captions: true, cut: 0.6, camera: 1, zoom: false, transicao: "blur", look: "quente", fade: true,
+    textos: { frase: true },
   },
 ];
 

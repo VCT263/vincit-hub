@@ -37,7 +37,7 @@ export function sugerir(p: Project, words: W[], kit: Kit, opts: { roteiro?: stri
   const out: Sugestao[] = [];
   const end = totalDuration(p);
   if (!words.length || end <= 0) return out;
-  const letTipos = new Set(kit.lettering?.tipos || ["gancho", "palavra", "vazado", "frase", "cta"]);
+  const letTipos = new Set(kit.lettering?.tipos || ["gancho", "palavra", "vazado", "riscado", "frase", "cta"]);
   const motTipos = new Set(kit.motion?.tipos || ["numero", "grafico", "checklist", "relogio", "progresso"]);
   const movs = new Set(kit.camera?.movimentos || ["punch", "push", "tremida"]);
   const gL = GAP[kit.lettering?.frequencia || "medio"], gI = GAP[kit.insercao?.frequencia || "medio"] + 2, gM = GAP[kit.motion?.frequencia || "medio"] + 4;
@@ -109,6 +109,25 @@ export function sugerir(p: Project, words: W[], kit: Kit, opts: { roteiro?: stri
 
   // 4) lettering nas palavras fortes e numa frase de efeito
   const usados = new Set<string>();
+  // contraste "não é X, é Y" / "não X, mas Y": risca a palavra errada e mostra a certa
+  if (letTipos.has("riscado")) {
+    const limpa = (x?: W) => (x?.t || "").replace(/[^\p{L}\p{N}%$]/gu, "");
+    for (let i = 0; i < ws.length - 3; i++) {
+      if (!/^não$/i.test(limpa(ws[i]))) continue;
+      let j = i + 1;
+      if (/^(é|era|foi|são|tem|precisa)$/i.test(limpa(ws[j]))) j++;
+      const a = ws.slice(j, j + 3).find((x) => !STOP.has(limpa(x).toLowerCase()) && limpa(x).length >= 3);
+      if (!a) continue;
+      const ai = ws.indexOf(a);
+      let b: W | undefined;
+      for (let k = ai + 1; k < Math.min(ws.length - 1, ai + 6); k++) {
+        if (/^(é|mas|sim|e sim|porém)$/i.test(limpa(ws[k]))) { b = ws.slice(k + 1, k + 4).find((x) => !STOP.has(limpa(x).toLowerCase()) && limpa(x).length >= 3 && !/^(é|sim)$/i.test(limpa(x))); break; }
+      }
+      if (!b || limpa(a).toLowerCase() === limpa(b).toLowerCase()) continue;
+      const st = a.start, en = Math.max(b.end + 0.8, st + 2.2);
+      if (push({ camada: "lettering", t: st, end: en, resumo: `Riscado: "${limpa(a)}" → "${limpa(b)}"`, motivo: "A fala corrige uma ideia: riscar e mostrar a certa deixa o contraste visível.", title: T("riscado", limpa(a), st, en - st, limpa(b)) }, gL)) { usados.add(limpa(a).toLowerCase()); usados.add(limpa(b).toLowerCase()); }
+    }
+  }
   if (letTipos.has("frase")) {
     // a frase curta mais forte: exclamação, palavra forte e poucas palavras
     const frases: { st: number; en: number; ws: W[]; score: number }[] = [];

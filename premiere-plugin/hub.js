@@ -55,7 +55,7 @@
     kit: (id) => rest(`av_style_kits?select=id,name,data&id=eq.${id}`).then((r) => r[0] || null),
     createSession: (row) => rest("av_edit_sessions", { method: "POST", body: row, prefer: "return=representation" }).then((r) => r[0]),
     getSession: (id) => rest(`av_edit_sessions?select=id,status,plan,plan_note,kit_id&id=eq.${id}`).then((r) => r[0] || null),
-    lastOpen: () => rest("av_edit_sessions?select=id,status,plan,plan_note,kit_id,sequence_name&status=in.(aguardando_plano,plano_pronto)&order=created_at.desc&limit=1").then((r) => r[0] || null),
+    lastOpen: () => rest("av_edit_sessions?select=id,status,plan,plan_note,kit_id,sequence_name&status=in.(aguardando_plano,plano_pronto)&or=(project_name.is.null,project_name.neq.Editor%20do%20HUB)&order=created_at.desc&limit=1").then((r) => r[0] || null),
     setStatus: (id, status) => rest(`av_edit_sessions?id=eq.${id}`, { method: "PATCH", body: Object.assign({ status, updated_at: new Date().toISOString() }, status === "aplicado" ? { applied_at: new Date().toISOString() } : {}) }),
   };
 })();
