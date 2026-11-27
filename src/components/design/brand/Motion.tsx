@@ -2,6 +2,43 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { Frame, type Ctx, type SlideDef } from "./Presentation";
+import { drawMotion, motionDuration, preloadMotion, specDoModelo, type MotionSpec } from "@/lib/motion/engine";
+import { primaryLogo, svgUrl } from "@/lib/design";
+
+/** vinheta de abertura com o logo, feita no motor de motion do Audiovisual */
+export function introSpec(x: Ctx, d: any): MotionSpec {
+  const fam = (st: CSSProperties) => String(st.fontFamily || "").split(",")[0].replace(/["']/g, "").trim() || "Inter";
+  let logo: string | undefined;
+  try { const svg = primaryLogo(d, x.paper); if (svg) logo = svgUrl(svg); } catch {}
+  const spec = specDoModelo("abertura", { formato: "16:9", cores: { fundo: x.ink, texto: x.paper, destaque: x.acc, apoio: x.acc }, fontes: { titulo: fam(x.T()), texto: fam(x.B()) }, logo, fundo: "solido", grao: true });
+  spec.cenas[0].texto = x.name;
+  spec.cenas[0].sub = d?.brief?.slogan || "Identidade de marca";
+  return spec;
+}
+
+/** a vinheta tocando num canvas do tamanho do slide; chama onEnd quando acaba */
+function IntroStage({ x, spec, playing, onEnd }: { x: Ctx; spec: MotionSpec; playing: boolean; onEnd: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const t = useRef(0);
+  useEffect(() => {
+    let raf = 0, last = performance.now(), on = true;
+    const D = motionDuration(spec);
+    preloadMotion(spec).catch(() => {}).then(() => {
+      const tick = (now: number) => {
+        if (!on) return;
+        if (playing) t.current += (now - last) / 1000;
+        last = now;
+        const g = ref.current?.getContext("2d");
+        if (g) drawMotion(g, spec, Math.min(t.current, D - .001), x.W, x.H);
+        if (t.current >= D) { onEnd(); return; }
+        raf = requestAnimationFrame(tick);
+      };
+      last = performance.now(); raf = requestAnimationFrame(tick);
+    });
+    return () => { on = false; cancelAnimationFrame(raf); };
+  }, [spec, playing]); // eslint-disable-line
+  return <canvas ref={ref} width={x.W} height={x.H} style={{ position: "absolute", inset: 0, width: x.W, height: x.H, zIndex: 4 }} />;
+}
 
 /* A apresentação da marca como vídeo, em estilo motion graphic, sem custo: tudo roda no navegador.
    - Assistir: os slides passam sozinhos, com entrada em camadas, zoom lento e cortina na cor da marca
@@ -62,7 +99,8 @@ const CSS = `
 `;
 
 /** player em tela cheia: passa sozinho, com movimento */
-export function MotionPlayer({ x, slides, mode, onClose }: { x: Ctx; slides: SlideDef[]; mode: VideoMode; onClose: () => void }) {
+export function MotionPlayer({ x, slides, mode, onClose, intro }: { x: Ctx; slides: SlideDef[]; mode: VideoMode; onClose: () => void; intro?: MotionSpec }) {
+  const [inIntro, setInIntro] = useState(!!intro);
   const seq = useMemo(() => pickSlides(slides, mode), [slides, mode]);
   const [i, setI] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
@@ -93,7 +131,7 @@ export function MotionPlayer({ x, slides, mode, onClose }: { x: Ctx; slides: Sli
   const iRef = useRef(i); iRef.current = i;
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || inIntro) return;
     let raf = 0, last = performance.now();
     const tick = (now: number) => {
       el.current += (now - last) / 1000; last = now;
@@ -103,7 +141,7 @@ export function MotionPlayer({ x, slides, mode, onClose }: { x: Ctx; slides: Sli
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [i, playing, D, seq.length]);
+  }, [i, playing, D, seq.length, inIntro]);
 
   const k = Math.min(vp.w / x.W, (vp.h - 56) / x.H);
   const cur = seq[i];
@@ -123,10 +161,11 @@ export function MotionPlayer({ x, slides, mode, onClose }: { x: Ctx; slides: Sli
         onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); const f = (e.clientX - r.left) / r.width; if (f > .66) go(i + 1); else if (f < .33) go(i - 1); else setPlaying((p) => !p); }}>
         <div className={playing ? "" : "mo-paused"} style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H, position: "relative" }}>
           {prev !== null && prev !== i && layer(prev, "mo-out")}
-          {layer(i, `mo-in mo-${tr}`)}
+          {!inIntro && layer(i, `mo-in mo-${tr}`)}
+          {inIntro && intro && <IntroStage x={x} spec={intro} playing={playing} onEnd={() => { setInIntro(false); el.current = 0; }} />}
           {tr === "wipe" && <div key={`sw-${i}`} className="mo-sweep" style={{ background: x.acc }} />}
         </div>
-        {ended && <div className="absolute inset-0 grid place-items-center bg-black/40"><button onClick={(e) => { e.stopPropagation(); setPrev(null); setI(0); el.current = 0; setEnded(false); setPlaying(true); }} className="btn btn-mint">↺ Assistir de novo</button></div>}
+        {ended && <div className="absolute inset-0 grid place-items-center bg-black/40"><button onClick={(e) => { e.stopPropagation(); setPrev(null); setI(0); el.current = 0; setEnded(false); setInIntro(!!intro); setPlaying(true); }} className="btn btn-mint">↺ Assistir de novo</button></div>}
       </div>
       <div className="w-full max-w-5xl px-4 h-14 flex items-center gap-3 text-white/70 text-xs font-mono">
         <button onClick={() => setPlaying((p) => !p)} className="w-8 h-8 grid place-items-center rounded-full bg-white/10 text-white" aria-label={playing ? "Pausar" : "Continuar"}>{playing ? "❚❚" : "▶"}</button>
@@ -191,7 +230,7 @@ async function rasterize(x: Ctx, seq: { s: SlideDef; n: number }[], total: numbe
 /** desenha a animação no canvas e codifica; devolve o arquivo.
     Com WebCodecs (Mediabunny, o mesmo do Editor) gera MP4 mais rápido que o tempo real e sem depender
     da aba estar na frente; sem WebCodecs, grava em tempo real com MediaRecorder. */
-export async function exportVideo(x: Ctx, slides: SlideDef[], mode: VideoMode, onProg: (f: number, fase: string) => void, stop: () => boolean): Promise<{ blob: Blob; ext: string } | null> {
+export async function exportVideo(x: Ctx, slides: SlideDef[], mode: VideoMode, onProg: (f: number, fase: string) => void, stop: () => boolean, intro?: MotionSpec): Promise<{ blob: Blob; ext: string } | null> {
   const mb = await import("mediabunny");
   const W = 1920, H = Math.round((W * x.H) / x.W / 2) * 2;
   const fast = typeof VideoEncoder !== "undefined" && (await mb.canEncodeVideo("avc", { width: W, height: H }).catch(() => false));
@@ -225,7 +264,9 @@ export async function exportVideo(x: Ctx, slides: SlideDef[], mode: VideoMode, o
       if (sw < 1) { g.fillStyle = x.acc; const pos = sw < .45 ? -1 + sw / .45 : (sw - .45) / .55; g.fillRect(W * pos, 0, W, H); }
     }
   };
-  const total = totalDur(seq, mode);
+  const ID = intro ? motionDuration(intro) : 0;
+  if (intro) await preloadMotion(intro).catch(() => {});
+  const total = totalDur(seq, mode) + ID;
   const FPS = 30;
 
   if (fast) {
@@ -234,6 +275,11 @@ export async function exportVideo(x: Ctx, slides: SlideDef[], mode: VideoMode, o
     output.addVideoTrack(src, { frameRate: FPS });
     await output.start();
     let prevBmp: ImageBitmap | null = null, at = 0;
+    if (intro) {
+      const n = Math.round(ID * FPS);
+      for (let f = 0; f < n && !stop(); f++) { drawMotion(g, intro, Math.min(f / FPS, ID - .001), W, H); await src.add(at / FPS, 1 / FPS); at++; }
+      prevBmp = await createImageBitmap(cv);
+    }
     for (let j = 0; j < seq.length && !stop(); j++) {
       const { s } = seq[j]; const D = durOf(s, mode); const tr = trOf(s, j);
       const bmp = shots[j].size ? await createImageBitmap(shots[j]) : null;
@@ -259,6 +305,11 @@ export async function exportVideo(x: Ctx, slides: SlideDef[], mode: VideoMode, o
   g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
   rec.start(1000);
   let elapsed = 0, prevBmp: ImageBitmap | null = null;
+  if (intro) {
+    const t0 = performance.now();
+    await new Promise<void>((resolve) => { const fr = () => { const t = (performance.now() - t0) / 1000; drawMotion(g, intro, Math.min(t, ID - .001), W, H); if (t >= ID || stop()) { resolve(); return; } requestAnimationFrame(fr); }; requestAnimationFrame(fr); });
+    elapsed = ID; prevBmp = await createImageBitmap(cv);
+  }
   for (let j = 0; j < seq.length && !stop(); j++) {
     const { s } = seq[j]; const D = durOf(s, mode); const tr = trOf(s, j);
     const bmp = shots[j].size ? await createImageBitmap(shots[j]) : null;
@@ -285,20 +336,21 @@ export async function exportVideo(x: Ctx, slides: SlideDef[], mode: VideoMode, o
 }
 
 /** botões de vídeo (assistir e baixar), com a escolha entre versão curta e completa */
-export function VideoControls({ x, slides, name, compact }: { x: Ctx; slides: SlideDef[]; name: string; compact?: boolean }) {
+export function VideoControls({ x, slides, name, compact, d }: { x: Ctx; slides: SlideDef[]; name: string; compact?: boolean; d?: any }) {
+  const intro = useMemo(() => { try { return introSpec(x, d); } catch { return undefined; } }, [x, d]);
   const [mode, setMode] = useState<VideoMode>("curto");
   const [show, setShow] = useState(false);
   const [job, setJob] = useState<{ f: number; fase: string } | null>(null);
   const [err, setErr] = useState("");
   const cancel = useRef(false);
-  const durs = useMemo(() => ({ curto: totalDur(pickSlides(slides, "curto"), "curto"), completo: totalDur(pickSlides(slides, "completo"), "completo") }), [slides]);
+  const durs = useMemo(() => ({ curto: totalDur(pickSlides(slides, "curto"), "curto") + 2.6, completo: totalDur(pickSlides(slides, "completo"), "completo") + 2.6 }), [slides]);
   const [canRec, setCanRec] = useState(false);
   useEffect(() => { setCanRec(!!videoSupport() || typeof VideoEncoder !== "undefined"); }, []);
 
   async function baixar() {
     setErr(""); cancel.current = false; setJob({ f: 0, fase: "Preparando os slides" });
     try {
-      const r = await exportVideo(x, slides, mode, (f, fase) => setJob({ f, fase }), () => cancel.current);
+      const r = await exportVideo(x, slides, mode, (f, fase) => setJob({ f, fase }), () => cancel.current, intro);
       if (r) {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(r.blob);
@@ -320,7 +372,7 @@ export function VideoControls({ x, slides, name, compact }: { x: Ctx; slides: Sl
       <button onClick={() => setShow(true)} className="btn btn-ghost btn-sm">▶ Ver em vídeo</button>
       {canRec && <button onClick={baixar} disabled={!!job} className="btn btn-ghost btn-sm">Baixar vídeo</button>}
       {err && <span className="text-xs text-red-400">{err}</span>}
-      {show && <MotionPlayer x={x} slides={slides} mode={mode} onClose={() => setShow(false)} />}
+      {show && <MotionPlayer x={x} slides={slides} mode={mode} intro={intro} onClose={() => setShow(false)} />}
       {job && (
         <div className="fixed inset-0 z-[110] bg-black/80 grid place-items-center px-6 print:hidden">
           <div className="card p-6 w-full max-w-sm text-center">
