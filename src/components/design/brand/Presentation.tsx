@@ -4,6 +4,7 @@ import { AXES, LOCKUPS, cmyk, hexToRgb, loadFonts, lockupSvg, patternSvg, primar
 import { ARCHETYPES, MAP_AXES, NICHES, SCALES, archetypeMix } from "@/lib/brand-strategy";
 import { SvgView } from "../ui";
 import Mockups from "./Mockups";
+import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
    seção e página), divisores de capítulo com número gigante, um acento só, filetes finos.
@@ -372,6 +373,11 @@ function buildSlides(d: any, x0: Ctx, t: any): SlideDef[] {
   /* 06 Aplicações */
   chapter("Aplicações", "A marca no mundo real: redes, papelaria, embalagem e ponto de venda.");
   S.push({ key: "mockups", tone: "light", section: "Aplicações", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });
+  /* objetos reais em cena (um por página, como nos cases do Behance) e fotos reais com o logo aplicado */
+  const kit = sceneKit(d);
+  const cenas: string[] = Array.isArray(d.cenas) ? d.cenas : SCENES.map((c) => c.k);
+  SCENES.filter((c) => cenas.includes(c.k)).forEach((c) => S.push({ key: `cena-${c.k}`, tone: "light", section: `Aplicações · ${c.l}`, bare: true, body: (x) => <><SceneStyle /><Scene d={d} k={c.k} W={x.W} H={x.H} kit={kit} /></> }));
+  ((d.fotos || []) as Foto[]).filter((f) => f.url).forEach((f) => S.push({ key: `foto-${f.id}`, tone: "dark", section: "Aplicações · foto", bare: true, body: (x) => <PhotoScene k={kit} f={f} W={x.W} H={x.H} /> }));
 
   /* 07 Expressão verbal */
   if (arr(b.fala).length || arr(b.nunca).length || mix.length) {
