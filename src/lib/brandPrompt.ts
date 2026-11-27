@@ -70,6 +70,14 @@ export function brandPrompt(d: any): string {
       fala.length ? `- Frases da marca (use como referência de ritmo, não copie sempre):\n${fala.map((f) => `  - "${f}"`).join("\n")}` : "",
       line("Slogan", b.slogan), line("Pilares de conteúdo", pilares), line("Valores", arr(b.valores)),
     ]),
+    block("Voz em detalhe", (() => { const v = d.verbal || {}; const T: Record<string, [string, string]> = { formal: ["formal", "casual"], serio: ["séria", "divertida"], respeito: ["respeitosa", "irreverente"], energia: ["entusiasmada", "objetiva"] }; return [
+      v.tom ? `- Tom (0 a 100): ${Object.entries(T).map(([k, [a, z]]) => `${a}↔${z} ${v.tom[k] ?? 50}`).join("; ")}` : "",
+      (v.somos || []).length ? `- Somos / mas não somos: ${v.somos.map((r: any) => `${r.somos}, mas não ${r.nao}`).join("; ")}` : "",
+      line("Palavras que usamos", v.usamos), line("Palavras que evitamos", v.evitamos),
+      (v.trocas || []).length ? `- Trocas:\n${v.trocas.map((t: any) => `  - em vez de "${t.em_vez}", diga "${t.dizemos}"`).join("\n")}` : "",
+      (v.situacoes || []).length ? `- Tom por situação:\n${v.situacoes.map((t: any) => `  - ${t.quando}: ${t.tom} Ex.: "${t.exemplo}"`).join("\n")}` : "",
+      (v.canais || []).length ? `- Por canal:\n${v.canais.map((t: any) => `  - ${t.canal}: ${t.como}`).join("\n")}` : "",
+    ]; })()),
     block("Nunca", [nunca.length ? nunca.map((n) => `- ${n}`).join("\n") : "", "- Clichês de IA: 'O resultado?', 'Não é X, é Y', trios em sequência, 'jornada', 'elevar', 'potencializar', anúncio de sinceridade."]),
     block("Regras de ouro", arr(b.regras_ouro).map((r) => `- ${r}`)),
     block("Visual", [

@@ -421,40 +421,23 @@ function Site({ v, w, h }: P) {
   );
 }
 
-/** caneca: claquete (produtora) ou selo com pesponto (as outras) */
+/** caneca: como uma caneca de verdade é impressa. Cerâmica na cor de base da marca e uma
+   impressão só, pequena e centrada na frente (símbolo + nome). Nada de moldura nem faixa reta
+   atravessando o corpo: em superfície curva elas denunciam a arte chapada. As bordas da arte
+   somem em gradiente, como a impressão que dobra para trás do cilindro. */
 function Caneca({ v, w, h }: P) {
-  const { k } = v; const cx = w / 2; const cw = Math.min(w * .48, h * 1.35);
-  if (v.biz === "video") {
-    const fg = k.C["Claro"]; const line = `${Math.max(1, h * .004)}px solid ${fg}55`; const band = h * .24; const st = h * .09;
-    const cell = (l: string, val: ReactNode, flex = 1) => <div style={{ flex, borderRight: line, padding: `${h * .02}px ${h * .03}px` }}><Caps v={v} size={h * .028} c={`${fg}99`}>{l}</Caps><div style={k.T({ fontSize: h * .1, color: fg, lineHeight: 1.1 })}>{val}</div></div>;
-    return (
-      <div style={A({ inset: 0 })}>
-        <Bg c={k.ink} v={v} />
-        <div style={A({ left: 0, right: 0, top: h * .08, height: band, background: `repeating-linear-gradient(-55deg, ${v.light} 0 ${st}px, ${k.ink} ${st}px ${st * 2}px)` })} />
-        <div style={A({ left: cx - cw / 2, width: cw, top: h * .08 + band + h * .05, bottom: h * .1, border: line, display: "flex", flexDirection: "column" })}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: line, padding: `${h * .025}px ${h * .03}px` }}>
-            <Caps v={v} size={h * .028} c={`${fg}99`}>Prod.</Caps>
-            <Logo svg={k.logo(fg)} h={h * .07} style={{ position: "relative" }} />
-            <Svg svg={k.mark(v.light)} style={{ position: "relative", width: h * .07, height: h * .07 }} />
-          </div>
-          <div style={{ display: "flex", borderBottom: line, flex: 1 }}>{cell("Cena", "01")}{cell("Take", "∞")}{cell("Rolo", "Café", 1.4)}</div>
-          <div style={{ padding: `${h * .02}px ${h * .03}px`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Caps v={v} size={h * .028} c={`${fg}99`}>Direção</Caps>
-            <p style={v.latinScript ? v.G({ fontSize: h * .1, color: v.light }) : k.T({ fontSize: h * .06, color: v.light })}>{v.lema}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const { k } = v;
+  const body = v.base; const ink = v.text; const mark = v.dark ? v.light : k.acc;
+  const s = h * .3; const cx = w / 2;
+  const fade = "linear-gradient(90deg, transparent 0%, #000 22%, #000 78%, transparent 100%)";
   return (
     <div style={A({ inset: 0 })}>
-      <Bg c={k.paper} v={v} grain={false} />
-      <Stitch w={w} h={h * .03} size={h * .022} c={k.acc} frame={false} style={{ left: 0, top: h * .1 }} />
-      <Stitch w={w} h={h * .03} size={h * .022} c={k.acc} frame={false} style={{ left: 0, bottom: h * .1 }} />
-      <Seal v={v} size={h * .5} c={k.paper} bg={k.acc} style={{ left: cx - cw / 2 + h * .02, top: h * .25 }} />
-      <div style={A({ left: cx - cw / 2 + h * .6, width: Math.max(cw - h * .62, w * .26), top: h * .3 })}>
-        <p style={k.T({ fontSize: h * .1, color: k.ink, lineHeight: 1.08, fontStyle: "italic", fontWeight: 400 })}>{v.lema}</p>
-        <Logo svg={k.logo(k.ink)} h={h * .08} style={{ position: "relative", marginTop: h * .06 }} />
+      <div style={A({ inset: 0, background: body })} />
+      <div style={A({ left: cx - w * .3, width: w * .6, top: 0, bottom: 0, WebkitMaskImage: fade, maskImage: fade })}>
+        <Svg svg={k.mark(mark)} style={{ left: w * .3 - s / 2, top: h * .26, width: s, height: s }} />
+        <div style={A({ left: 0, right: 0, top: h * .26 + s + h * .07, display: "flex", justifyContent: "center" })}>
+          <Logo svg={k.logo(ink)} h={h * .075} style={{ position: "relative" }} />
+        </div>
       </div>
     </div>
   );
@@ -615,7 +598,7 @@ export const LAYOUTS: Record<string, { l: string; why: (v: Voice) => string; C: 
   camera: { l: "Câmera gravando", C: Camera, why: () => "O celular gravando: feixe de luz menta, o símbolo em foco e a frase de bastidor." },
   loja: { l: "Loja no celular", C: Loja, why: () => "A loja no celular: peça com nome, a grade de tamanhos e o WhatsApp." },
   site: { l: "Site", C: Site, why: () => "Página inicial com a frase-mãe, a missão e os pilares." },
-  caneca: { l: "Caneca", C: Caneca, why: (v) => (v.biz === "video" ? "A caneca é uma claquete: cena 01, take infinito, rolo de café." : "Caneca com o selo bordado e o lema.") },
+  caneca: { l: "Caneca", C: Caneca, why: (v) => `Cerâmica ${v.dark ? "escura" : "clara"}, como a base da marca, e uma impressão só na frente: o símbolo e o nome, do tamanho que uma caneca de verdade leva.` },
   sacola: { l: "Sacola", C: Sacola, why: () => "Sacola com o símbolo enorme sangrando pela lateral." },
   placa: { l: "Placa", C: Placa, why: () => "O símbolo sozinho como sinal do lugar." },
   outdoor: { l: "Outdoor", C: Outdoor, why: () => "Outdoor com uma frase e uma ideia." },

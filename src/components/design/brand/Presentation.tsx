@@ -10,6 +10,7 @@ import { brandVoice } from "./MockupArt";
 import { brandPrompt } from "@/lib/brandPrompt";
 import { createPortal } from "react-dom";
 import { useLite, useNear, usePrintAll } from "./lazy";
+import { ArchetypeSlide, ChannelsSlide, ManifestoSlide, PositioningSlide, RewriteSlide, SituationsSlide, ToneSlide, ValuesSlide, VocabSlide, WeAreSlide, type Verbal } from "./VerbalSlides";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
@@ -19,7 +20,24 @@ import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandS
 export const FORMATS = { "16:9": { w: 1600, h: 900, l: "16:9 · tela e PDF padrão" }, "3:2": { w: 1600, h: 1067, l: "3:2 · Behance" }, "4:3": { w: 1600, h: 1200, l: "4:3 · tablet" } } as const;
 export type Format = keyof typeof FORMATS;
 
-type Ctx = { W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
+/** estilos de apresentação (como cases diferentes no Behance): a grade e os divisores mudam com o nicho */
+export const STYLES = {
+  estudio: { l: "Estúdio", d: "Faixa lateral com o nome, número gigante nos capítulos." },
+  editorial: { l: "Editorial", d: "Revista de moda: muito respiro, títulos em itálico, capítulos centralizados." },
+  cinema: { l: "Cinema", d: "Tarjas de filme em cima e embaixo, capítulos como cartela de título." },
+  suico: { l: "Suíço", d: "Grade rigorosa, índice no alto, números finos, sem enfeite." },
+} as const;
+export type DeckStyle = keyof typeof STYLES;
+export function styleFor(d: any): DeckStyle {
+  if (d.deck_style && d.deck_style in STYLES) return d.deck_style;
+  const n = d.strategy?.nicho;
+  if (n === "moda" || n === "beleza") return "editorial";
+  if (n === "audiovisual") return "cinema";
+  if (["tecnologia", "servicos", "saude", "educacao", "imobiliario"].includes(n)) return "suico";
+  return "estudio";
+}
+
+type Ctx = { style: DeckStyle; W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
 type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; body: (x: Ctx) => ReactNode; bare?: boolean };
 
 const arr = (v: any): string[] => (Array.isArray(v) ? v : v ? [v] : []);
@@ -31,7 +49,7 @@ export function useDeck(d: any, format: Format, mockups: Mockup[] = []) {
   useEffect(() => { loadFonts([t.title, t.body, t.accent || ""].filter(Boolean)); }, [t.title, t.body, t.accent]);
   const { w: W, h: H } = FORMATS[format];
   const x: Ctx = {
-    W, H, C, ink: C["Escuro"], paper: C["Claro"], acc: C["Primária"], name: d.brief?.nome || "Marca", year: new Date().getFullYear(),
+    style: styleFor(d), W, H, C, ink: C["Escuro"], paper: C["Claro"], acc: C["Primária"], name: d.brief?.nome || "Marca", year: new Date().getFullYear(),
     T: (s = {}) => ({ fontFamily: `"${t.title}"`, fontWeight: t.tw || 700, fontStyle: t.ti ? "italic" : "normal", lineHeight: .92, letterSpacing: "-.015em", ...s }),
     G: (s = {}) => ({ fontFamily: `"${t.accent || t.title}"`, fontWeight: 400, lineHeight: 1, ...s }), hasG: !!t.accent,
     B: (s = {}) => ({ fontFamily: `"${t.body}"`, ...s }),
@@ -49,51 +67,114 @@ const Rule = ({ c, style }: { c: string; style?: CSSProperties }) => <div style=
 function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: number; total: number; children: ReactNode }) {
   const bg = s.tone === "dark" ? x.ink : s.tone === "acc" ? x.acc : x.paper;
   const fg = readableOn(bg) === "#ffffff" ? (s.tone === "dark" ? x.paper : "#ffffff") : x.ink;
-  const strip = 72;
-  return (
-    <div className="deck-slide" style={{ width: x.W, height: x.H, background: bg, color: fg, position: "relative", overflow: "hidden" }}>
-      {s.bare ? children : (
-        <>
-          <div style={{ position: "absolute", inset: `0 ${strip}px 0 0`, padding: "0 72px" }}>
-            <div style={{ position: "absolute", left: 72, right: 56, top: 44, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{s.section}</Label>
-              <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{x.name} · {x.year}</Label>
-            </div>
-            <Rule c={fg} style={{ position: "absolute", left: 0, right: 0, top: 76 }} />
-            <div style={{ position: "absolute", left: 72, right: 56, top: 112, bottom: 64 }}>{children}</div>
-          </div>
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: strip, borderLeft: `1px solid ${fg}33`, display: "flex", flexDirection: "column" }}>
-            <div style={{ height: "30%", background: s.tone === "acc" ? x.ink : x.acc, color: readableOn(s.tone === "acc" ? x.ink : x.acc), display: "grid", placeItems: "center" }}>
-              <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 700 })}>{x.name}</span>
-            </div>
-            <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
-              <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", opacity: .6 })}>Identidade de marca</span>
-            </div>
-            <div style={{ height: strip, borderTop: `1px solid ${fg}33`, display: "grid", placeItems: "center" }}>
-              <span style={x.B({ fontSize: 15, fontWeight: 700 })}>{String(n).padStart(2, "0")}</span>
-            </div>
-          </div>
-        </>
-      )}
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: GRAIN, opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />
-      <span style={{ display: "none" }}>{total}</span>
+  const nn = String(n).padStart(2, "0");
+  const grain = <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: GRAIN, opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />;
+  const wrap = (inner: ReactNode) => <div className="deck-slide" data-style={x.style} style={{ width: x.W, height: x.H, background: bg, color: fg, position: "relative", overflow: "hidden" }}>{inner}{grain}<span style={{ display: "none" }}>{total}</span></div>;
+  if (s.bare) return wrap(children);
+  const small = (t: ReactNode, st: CSSProperties = {}) => <Label x={x} style={{ fontSize: 11, opacity: .65, ...st }}>{t}</Label>;
+  if (x.style === "editorial") return wrap(<>
+    <div style={{ position: "absolute", left: 100, right: 100, top: 40, display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
+      {small(s.section)}<span style={x.T({ fontSize: 22, fontStyle: "italic", fontWeight: 400, letterSpacing: 0 })}>{x.name}</span>{small(`${nn} / ${String(total).padStart(2, "0")}`, { textAlign: "right" })}
     </div>
-  );
-}
-
-/** divisor de capítulo: número gigante sangrando a margem, título enorme ao lado */
-const divider = (num: number, title: string, sub: string): SlideDef => ({
-  key: `div-${num}`, tone: "dark", section: title, body: (x) => (
-    <div style={{ position: "absolute", inset: 0 }}>
-      <span style={x.T({ position: "absolute", left: -110, bottom: -x.H * .14, fontSize: x.H * .78, color: x.acc, lineHeight: 1, letterSpacing: "-.06em" })}>{String(num).padStart(2, "0")}.</span>
-      <div style={{ position: "absolute", left: "50%", right: 40, top: "34%" }}>
-        <h2 style={x.T({ fontSize: 118, textTransform: "uppercase" })}>{title}</h2>
-        <Rule c={x.paper} style={{ margin: "28px 0 18px", opacity: .5 }} />
-        <p style={x.B({ fontSize: 22, opacity: .75, maxWidth: 520, lineHeight: 1.4 })}>{sub}</p>
+    <div style={{ position: "absolute", left: 100, right: 100, top: 120, bottom: 84 }}>{children}</div>
+    <div style={{ position: "absolute", left: 100, right: 100, bottom: 36, display: "flex", justifyContent: "space-between" }}>{small("Identidade de marca", { opacity: .4 })}{small(x.year, { opacity: .4 })}</div>
+  </>);
+  if (x.style === "cinema") return wrap(<>
+    <Letterbox x={x} left={`SC ${nn}`} mid={s.section} right={x.name} n={`${nn} / ${String(total).padStart(2, "0")}`} />
+    {[[0, 0], [1, 0], [0, 1], [1, 1]].map(([r, b]) => <span key={`${r}${b}`} style={{ position: "absolute", [r ? "right" : "left"]: 40, [b ? "bottom" : "top"]: 72, width: 22, height: 22, borderColor: `${fg}55`, borderStyle: "solid", borderWidth: 0, [r ? "borderRightWidth" : "borderLeftWidth"]: 1, [b ? "borderBottomWidth" : "borderTopWidth"]: 1 } as CSSProperties} />)}
+    <div style={{ position: "absolute", left: 100, right: 100, top: 108, bottom: 100 }}>{children}</div>
+  </>);
+  if (x.style === "suico") return wrap(<>
+    <div style={{ position: "absolute", left: 80, right: 80, top: 36, display: "grid", gridTemplateColumns: "1fr 2fr 1fr", alignItems: "end" }}>
+      <span style={x.B({ fontSize: 13, fontWeight: 700 })}>{x.name}</span>{small(s.section, { opacity: .55 })}<span style={x.B({ fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" })}>{nn}<span style={{ opacity: .4 }}> / {String(total).padStart(2, "0")}</span></span>
+    </div>
+    <div style={{ position: "absolute", left: 80, right: 80, top: 64, height: 2, background: fg }} />
+    <div style={{ position: "absolute", left: 80, right: 80, top: 104, bottom: 64 }}>{children}</div>
+    <span style={{ position: "absolute", left: 80, bottom: 30, width: 10, height: 10, background: x.acc }} />
+  </>);
+  const strip = 72;
+  return wrap(<>
+    <div style={{ position: "absolute", inset: `0 ${strip}px 0 0`, padding: "0 72px" }}>
+      <div style={{ position: "absolute", left: 72, right: 56, top: 44, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{s.section}</Label>
+        <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{x.name} · {x.year}</Label>
+      </div>
+      <Rule c={fg} style={{ position: "absolute", left: 0, right: 0, top: 76 }} />
+      <div style={{ position: "absolute", left: 72, right: 56, top: 112, bottom: 64 }}>{children}</div>
+    </div>
+    <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: strip, borderLeft: `1px solid ${fg}33`, display: "flex", flexDirection: "column" }}>
+      <div style={{ height: "30%", background: s.tone === "acc" ? x.ink : x.acc, color: readableOn(s.tone === "acc" ? x.ink : x.acc), display: "grid", placeItems: "center" }}>
+        <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 700 })}>{x.name}</span>
+      </div>
+      <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
+        <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", opacity: .6 })}>Identidade de marca</span>
+      </div>
+      <div style={{ height: strip, borderTop: `1px solid ${fg}33`, display: "grid", placeItems: "center" }}>
+        <span style={x.B({ fontSize: 15, fontWeight: 700 })}>{nn}</span>
       </div>
     </div>
-  ),
+  </>);
+}
+
+/** divisor de capítulo, conforme o estilo: número gigante sangrando a margem (estúdio), cartela centralizada
+   em itálico (editorial), cartela de filme com moldura (cinema) ou número fino na grade (suíço) */
+const divider = (num: number, title: string, sub: string, style: DeckStyle = "estudio"): SlideDef => ({
+  key: `div-${num}`, tone: style === "editorial" || style === "suico" ? "light" : "dark", section: title, bare: style !== "estudio", body: (x) => {
+    const nn = String(num).padStart(2, "0");
+    if (style === "editorial") return (
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 160px" }}>
+        <Label x={x} style={{ fontSize: 13, opacity: .6 }}>Capítulo {nn}</Label>
+        <h2 style={x.T({ fontSize: 150, fontStyle: "italic", fontWeight: 400, letterSpacing: "-.03em", marginTop: 26, lineHeight: .95 })}>{title}</h2>
+        <div style={{ width: 80, height: 2, background: x.acc, margin: "34px 0 26px" }} />
+        <p style={x.B({ fontSize: 21, opacity: .7, maxWidth: 620, lineHeight: 1.5 })}>{sub}</p>
+        <p style={x.B({ position: "absolute", bottom: 44, fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", opacity: .5 })}>{x.name}</p>
+      </div>
+    );
+    if (style === "cinema") return (
+      <div style={{ position: "absolute", inset: 0 }}>
+        <Letterbox x={x} left={`CAP. ${nn}`} mid={title} right={x.name} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", border: `1px solid ${x.paper}55`, padding: "54px 90px", textAlign: "center", minWidth: 760 }}>
+          <Label x={x} style={{ fontSize: 12, color: x.acc }}>Capítulo {nn}</Label>
+          <h2 style={x.T({ fontSize: 104, textTransform: "uppercase", marginTop: 20 })}>{title}</h2>
+          <p style={x.B({ fontSize: 19, opacity: .7, maxWidth: 560, lineHeight: 1.5, margin: "22px auto 0" })}>{sub}</p>
+        </div>
+      </div>
+    );
+    if (style === "suico") return (
+      <div style={{ position: "absolute", inset: 0, padding: "56px 80px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", position: "absolute", inset: "0 80px", pointerEvents: "none" }}>{Array.from({ length: 12 }, (_, i) => <div key={i} style={{ borderLeft: `1px solid ${x.ink}12`, height: "100%" }} />)}</div>
+        <p style={x.T({ fontSize: 300, fontWeight: 200, letterSpacing: "-.06em", lineHeight: .8, color: x.ink })}>{nn}</p>
+        <div style={{ position: "absolute", left: 80, right: 80, bottom: 70, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 60, alignItems: "end", borderTop: `2px solid ${x.ink}`, paddingTop: 22 }}>
+          <h2 style={x.T({ fontSize: 96, letterSpacing: "-.03em" })}>{title}</h2>
+          <p style={x.B({ fontSize: 18, lineHeight: 1.5, opacity: .7 })}>{sub}</p>
+        </div>
+        <span style={{ position: "absolute", top: 70, right: 80, width: 18, height: 18, background: x.acc }} />
+      </div>
+    );
+    return (
+      <div style={{ position: "absolute", inset: 0 }}>
+        <span style={x.T({ position: "absolute", left: -110, bottom: -x.H * .14, fontSize: x.H * .78, color: x.acc, lineHeight: 1, letterSpacing: "-.06em" })}>{nn}.</span>
+        <div style={{ position: "absolute", left: "50%", right: 40, top: "34%" }}>
+          <h2 style={x.T({ fontSize: 118, textTransform: "uppercase" })}>{title}</h2>
+          <Rule c={x.paper} style={{ margin: "28px 0 18px", opacity: .5 }} />
+          <p style={x.B({ fontSize: 22, opacity: .75, maxWidth: 520, lineHeight: 1.4 })}>{sub}</p>
+        </div>
+      </div>
+    );
+  },
 });
+
+/** tarjas de cinema em cima e embaixo, com rótulos de claquete */
+function Letterbox({ x, left, mid, right, n }: { x: Ctx; left: string; mid: string; right: string; n?: string }) {
+  const bar: CSSProperties = { position: "absolute", left: 0, right: 0, height: 56, background: "#000", color: "#ffffffaa", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 48px" };
+  const t = (s: string) => <span style={x.B({ fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 600 })}>{s}</span>;
+  return (
+    <>
+      <div style={{ ...bar, top: 0 }}>{t(left)}{t(mid)}{t(right)}</div>
+      <div style={{ ...bar, bottom: 0 }}>{t("Identidade de marca")}<span style={{ display: "flex", gap: 6 }}>{[0, 1, 2, 3, 4, 5].map((i) => <span key={i} style={{ width: 14, height: 8, borderRadius: 2, background: "#ffffff22" }} />)}</span>{t(n || String(x.year))}</div>
+    </>
+  );
+}
 
 function Logo({ svg, x, style, color }: { svg: string; x: Ctx; style: CSSProperties; color?: string }) {
   return svg ? <div style={style}><SvgView svg={svg} className="w-full h-full" /></div> : <div style={{ ...style, display: "grid", placeItems: "center" }}><span style={x.T({ fontSize: 120, color })}>{x.name}</span></div>;
@@ -122,7 +203,9 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   const ratio = t.scale || 1.25, base = t.base || 16;
   const S: SlideDef[] = [];
   const chapters: string[] = [];
-  const chapter = (title: string, sub: string) => { chapters.push(title); S.push(divider(chapters.length, title, sub)); };
+  const chapter = (title: string, sub: string) => { chapters.push(title); S.push(divider(chapters.length, title, sub, x0.style)); };
+  const vb: Verbal = d.verbal || {};
+  const manifesto: string = vb.manifesto || b.manifesto || "";
 
   // capa
   S.push({ key: "capa", tone: "dark", section: "", bare: true, body: (x) => (
@@ -201,6 +284,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
         </div>
       </div>
     ) });
+    if (vb.posicionamento?.categoria || st.posicao) S.push({ key: "posicionamento", tone: "light", section: "Plataforma · posicionamento", body: (x) => <PositioningSlide x={x} v={vb} posicao={st.posicao} /> });
+    if (vb.valores?.length) S.push({ key: "valores", tone: "light", section: "Plataforma · valores", body: (x) => <ValuesSlide x={x} v={vb} /> });
     if (b.eixos) S.push({ key: "personalidade", tone: "light", section: "Plataforma · personalidade", body: (x) => (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 72, height: "100%", alignItems: "center" }}>
         <div><h2 style={x.T({ fontSize: 88, textTransform: "uppercase" })}>Persona&shy;lidade</h2>{arr(b.palavras).length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 30 }}>{arr(b.palavras).map((p) => <span key={p} style={x.B({ padding: "8px 18px", background: x.ink, color: x.paper, borderRadius: 99, fontSize: 15, fontWeight: 600 })}>{p}</span>)}</div>}</div>
@@ -244,6 +329,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       </div>
     ) });
   }
+
+  mix.forEach((m, i) => S.push({ key: `arq-${m.a.k}`, tone: "light", section: `Arquétipos · ${m.a.l}`, body: (x) => <ArchetypeSlide x={x} a={m.a} pct={m.pct} role={m.role} pratica={vb.arquetipos?.[m.a.k]} n={i + 1} /> }));
 
   /* 04 Conceito */
   if (terr) {
@@ -397,11 +484,18 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   ((d.fotos || []) as Foto[]).filter((f) => f.url).forEach((f) => S.push({ key: `foto-${f.id}`, tone: "dark", section: "Aplicações · foto", bare: true, body: (x) => <PhotoScene k={kit} f={f} W={x.W} H={x.H} /> }));
 
   /* 07 Expressão verbal */
-  if (arr(b.fala).length || arr(b.nunca).length || mix.length) {
+  if (arr(b.fala).length || arr(b.nunca).length || mix.length || manifesto || vb.tom) {
     chapter("Expressão verbal", "Como a marca fala, as palavras que são dela e as que ela nunca usa.");
+    if (manifesto) S.push({ key: "manifesto", tone: "dark", section: "Expressão verbal · manifesto", body: (x) => <ManifestoSlide x={x} text={manifesto} /> });
+    if (vb.tom || b.matriz_tom) S.push({ key: "tom", tone: "light", section: "Expressão verbal · tom de voz", body: (x) => <ToneSlide x={x} v={vb} matriz={b.matriz_tom} /> });
+    if (vb.somos?.length) S.push({ key: "somos", tone: "light", section: "Expressão verbal · somos, mas não somos", body: (x) => <WeAreSlide x={x} v={vb} /> });
+    if (vb.usamos?.length || vb.trocas?.length) S.push({ key: "vocab", tone: "light", section: "Expressão verbal · vocabulário", body: (x) => <VocabSlide x={x} v={vb} /> });
+    if (vb.situacoes?.length) S.push({ key: "situacoes", tone: "light", section: "Expressão verbal · tom por situação", body: (x) => <SituationsSlide x={x} v={vb} /> });
+    if (vb.canais?.length) S.push({ key: "canais", tone: "light", section: "Expressão verbal · canais", body: (x) => <ChannelsSlide x={x} v={vb} /> });
+    if (vb.reescritas?.length) S.push({ key: "reescritas", tone: "light", section: "Expressão verbal · reescrita", body: (x) => <RewriteSlide x={x} v={vb} /> });
     const fala = arr(b.fala).length ? arr(b.fala) : mix[0]?.a.palavras || [];
     const nunca = arr(b.nunca).length ? arr(b.nunca) : mix.map((m) => m.a.nunca);
-    S.push({ key: "verbal", tone: "light", section: "Expressão verbal · tom de voz", body: (x) => (
+    S.push({ key: "verbal", tone: "light", section: "Expressão verbal · frases", body: (x) => (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%", borderTop: `2px solid ${x.ink}` }}>
         <div style={{ paddingTop: 28, paddingRight: 48, borderRight: `1px solid ${x.ink}30` }}>
           <span style={x.B({ background: x.ink, color: x.paper, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>A marca fala</span>
