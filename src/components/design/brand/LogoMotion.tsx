@@ -35,8 +35,9 @@ const fontsOf = (svg: string) => Array.from(new Set(Array.from(svg.matchAll(/fon
 function scene(d: any, size: Size, bgKey: Bg) {
   const C: Record<string, string> = { Primária: "#2d6a4f", Escuro: "#141414", Claro: "#f4f4f2", ...Object.fromEntries((d.palette || []).map((s: any) => [s.role, s.hex])) };
   const bg = C[bgKey];
-  const fg = readableOn(bg) === "#ffffff" ? (bgKey === "Escuro" ? C["Claro"] : "#ffffff") : C["Escuro"];
-  const line = bgKey !== "Primária" && contrast(bg, C["Primária"]) > 2.2 ? C["Primária"] : fg;
+  // no escuro, a marca acende na cor dela quando há contraste de sobra (ex.: menta no preto)
+  const fg = bgKey === "Escuro" && contrast(bg, C["Primária"]) >= 4.5 ? C["Primária"] : readableOn(bg) === "#ffffff" ? (bgKey === "Escuro" ? C["Claro"] : "#ffffff") : C["Escuro"];
+  const line = fg === C["Primária"] ? C["Claro"] : bgKey !== "Primária" && contrast(bg, C["Primária"]) > 2.2 ? C["Primária"] : fg;
   const orig = primaryLogo(d);
   // em fundo claro a marca entra com as cores dela; em fundo escuro ou de cor, numa cor só
   const fillSvg = bgKey === "Claro" ? orig : primaryLogo(d, fg);
