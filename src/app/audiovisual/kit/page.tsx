@@ -6,7 +6,7 @@ import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
   CAMERA_LEVELS, DEFAULT_KIT, FONTS, FONTS_CSS, H, W, setFormat, captionScreens, cameraAt, drawOverlays, mergeKit, speechCamera,
-  type Kit, type Project,
+  type Kit, type Project, type TitleKind,
 } from "@/lib/editor/model";
 
 type Row = { id?: string; name: string; account_id?: string | null; data: Kit };
@@ -40,7 +40,7 @@ export default function KitPage() {
   const [profiles, setProfiles] = useState<{ id: string; username: string }[]>([]);
   const [edit, setEdit] = useState<Row | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [title, setTitle] = useState<"gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra">("gancho");
+  const [title, setTitle] = useState<TitleKind>("gancho");
   const [wide, setWide] = useState(false);
 
   const load = useCallback(async () => {
@@ -203,7 +203,7 @@ export default function KitPage() {
             </div>
             <Preview kit={d} title={title} wide={wide} />
             <div className="grid grid-cols-3 gap-1 mt-2">
-              {([["gancho", "Gancho"], ["cta", "CTA"], ["lower_third", "Lower-third"], ["episodio", "Abertura"], ["capitulo", "Capítulo"], ["palavra", "Palavra"]] as const).map(([v, l]) => (
+              {([["gancho", "Gancho"], ["cta", "CTA"], ["lower_third", "Lower-third"], ["episodio", "Abertura"], ["capitulo", "Capítulo"], ["palavra", "Palavra"], ["frase", "Frase"], ["letreiro", "Letreiro"], ["data", "Data"], ["lista", "Explicação"], ["rec", "REC"]] as const).map(([v, l]) => (
                 <button key={v} onClick={() => setTitle(v)} className={`rounded-lg border px-1 py-1.5 text-[11px] font-semibold ${title === v ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
               ))}
             </div>
@@ -215,7 +215,7 @@ export default function KitPage() {
 }
 
 /** prévia 9:16 animada: fundo com o gradiente do kit, título, legenda e a câmera da fala */
-function Preview({ kit, title, wide }: { kit: Kit; title: "gancho" | "cta" | "lower_third" | "episodio" | "capitulo" | "palavra"; wide: boolean }) {
+function Preview({ kit, title, wide }: { kit: Kit; title: TitleKind; wide: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   setFormat(wide ? "16:9" : "9:16");
   useEffect(() => {
@@ -225,7 +225,7 @@ function Preview({ kit, title, wide }: { kit: Kit; title: "gancho" | "cta" | "lo
     const ctx = c.getContext("2d")!;
     const screens = captionScreens(sampleWords, kit.legenda?.palavras_por_tela || 3);
     const cam = speechCamera(sampleWords, kit.camera?.intensidade ?? 0);
-    const T: Record<string, [string, string?]> = { gancho: ["O erro que trava suas vendas"], cta: ["Comenta EU QUERO"], lower_third: ["Vinícius Gontijo", "VINCIT"], episodio: ["21KM em Floripa", "2026"], capitulo: ["A largada", "Capítulo 2"], palavra: ["Consistência"] };
+    const T: Record<string, [string, string?]> = { gancho: ["O erro que trava suas vendas"], cta: ["Comenta EU QUERO"], lower_third: ["Vinícius Gontijo", "VINCIT"], episodio: ["21KM em Floripa", "2026"], capitulo: ["A largada"], palavra: ["Consistência"], frase: ["Encontre conforto no desconforto", "conforto"], letreiro: ["Malícia"], data: ["16 de agosto de 2026", "domingo"], lista: ["O que muda o jogo", "dormir melhor | treinar cedo | escrever o dia"], rec: ["REC", "4K UHD"] };
     const [text, sub] = T[title];
     const p: Project = { segments: [], titles: [{ id: "t", start: 0, end: SAMPLE_LEN + 1, text, sub, kind: title }], zooms: [], captionsOn: title !== "episodio", edits: {} };
     let raf = 0;
