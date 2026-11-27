@@ -145,3 +145,9 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   html.print-relatorio .relatorio-root { position: static !important; inset: auto !important; overflow: visible !important; height: auto !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html.print-relatorio .relatorio-noprint { display: none !important; }
 }
+
+/* barra de áreas fixa embaixo no celular (TopBar): o conteúdo não fica escondido atrás dela */
+@media screen and (max-width: 767px) {
+  body:has(.bottom-nav) { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  body:has(.brainstorm) .bottom-nav { display: none; }
+}

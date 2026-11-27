@@ -83,7 +83,7 @@ function Plan({ ctx }: { ctx: any }) {
           <button onClick={() => shift(1)} className="btn btn-ghost btn-sm" aria-label="Próximo trimestre"><I.arrow className="w-4 h-4" /></button>
         </div>
       </PageHead>
-      {saved && <p className="fixed bottom-4 right-4 z-40 chip chip-mint bg-panel">{saved}</p>}
+      {saved && <p className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40 chip chip-mint bg-panel">{saved}</p>}
 
       <section className="card p-5 overflow-x-auto mb-4">
         <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Metas do trimestre</p>
