@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 // Recomeçar do zero: escolhe o que zerar, confirma a senha (etapa 1) e digita ZERAR (etapa 2).
@@ -35,7 +36,7 @@ export default function ResetSettings({ gestor = true }: { gestor?: boolean }) {
     setBusy(true);
     const { data, error } = await createClient().rpc("reset_my_data", { p_financeiro: fin, p_seu_dia: dia });
     if (error) { setBusy(false); return setMsg({ t: "Não deu para zerar agora. Tente de novo." }); }
-    const r = (data || {}) as Record<string, number>;
+    const r = (data || {}) as Record<string, any>;
     const parts = [
       r.lancamentos != null && `${r.lancamentos} lançamentos`,
       r.cobrancas != null && `${r.cobrancas} cobranças`,
@@ -43,14 +44,14 @@ export default function ResetSettings({ gestor = true }: { gestor?: boolean }) {
       r.projetos != null && `${r.projetos} projetos`,
     ].filter(Boolean).join(", ");
     reset();
-    setMsg({ t: `Pronto, zerado: ${parts || "nada para apagar"}.`, ok: true });
+    setMsg({ t: `Pronto, zerado: ${parts || "nada para apagar"}.${r.lote ? " Se precisar, recupere na Lixeira em até 15 dias." : ""}`, ok: true });
   }
 
   return (
     <section className="card p-5 space-y-3">
       <div>
         <p className="font-display font-bold">Recomeçar do zero</p>
-        <p className="text-xs text-fog mt-1">Apaga o que você já trouxe para o HUB. Clientes, contas, categorias e agenda continuam. Não dá para desfazer.</p>
+        <p className="text-xs text-fog mt-1">Apaga o que você já trouxe para o HUB. Clientes, contas, categorias e agenda continuam. Tudo vai para a <Link href="/conta/lixeira" className="text-mint">Lixeira</Link> e dá para recuperar em até 15 dias.</p>
       </div>
       {!open ? (
         <button type="button" onClick={() => { setOpen(true); setMsg(null); }} className="btn btn-ghost btn-sm text-danger">Zerar dados…</button>
@@ -73,7 +74,7 @@ export default function ResetSettings({ gestor = true }: { gestor?: boolean }) {
           <input className="input" value={word} onChange={(e) => setWord(e.target.value)} placeholder="ZERAR" autoFocus aria-label="Digite ZERAR para confirmar" />
           <div className="flex gap-2">
             <button type="button" onClick={reset} className="btn btn-ghost btn-sm">Cancelar</button>
-            <button type="button" disabled={word.trim().toUpperCase() !== "ZERAR" || busy} onClick={run} className="btn btn-sm bg-danger text-ink disabled:opacity-40">{busy ? "Zerando…" : "Zerar de vez"}</button>
+            <button type="button" disabled={word.trim().toUpperCase() !== "ZERAR" || busy} onClick={run} className="btn btn-sm bg-danger text-ink disabled:opacity-40">{busy ? "Zerando…" : "Zerar"}</button>
           </div>
         </div>
       )}

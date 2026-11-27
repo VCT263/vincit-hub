@@ -8,6 +8,7 @@ import { useAI } from "@/lib/useAI";
 import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import { A } from "@/components/agency/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const UNITS = ["diária", "hora", "unidade", "vídeo", "mês", "pacote"];
 
@@ -74,7 +75,7 @@ export default function Proposta() {
       router.push(`/projetos/${data.id}`);
     }
   }
-  async function del() { if (!confirm("Excluir proposta?")) return; await createClient().from("ag_proposals").delete().eq("id", id); router.push("/agency/propostas"); }
+  async function del() { if (!(await apagarComLixeira({ tabela: "ag_proposals", filtro: { id }, oque: "esta proposta", rotulo: "Proposta: " + (p?.title || "sem título"), link: `/agency/propostas/${id}` }))) return; router.push("/agency/propostas"); }
 
   if (!p) return <p className="text-fog">Carregando…</p>;
   const link = `${origin}/p/${p.public_token}`;

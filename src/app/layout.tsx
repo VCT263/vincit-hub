@@ -6,6 +6,7 @@ import { brandCss } from "@/lib/brand";
 import { BrandProvider, type Brand } from "@/components/BrandContext";
 import RegisterSW from "@/components/RegisterSW";
 import ClaudeQueueBanner from "@/components/ClaudeQueueBanner";
+import ExclusaoHost from "@/components/lixeira/ExclusaoHost";
 
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-bricolage", weight: ["400", "600", "700", "800"] });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <BrandProvider value={brand}>{children}</BrandProvider>
         <RegisterSW />
         <ClaudeQueueBanner />
+        <ExclusaoHost />
       </body>
     </html>
   );

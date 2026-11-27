@@ -7,6 +7,7 @@ import { I } from "@/components/icons";
 import StoreGate, { StorePicker } from "@/components/ec/StoreGate";
 import QuarterBoard from "@/components/ec/QuarterBoard";
 import { brl, commercialDates, daysBetween, fmtDay, KINDS, MONTHS, num, PROFILE_FIELDS, quarterOf, todayBR, weeksOf } from "@/lib/ecommerce";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 export default function Ecommerce() {
   return <StoreGate>{(ctx) => <Overview ctx={ctx} />}</StoreGate>;
@@ -41,7 +42,7 @@ function Overview({ ctx }: { ctx: any }) {
     setMsg(`${(data as any)?.name || email} agora vê esta loja. Libere a seção E-commerce para essa conta em Admin.`); setEmail(""); load();
   }
   async function removeMember(uid: string) {
-    await createClient().from("ec_members").delete().eq("store_id", ctx.storeId).eq("user_id", uid); load();
+    if (await apagarComLixeira({ tabela: "ec_members", filtro: { store_id: ctx.storeId, user_id: uid }, oque: "o acesso desta pessoa à loja", rotulo: "Acesso à loja removido", link: "/ecommerce" })) load();
   }
 
   const weeks = weeksOf(month);

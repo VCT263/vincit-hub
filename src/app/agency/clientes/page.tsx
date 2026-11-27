@@ -54,7 +54,7 @@ export default function Clientes() {
     const ob = [...(sel.onboarding || []), { label: newStep.trim(), done: false }];
     setSel({ ...sel, onboarding: ob }); setNewStep(""); await c.patch(sel.id, { onboarding: ob });
   }
-  async function del() { if (!confirm(`Excluir ${sel.name}?`)) return; await c.remove(sel.id); setSel(null); }
+  async function del() { if (await c.remove(sel.id, sel.name, "/agency/clientes")) setSel(null); }
 
   const list = c.rows.filter((x) => (!status || x.status === status) && (!q || `${x.name} ${x.company || ""} ${x.segment || ""}`.toLowerCase().includes(q.toLowerCase())));
   const ob = sel?.onboarding || [];

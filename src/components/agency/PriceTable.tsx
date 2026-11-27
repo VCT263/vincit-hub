@@ -45,7 +45,7 @@ export default function PriceTable() {
                     <td className="py-2 pr-2">{x.name}</td><td className="py-2 pr-2 text-fog">{x.category}</td><td className="py-2 pr-2 text-fog">{x.unit}</td>
                     <td className="py-2 pr-2 w-28"><input type="number" className="input !py-1.5" defaultValue={x.price} onBlur={(e) => Number(e.target.value) !== Number(x.price) && prices.patch(x.id, { price: Number(e.target.value) })} /></td>
                     <td className="py-2 pr-2 w-28"><input type="number" className="input !py-1.5" defaultValue={x.cost} onBlur={(e) => Number(e.target.value) !== Number(x.cost) && prices.patch(x.id, { cost: Number(e.target.value) })} /></td>
-                    <td className="py-2"><button onClick={() => prices.remove(x.id)} className="text-fog hover:text-danger"><I.trash className="w-4 h-4" /></button></td>
+                    <td className="py-2"><button onClick={() => prices.remove(x.id, x.name || x.description)} className="text-fog hover:text-danger"><I.trash className="w-4 h-4" /></button></td>
                   </tr>
                 ))}
               </tbody>

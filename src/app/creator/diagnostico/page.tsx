@@ -7,6 +7,7 @@ import { useAccounts, fmt } from "@/lib/useAccounts";
 import { AXES, axisLabel } from "@/lib/diagnostico";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const STEPS = [
   { n: "1", t: "Diagnóstico", d: "Onde o perfil está hoje", href: "" },
@@ -84,7 +85,7 @@ export default function Diagnostico() {
     if (error) { const { error: e2 } = await sb.from("content_ideas").insert(rows); if (e2) { setMsg(`Não consegui salvar: ${e2.message}`); return; } }
     setMsg(`${rows.length} ideia(s) no Quadro, na coluna Ideia.`); setSel([]);
   }
-  async function del() { if (!cur?.id || !confirm("Excluir esta versão do diagnóstico?")) return; await createClient().from("profile_diagnoses").delete().eq("id", cur.id); load(); }
+  async function del() { if (!cur?.id) return; if (!(await apagarComLixeira({ tabela: "profile_diagnoses", filtro: { id: cur.id }, oque: "esta versão do diagnóstico", rotulo: `Diagnóstico v${cur.version || ""}`.trim(), link: "/creator/diagnostico" }))) return; load(); }
 
   const r = cur?.result || {};
   const inp = cur?.inputs || {};

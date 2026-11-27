@@ -8,6 +8,7 @@ import { useAI } from "@/lib/useAI";
 import { FRAMINGS, shotsFromScript, type Shot } from "@/lib/shots";
 import { parseScript } from "@/lib/prompter";
 import { MOVES } from "@/lib/roteiro";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const READY = ["roteiro", "producao"];
 const fmtDay = (d?: string | null) => (d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "") : "");
@@ -63,7 +64,7 @@ export default function Decupagem() {
   async function insertShots(list: (Shot & { media_id?: string | null })[], replace: boolean) {
     if (!sel || !list.length) return;
     const s = createClient();
-    if (replace && shots?.length) await s.from("av_shots").delete().eq("content_id", sel);
+    if (replace && shots?.length) await apagarComLixeira({ tabela: "av_shots", filtro: { content_id: sel }, oque: "os planos anteriores", rotulo: `Planos substituídos: ${cur?.title || "conteúdo"}`, link: "/audiovisual/decupagem", semSenha: true });
     const base = replace ? 0 : (shots?.[shots.length - 1]?.position || 0) + 1;
     await s.from("av_shots").insert(list.map((x, i) => ({ content_id: sel, position: base + i, description: x.description, framing: x.framing || null, audio: x.audio || null, notes: x.notes || null, media_id: x.media_id || null, part: x.part || null, line: x.line || null, movement: x.movement || null, broll: x.broll || null })));
     await loadShots(sel); load();
@@ -95,8 +96,9 @@ export default function Decupagem() {
     if ("done" in p) load();
   }
   async function remove(id: string) {
+    const sh: any = shots?.find((x: any) => x.id === id);
+    if (!(await apagarComLixeira({ tabela: "av_shots", filtro: { id }, oque: "este plano", rotulo: `Plano: ${(sh?.description || sh?.line || "sem texto").slice(0, 60)}`, link: "/audiovisual/decupagem" }))) return;
     setShots((l) => (l || []).filter((x) => x.id !== id));
-    await createClient().from("av_shots").delete().eq("id", id);
     load();
   }
   async function move(i: number, d: -1 | 1) {

@@ -77,6 +77,11 @@ export default function Conta() {
           <button className="btn btn-mint w-full">Salvar nova senha</button>
           {msg && <p className={`text-sm ${msg.ok ? "text-mint" : "text-danger"}`}>{msg.t}</p>}
         </form>
+        <Link href="/conta/lixeira" className="card p-5 flex items-center gap-3 hover:border-mint transition-colors">
+          <I.trash className="w-5 h-5 text-fog" />
+          <span className="flex-1"><span className="font-display font-bold block">Lixeira</span><span className="text-xs text-fog">O que você excluiu nos últimos 15 dias, para recuperar.</span></span>
+          <span className="text-fog">›</span>
+        </Link>
         <ResetSettings gestor={!!acc && hubAllowed(acc.tools, "agency")} />
       </div>
     </main>

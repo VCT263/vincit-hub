@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { brl, calcService, type Item } from "@/lib/agency";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const CATS = ["Vídeo institucional", "Conteúdo mensal", "Evento", "Aulas / EAD", "Edição", "Comercial / anúncio", "Fotografia", "Outro"];
 const UNITS = ["diária", "hora", "unidade", "vídeo", "mês", "pacote"];
@@ -46,7 +47,7 @@ export default function ServicesCatalog() {
     if (error) return setErr(error.message);
     setEd(null); load();
   }
-  async function del() { if (!confirm(`Excluir o serviço "${ed.name}"?`)) return; await createClient().from("ag_services").delete().eq("id", ed.id); setEd(null); load(); }
+  async function del() { if (!(await apagarComLixeira({ tabela: "ag_services", filtro: { id: ed.id }, oque: `o serviço "${ed.name}"`, rotulo: `Serviço: ${ed.name}`, link: "/agency/propostas" }))) return; setEd(null); load(); }
 
   const shown = list.filter((s) => !cat || s.category === cat);
 
