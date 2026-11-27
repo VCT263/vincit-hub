@@ -131,7 +131,7 @@ export async function GET(req: Request) {
       follow,
       online: onlineGrid,
       audience: { gender, age, city: city ? city.sort((a: any, b: any) => b.v - a.v).slice(0, 8) : null, total: acc.followers_count || (gender || []).reduce((a: number, x: any) => a + x.v, 0) },
-    }, { headers: { "cache-control": "private, max-age=600" } });
+    }, { headers: { "cache-control": "no-store" } });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
