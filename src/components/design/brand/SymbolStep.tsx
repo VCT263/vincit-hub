@@ -4,7 +4,7 @@ import { useAI } from "@/lib/useAI";
 import { ALL_FONTS, SYMBOLS, briefText, buildLogo, loadFonts, monoSvg, monogramSvg, sanitizeSvg, shrink, uid, type Builder, type Logo, type Monogram } from "@/lib/design";
 import { strategyText } from "@/lib/brand-strategy";
 import { I } from "@/components/icons";
-import { SvgView } from "../ui";
+import { SvgView, FontSelect } from "../ui";
 import type { StepProps } from "./types";
 
 const SYM_L: Record<string, string> = { nenhum: "Sem símbolo", circulo: "Círculo", quadrado: "Quadrado", losango: "Losango", arco: "Arco", folha: "Folha", barra: "Barras" };
@@ -77,7 +77,7 @@ export default function SymbolStep({ d, set }: StepProps) {
               <div className="col-span-2"><label className="label">Nome</label><input value={bl.text} onChange={(e) => B("text", e.target.value)} className="input" /></div>
               <div className="col-span-2"><label className="label">Linha de apoio (opcional)</label><input value={bl.sub} onChange={(e) => B("sub", e.target.value)} className="input" placeholder="Ex.: moda feminina" /></div>
               <div className="col-span-2"><label className="label">Fonte</label>
-                <select value={bl.font} onChange={(e) => B("font", e.target.value)} className="input">{ALL_FONTS.map((f) => <option key={f}>{f}</option>)}</select></div>
+                <FontSelect value={bl.font} onChange={(f) => B("font", f)} /></div>
               <div><label className="label">Peso</label><select value={bl.weight} onChange={(e) => B("weight", +e.target.value)} className="input">{[400, 600, 700, 800].map((w) => <option key={w} value={w}>{w}</option>)}</select></div>
               <div><label className="label">Espaçamento</label><input type="range" min={-5} max={40} value={bl.spacing} onChange={(e) => B("spacing", +e.target.value)} className="w-full accent-[var(--color-mint)] mt-3" /></div>
             </div>
@@ -112,7 +112,7 @@ export default function SymbolStep({ d, set }: StepProps) {
             <div className="grid grid-cols-2 gap-2">
               <div><label className="label">Letras</label><input value={mono.letters} maxLength={3} onChange={(e) => M({ letters: e.target.value })} className="input" /></div>
               <div><label className="label">Peso</label><select value={mono.weight} onChange={(e) => M({ weight: +e.target.value })} className="input">{[400, 600, 700, 800].map((w) => <option key={w}>{w}</option>)}</select></div>
-              <div className="col-span-2"><label className="label">Fonte</label><select value={mono.font} onChange={(e) => M({ font: e.target.value })} className="input">{ALL_FONTS.map((f) => <option key={f}>{f}</option>)}</select></div>
+              <div className="col-span-2"><label className="label">Fonte</label><FontSelect value={mono.font} onChange={(f) => M({ font: f })} /></div>
             </div>
             <div><label className="label">Encaixe entre as letras</label><input type="range" min={-10} max={45} value={mono.overlap} onChange={(e) => M({ overlap: +e.target.value })} className="w-full accent-[var(--color-mint)]" /></div>
             <div className="flex flex-wrap gap-1.5">

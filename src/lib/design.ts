@@ -1,3 +1,4 @@
+import { FONT_LIB, fontCssUrl, fontDef } from "./fonts";
 /** Seção Design: criação de marca (briefing → referências → logo → cores → tipografia → manual) e peças (carrossel e estático). */
 
 export type Kind = "marca" | "carrossel" | "peca";
@@ -16,7 +17,7 @@ export const STEPS: { k: Step; l: string; fase: string; d: string; dica: string 
   { k: "tipografia", fase: "Sistema", l: "Tipografia", d: "Famílias de título e texto e a escala de tamanhos.", dica: "Duas famílias e uma escala modular resolvem post, site e embalagem com coerência." },
   { k: "grafismos", fase: "Sistema", l: "Grafismos", d: "Padrões e supergráficos derivados do símbolo.", dica: "Grafismo bom nasce da própria marca: o símbolo ampliado, repetido ou recortado vira textura de sacola, fundo de post e embalagem." },
   { k: "aplicacoes", fase: "Sistema", l: "Aplicações", d: "A marca no mundo: post, stories, cartão, sacola, etiqueta, fachada, embalagem.", dica: "É nas aplicações que se vê se o sistema funciona. Ajuste o que quebrar e volte às etapas anteriores." },
-  { k: "manual", fase: "Entrega", l: "Manual", d: "Tudo junto num manual pronto para PDF e Canva.", dica: "O manual registra estratégia, construção e uso certo e errado, para qualquer pessoa aplicar a marca sem você." },
+  { k: "manual", fase: "Entrega", l: "Apresentação", d: "A marca apresentada como um estúdio apresenta: capítulos, arquétipos, construção e aplicações, em 16:9, 3:2 ou 4:3.", dica: "Apresente em tela cheia na reunião e mande o PDF depois. Cada capítulo abre com um divisor; o cliente entende o porquê antes de ver a forma." },
 ];
 /** etapas antigas (v1) → novas */
 export const stepOf = (k?: string): Step => (k === "logo" ? "simbolo" : (STEPS.some((s) => s.k === k) ? k : "estrategia") as Step);
@@ -164,7 +165,7 @@ export const PAIRS: Pair[] = [
   { k: "manuscrita", l: "Feita à mão", d: "artesanal, doce, confeitaria", title: "Caveat", body: "Nunito", tw: 700 },
   { k: "condensada", l: "Condensada", d: "pôster, moda urbana, eventos", title: "Bebas Neue", body: "Barlow", tw: 400 },
 ];
-export const ALL_FONTS = Array.from(new Set(PAIRS.flatMap((p) => [p.title, p.body])));
+export const ALL_FONTS = Array.from(new Set([...FONT_LIB.map((x) => x.f), ...PAIRS.flatMap((p) => [p.title, p.body])]));
 
 const loaded = new Map<string, Promise<void>>();
 /** carrega famílias do Google Fonts na página (para mostrar e para desenhar no canvas) */
@@ -172,12 +173,14 @@ export function loadFonts(families: string[]) {
   if (typeof document === "undefined") return Promise.resolve();
   const fams = families.filter(Boolean);
   const need = fams.filter((f) => !loaded.has(f));
-  if (need.length) {
-    const l = document.createElement("link"); l.rel = "stylesheet";
-    l.href = `https://fonts.googleapis.com/css2?${need.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;600;700;800`).join("&")}&display=swap`;
+  for (const f of need) {
+    // um link por família: se uma falhar, as outras carregam
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = fontCssUrl(f);
     const css = new Promise<void>((r) => { l.onload = () => r(); l.onerror = () => r(); setTimeout(r, 8000); });
     document.head.appendChild(l);
-    for (const f of need) loaded.set(f, css.then(() => Promise.all(["400", "600", "700", "800"].map((w) => document.fonts.load(`${w} 40px "${f}"`)))).then(() => {}, () => {}));
+    const ws = fontDef(f)?.w || [400, 700];
+    const styles = fontDef(f)?.it ? ["", "italic "] : [""];
+    loaded.set(f, css.then(() => Promise.all(ws.flatMap((w) => styles.map((st) => document.fonts.load(`${st}${w} 40px "${f}"`))))).then(() => {}, () => {}));
   }
   return Promise.all(fams.map((f) => loaded.get(f))).then(() => {});
 }
@@ -187,15 +190,16 @@ export async function svgWithFonts(svg: string, families: string[]) {
   let css = "";
   for (const f of families.filter(Boolean)) {
     try {
-      const r = await fetch(`https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;700;800&display=swap`);
+      const r = await fetch(fontCssUrl(f));
       const text = await r.text();
       const blocks = text.split("@font-face").slice(1).filter((b) => b.includes("U+0000-00FF") || !b.includes("unicode-range"));
       for (const b of blocks) {
-        const url = b.match(/url\((https:[^)]+)\)/)?.[1]; const w = b.match(/font-weight:\s*(\d+)/)?.[1] || "400";
+        const raw = b.match(/url\(['"]?((?:https:)?\/\/[^)'"]+\.woff2)['"]?\)/)?.[1] || b.match(/url\((https:[^)]+)\)/)?.[1]; const url = raw?.startsWith("//") ? `https:${raw}` : raw; const w = b.match(/font-weight:\s*(\d+)/)?.[1] || "400";
         if (!url) continue;
         const buf = await (await fetch(url)).arrayBuffer();
         let bin = ""; const bytes = new Uint8Array(buf); for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-        css += `@font-face{font-family:'${f}';font-weight:${w};src:url(data:font/woff2;base64,${btoa(bin)}) format('woff2');}`;
+        const fst = b.match(/font-style:\s*(\w+)/)?.[1] || "normal";
+        css += `@font-face{font-family:'${f}';font-weight:${w};font-style:${fst};src:url(data:font/woff2;base64,${btoa(bin)}) format('woff2');}`;
       }
     } catch {}
   }
@@ -425,34 +429,59 @@ export const timeAgo = (iso: string) => {
 };
 
 /* ───────────── Construção: logotipo, monograma e assinaturas ───────────── */
-export type Logotype = { text: string; font: string; weight: number; tracking: number; upper: boolean; kern: number[]; color: string; sub?: string; subFont?: string };
+export type Logotype = { text: string; font: string; weight: number; tracking: number; upper: boolean; kern: number[]; color: string; sub?: string; subFont?: string; lower?: boolean; italic?: boolean; form?: "linha" | "empilhado" | "selo"; vary?: number; lead?: number };
 export type Monogram = { letters: string; font: string; weight: number; shape: "nenhum" | "circulo" | "quadrado" | "arco" | "losango" | "selo"; overlap: number; fg: string; bg: string; stack: boolean };
 
 let _cv: HTMLCanvasElement | null = null;
 /** mede um texto com a fonte já carregada (em px) */
-export function measure(text: string, font: string, weight: number, size: number) {
+export function measure(text: string, font: string, weight: number, size: number, italic = false) {
   if (typeof document === "undefined") return text.length * size * .6;
   _cv = _cv || document.createElement("canvas");
-  const ctx = _cv.getContext("2d")!; ctx.font = `${weight} ${size}px "${font}"`;
+  const ctx = _cv.getContext("2d")!; ctx.font = `${italic ? "italic " : ""}${weight} ${size}px "${font}"`;
   return ctx.measureText(text).width;
 }
 
-/** logotipo com espaçamento (tracking) e ajuste entre pares (kerning), letra a letra */
+/** logotipo desenhado letra a letra: tracking, kerning por par, itálico, caixa, empilhado ou em selo,
+    e "gesto" (pequenas variações de ângulo e altura, para não parecer digitado) */
 export function logotypeSvg(lt: Logotype, color?: string) {
-  const fs = 100; const t = lt.upper ? lt.text.toUpperCase() : lt.text;
-  const chars = Array.from(t); let x = 0; const parts: string[] = [];
-  chars.forEach((c, i) => {
-    parts.push(`<text x="${x.toFixed(1)}" y="${fs * .78}" font-family="${lt.font}" font-weight="${lt.weight}" font-size="${fs}" fill="${color || lt.color}">${esc(c)}</text>`);
-    x += measure(c, lt.font, lt.weight, fs) + (lt.tracking * fs) / 1000 + (i < chars.length - 1 ? ((lt.kern[i] || 0) * fs) / 1000 : 0);
-  });
-  const w = Math.max(10, x - (lt.tracking * fs) / 1000); let h = fs;
-  let sub = "";
+  const fs = 100; const fill = color || lt.color;
+  const t = lt.upper ? lt.text.toUpperCase() : lt.lower ? lt.text.toLowerCase() : lt.text;
+  const it = lt.italic ? ' font-style="italic"' : "";
+  const rnd = (i: number) => { const v = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return (v - Math.floor(v)) * 2 - 1; };
+  const vary = (lt.vary || 0) / 100;
+  let gi = 0; // índice global de letra (o kerning segue a ordem do texto inteiro)
+  const line = (str: string, y: number) => {
+    const chars = Array.from(str); let x = 0; const parts: string[] = [];
+    chars.forEach((c, i) => {
+      const k = gi++;
+      const dy = vary ? rnd(k) * vary * fs * .06 : 0, rot = vary ? rnd(k + 99) * vary * 7 : 0;
+      const cw = measure(c, lt.font, lt.weight, fs, lt.italic);
+      parts.push(`<text x="${x.toFixed(1)}" y="${(y + dy).toFixed(1)}"${rot ? ` transform="rotate(${rot.toFixed(2)} ${(x + cw / 2).toFixed(1)} ${(y - fs * .35).toFixed(1)})"` : ""} font-family="${lt.font}" font-weight="${lt.weight}"${it} font-size="${fs}" fill="${fill}">${esc(c)}</text>`);
+      x += cw + (lt.tracking * fs) / 1000 + (i < chars.length - 1 ? ((lt.kern[k] || 0) * fs) / 1000 : 0);
+    });
+    return { parts, w: Math.max(10, x - (lt.tracking * fs) / 1000) };
+  };
+  const stacked = lt.form === "empilhado" || lt.form === "selo";
+  const words = stacked ? t.split(/\s+/).filter(Boolean) : [t];
+  const lh = fs * ((lt.lead ?? 86) / 100);
+  const lines = words.map((wd, i) => line(wd, fs * .78 + i * lh));
+  const W = Math.max(...lines.map((l) => l.w));
+  const center = lt.form === "selo";
+  let body = lines.map((l, i) => (center ? `<g transform="translate(${((W - l.w) / 2).toFixed(1)} 0)">${l.parts.join("")}</g>` : i === 0 ? l.parts.join("") : `<g>${l.parts.join("")}</g>`)).join("");
+  const w = W; let h = fs + (lines.length - 1) * lh, ox = 0, oy = 0;
   if (lt.sub) {
-    const sf = fs * .2, sw = measure(lt.sub.toUpperCase(), lt.subFont || lt.font, 500, sf) + lt.sub.length * sf * .3;
-    sub = `<text x="${w / 2}" y="${fs + sf * 1.2}" text-anchor="middle" font-family="${lt.subFont || lt.font}" font-weight="500" font-size="${sf}" letter-spacing="${sf * .3}" fill="${color || lt.color}">${esc(lt.sub.toUpperCase())}</text>`;
-    h = fs + sf * 1.6; void sw;
+    // descritor: centralizado na linha e no selo, alinhado à esquerda no empilhado
+    const sf = fs * .2, left = lt.form === "empilhado";
+    body += `<text x="${left ? 0 : (W / 2).toFixed(1)}" y="${(h + sf * 1.2).toFixed(1)}" text-anchor="${left ? "start" : "middle"}" font-family="${lt.subFont || lt.font}" font-weight="500" font-size="${sf}" letter-spacing="${sf * .3}" fill="${fill}">${esc(lt.sub.toUpperCase())}</text>`;
+    h += sf * 1.6;
   }
-  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">${parts.join("")}${sub}</svg>`, w, h, cap: fs * .78 };
+  if (lt.form === "selo") {
+    const rx = W / 2 + fs * .55, ry = h / 2 + fs * .5, sw = fs * .07;
+    ox = rx - W / 2 + sw; oy = ry - h / 2 + sw;
+    const cw = 2 * (rx + sw), ch = 2 * (ry + sw);
+    return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${cw.toFixed(1)} ${ch.toFixed(1)}"><ellipse cx="${(cw / 2).toFixed(1)}" cy="${(ch / 2).toFixed(1)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}" fill="none" stroke="${fill}" stroke-width="${sw.toFixed(1)}"/><g transform="translate(${ox.toFixed(1)} ${oy.toFixed(1)})">${body}</g></svg>`, w: cw, h: ch, cap: fs * .78 };
+  }
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">${body}</svg>`, w, h, cap: fs * .78 };
 }
 
 /** monograma: iniciais com sobreposição, empilhadas ou dentro de uma forma */

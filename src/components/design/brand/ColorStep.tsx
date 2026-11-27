@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { HARMONIES, ROLES, cmyk, contrast, harmony, hexToRgb, randomBase, readableOn, type Swatch } from "@/lib/design";
 import { I } from "@/components/icons";
+import { archetypeMix } from "@/lib/brand-strategy";
 import type { StepProps } from "./types";
 
 export default function ColorStep({ d, set }: StepProps) {
@@ -20,7 +21,9 @@ export default function ColorStep({ d, set }: StepProps) {
   });
   const up = (i: number, patch: Partial<Swatch>) => save(pal.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const mood = Array.from(new Set((d.refs || []).filter((r: any) => r.tipo === "gosto").flatMap((r: any) => r.colors || []))).slice(0, 15) as string[];
-  const concepts = (d.concepts || []).filter((c: any) => c.paleta?.length);
+  const terr = (d.territories || []).find((t: any) => t.id === d.territory_id && t.paleta?.length);
+  const concepts = [...(terr ? [{ nome: `Território ${terr.nome}`, paleta: terr.paleta }] : []), ...(d.concepts || []).filter((c: any) => c.paleta?.length)];
+  const mix = archetypeMix(d.strategy);
   const C = Object.fromEntries(pal.map((s) => [s.role, s.hex]));
 
   return (
@@ -52,15 +55,20 @@ export default function ColorStep({ d, set }: StepProps) {
         })}
       </div>
 
-      {(mood.length > 0 || concepts.length > 0) && (
+      {(mood.length > 0 || concepts.length > 0 || mix.length > 0) && (
         <section className="card p-5 space-y-3">
           <p className="font-mono text-[10px] uppercase tracking-widest text-fog">Começar de</p>
           {mood.length > 0 && (
             <div className="flex items-center gap-3 flex-wrap"><span className="text-xs text-fog w-32">Moodboard (clique)</span>
               <div className="flex gap-1">{mood.map((c) => <button key={c} onClick={() => regen(kind, c)} className="w-7 h-7 rounded-md border border-line hover:scale-110 transition-transform" style={{ background: c }} title={`Usar ${c} como primária`} />)}</div></div>
           )}
+          {mix.map((m) => (
+            <div key={m.a.k} className="flex items-center gap-3 flex-wrap"><span className="text-xs text-fog w-32 truncate">{m.a.l} · {m.pct}%</span>
+              <div className="flex gap-1">{m.a.cores.map((c) => <button key={c} onClick={() => regen(kind, c)} className="w-7 h-7 rounded-md border border-line hover:scale-110 transition-transform" style={{ background: c }} title={`Usar ${c} como primária`} />)}</div>
+              <span className="text-[11px] text-fog">{m.a.visual}</span></div>
+          ))}
           {concepts.map((c: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 flex-wrap"><span className="text-xs text-fog w-32 truncate">Claude · {c.nome}</span>
+            <div key={i} className="flex items-center gap-3 flex-wrap"><span className="text-xs text-fog w-32 truncate">{c.nome.startsWith("Território") ? c.nome : `Claude · ${c.nome}`}</span>
               <button onClick={() => save(c.paleta.slice(0, 5).map((hex: string, j: number) => ({ hex, role: ROLES[j] || "Apoio" })))} className="flex rounded-md overflow-hidden border border-line hover:border-mint">{c.paleta.slice(0, 5).map((h: string) => <span key={h} className="w-7 h-7" style={{ background: h }} />)}</button></div>
           ))}
         </section>

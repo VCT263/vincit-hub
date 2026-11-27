@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { FONT_CATS, FONT_LIB } from "@/lib/fonts";
 import { STEPS, sanitizeSvg, loadFonts, stepOf, primaryLogo } from "@/lib/design";
 
 /** mostra um SVG limpo (inline, para usar as fontes carregadas na página) */
@@ -48,5 +49,21 @@ export function BrandCard({ b }: { b: { id: string; title: string; step: string;
         </div>
       </div>
     </Link>
+  );
+}
+
+/** seletor de fonte agrupado por estilo (Google Fonts e Fontshare) */
+export function FontSelect({ value, onChange, className = "input" }: { value?: string; onChange: (f: string) => void; className?: string }) {
+  const known = FONT_LIB.some((x) => x.f === value);
+  return (
+    <select value={value || ""} onChange={(e) => onChange(e.target.value)} className={className}>
+      <option value="" disabled>Escolha</option>
+      {value && !known && <option value={value}>{value}</option>}
+      {FONT_CATS.map((c) => (
+        <optgroup key={c.k} label={c.l}>
+          {FONT_LIB.filter((x) => x.cat === c.k).map((x) => <option key={x.f} value={x.f}>{x.f}{x.src === "fontshare" ? " · Fontshare" : ""}</option>)}
+        </optgroup>
+      ))}
+    </select>
   );
 }

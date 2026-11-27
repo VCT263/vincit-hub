@@ -5,6 +5,7 @@ import { FORMATS, CATS, MIDIAS, FORMAT_MIDIA, formatBrief } from "@/lib/formats"
 import { EXAMPLES } from "@/lib/formats-examples";
 import { BRIEFING, briefingText } from "@/lib/briefing";
 import { createClient } from "@/lib/supabase/server";
+import { knowledgeText, TYPE_SYSTEMS } from "@/lib/brand-knowledge";
 
 export const maxDuration = 300;
 
@@ -203,7 +204,9 @@ Regras:
 - Cada um precisa ser desenhável: diga a direção de forma do símbolo (geometria, traço, peso), a direção de cor e a de tipografia (serifa, grotesca, script, mono) de modo concreto.
 - Nada de clichê do nicho nem de frases genéricas de IA.
 - busca: 3 buscas curtas em inglês para achar referências no Behance (ex.: "minimal fashion branding serif").
-- paleta: 5 hex nesta ordem: primária, apoio, destaque, escuro (quase preto), claro (quase branco).
+- paleta: 5 hex nesta ordem: primária, apoio, destaque, escuro (quase preto), claro (quase branco). Dê nome próprio às cores na ideia quando couber.
+- tipo: escolha um sistema de 3 vozes (estrutura, editorial, gesto). Sistemas de referência: ${TYPE_SYSTEMS.map((t) => `${t.l} (${t.estrutura} + ${t.editorial}${t.gesto ? " + " + t.gesto : ""})`).join("; ")}.
+${knowledgeText()}
 Responda SOMENTE com JSON: {"territorios":[{"nome":"nome curto","ideia":"1-2 frases","metafora":"","palavras":["4 palavras visuais"],"forma":"","cor":"","tipo":"","busca":["","",""],"paleta":["#hex","#hex","#hex","#hex","#hex"]}]}`,
       });
       return NextResponse.json(extractJson(text));
@@ -222,6 +225,8 @@ ${data.refs?.length ? `Notas do moodboard:\n${data.refs.join("\n")}\n` : ""}Regr
 - Só path, rect, circle, ellipse, polygon, line, g e text. Sem imagem, script, filtro, link ou fonte externa.
 - Construção intencional: use uma grade (múltiplos de 20), formas que se repetem, ângulos e raios coerentes. Deve funcionar em 16 px e em uma cor só. No máximo 2 cores, sobre fundo claro (não desenhe o fundo).
 - Nada de clichê do nicho (lâmpada, globo, engrenagem, folha genérica) a não ser que o território peça.
+- O símbolo nasce da ideia, do nome ou de um gesto. Prefira um traço com intenção (corte, assimetria controlada, forma orgânica quando o conceito pede) a um ícone geométrico genérico.
+${knowledgeText()}
 Para cada símbolo dê uma paleta de 5 cores em hex (primária, apoio, destaque, escuro, claro) e um par de fontes da lista.
 Responda SOMENTE com JSON: {"conceitos":[{"nome":"nome curto do caminho","ideia":"o conceito em 1-2 frases, ligando à estratégia","svg":"<svg ...>...</svg>","paleta":["#hex","#hex","#hex","#hex","#hex"],"fontes":{"titulo":"fonte","texto":"fonte"}}]}`,
       });
