@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
 import { CORES, ESTILOS, ESTILO_FONTS, ETAPAS, LETRAS, TIPOS_LOGO, answerText, answersText, arqMix, blank, filledCount, totalCount, type Paleta, type RefImg } from "@/lib/briefing-cliente";
 import { loadFonts } from "@/lib/design";
-import { STATUS, briefingUrl, criarProjeto, whatsLink, type Briefing } from "@/components/design/briefing/acoes";
+import { STATUS, briefingUrl, comVersao, criarProjeto, mudancas, whatsLink, type Briefing } from "@/components/design/briefing/acoes";
 
 export default function BriefingDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +15,7 @@ export default function BriefingDetalhe() {
   const [b, setB] = useState<Briefing | null>(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ver, setVer] = useState<number | null>(null);
   const t = useRef<any>(null);
 
   useEffect(() => {
@@ -30,8 +31,41 @@ export default function BriefingDetalhe() {
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 2200); };
 
   if (!b) return <div className="card h-96 animate-pulse" />;
-  const a = b.answers || {};
-  const has = !blank(a) && !!b.answered_at;
+  const versoes = b.versoes || [];
+  const versao = ver != null ? versoes[ver] : null;
+  const a = versao ? versao.answers || {} : b.answers || {};
+  const has = !blank(a) && (!!versao || !!b.answered_at);
+  const dt = (s?: string) => (s ? new Date(s).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
+  const diff = versao ? mudancas(versao.answers, b.answers || {}) : [];
+
+  function refazer() {
+    if (!b || !window.confirm("Refazer o briefing do zero? As respostas atuais vão para o histórico e o cliente responde de novo pelo mesmo link.")) return;
+    setVer(null);
+    save({ versoes: comVersao(b, "Antes de refazer"), answers: {}, answered_at: null, respondent: null, status: "aberto" } as any);
+    flash("Briefing reaberto do zero. Mande o link de novo para o cliente.");
+  }
+  function restaurar() {
+    if (!b || !versao) return;
+    save({ versoes: comVersao(b, "Antes de restaurar uma versão"), answers: { ...versao.answers, _editado_em: new Date().toISOString() } });
+    setVer(null); flash("Versão restaurada");
+  }
+  const Historico = versoes.length ? (
+    <div className="pt-3 border-t border-line">
+      <p className="font-semibold text-sm">Histórico</p>
+      <p className="text-xs text-fog mt-0.5 mb-2">Cada edição, reenvio ou refação guarda a versão anterior.</p>
+      <div className="space-y-1.5">
+        <button onClick={() => setVer(null)} className={`w-full text-left rounded-lg border px-3 py-2 text-xs ${ver == null ? "border-mint-dim bg-mint/[.07]" : "border-line hover:border-fog"}`}>
+          <span className="font-semibold text-paper">Atual</span>{b.answered_at ? ` · ${dt(b.answers?._editado_em || b.answered_at)}` : " · aguardando o cliente"}
+        </button>
+        {versoes.map((v, i) => (
+          <button key={i} onClick={() => setVer(i)} className={`w-full text-left rounded-lg border px-3 py-2 text-xs ${ver === i ? "border-mint-dim bg-mint/[.07]" : "border-line hover:border-fog"}`}>
+            <span className="text-paper">{dt(v.at)}</span><span className="text-fog"> · {v.motivo || (v.por === "cliente" ? "Resposta do cliente" : "Edição da equipe")}</span>
+            <span className="block text-fog mt-0.5">{mudancas(v.answers, b.answers || {}).length} respostas diferentes da atual</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  ) : null;
   const url = briefingUrl(b.token);
 
   async function projeto() {
@@ -64,8 +98,10 @@ export default function BriefingDetalhe() {
           <p className="text-fog mt-1.5 text-sm">{has ? `Respondido por ${b.respondent || "cliente"} em ${new Date(b.answered_at!).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · ${filledCount(a)} de ${totalCount} perguntas` : "Ainda sem resposta. Mande o link para o cliente."}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {b.status === "respondido" && <button onClick={projeto} disabled={busy} className="btn btn-mint"><I.shapes className="w-4 h-4" />{busy ? "Criando…" : "Criar projeto de marca"}</button>}
-          {b.status === "projeto" && b.brand_id && <Link href={`/design/marcas/${b.brand_id}`} className="btn btn-mint">Abrir projeto<I.arrow className="w-4 h-4" /></Link>}
+          {b.status === "respondido" && !b.brand_id && !versao && <button onClick={projeto} disabled={busy} className="btn btn-mint"><I.shapes className="w-4 h-4" />{busy ? "Criando…" : "Criar projeto de marca"}</button>}
+          {b.brand_id && <Link href={`/design/marcas/${b.brand_id}`} className="btn btn-mint">Abrir projeto<I.arrow className="w-4 h-4" /></Link>}
+          {!versao && <Link href={`/design/briefings/${b.id}/editar`} className="btn btn-ghost"><I.pen className="w-4 h-4" />{has ? "Editar respostas" : "Preencher eu mesmo"}</Link>}
+          {has && <Link href={`/design/briefings/${b.id}/relatorio${ver != null ? `?v=${ver}` : ""}`} className="btn btn-ghost"><I.board className="w-4 h-4" />Relatório</Link>}
           {has && <button onClick={async () => { await navigator.clipboard.writeText(`Briefing de marca · ${a.marca_nome || b.title}\n\n${answersText(a)}${b.notes ? `\n\n## Minhas notas\n${b.notes}` : ""}`); flash("Briefing copiado em texto"); }} className="btn btn-ghost"><I.copy className="w-4 h-4" />Copiar para o Claude</button>}
         </div>
       </div>
@@ -82,12 +118,28 @@ export default function BriefingDetalhe() {
         </div>
       </section>
 
+      {versao && (
+        <section className="card p-4 mb-6 border-mint-dim">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Vendo a versão de {dt(versao.at)}{versao.motivo ? ` · ${versao.motivo}` : ""}</p>
+              <p className="text-xs text-fog mt-0.5">{diff.length ? `Mudou na versão atual: ${diff.map((q) => q.l.replace(/\?$/, "")).slice(0, 6).join("; ")}${diff.length > 6 ? ` e mais ${diff.length - 6}` : ""}.` : "Igual à versão atual."}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={restaurar} className="btn btn-ghost btn-sm">Restaurar esta versão</button>
+              <button onClick={() => setVer(null)} className="btn btn-mint btn-sm">Voltar para a atual</button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {!has ? (
         <section className="card p-5">
           <label className="label">Mensagem de abertura que o cliente vê</label>
           <textarea value={b.intro || ""} onChange={(e) => save({ intro: e.target.value }, 700)} rows={3} className="input" placeholder="Em branco, entra o texto padrão." />
           <p className="text-xs text-fog mt-3">Quando o cliente enviar, você recebe um aviso no sino e o briefing aparece em Criação de marca, em Solicitações recebidas.</p>
-          <button onClick={excluir} className="btn btn-ghost btn-sm mt-4 text-fog hover:!text-danger"><I.trash className="w-3.5 h-3.5" />Excluir briefing</button>
+          {!versoes.length && <button onClick={excluir} className="btn btn-ghost btn-sm mt-4 text-fog hover:!text-danger"><I.trash className="w-3.5 h-3.5" />Excluir briefing</button>}
+          {Historico && <div className="mt-4">{Historico}</div>}
         </section>
       ) : (
         <div className="grid lg:grid-cols-[1fr_320px] gap-5 items-start">
@@ -180,13 +232,15 @@ export default function BriefingDetalhe() {
               <p className="text-xs text-fog mt-0.5 mb-2">Complete o que faltou, o que você percebeu na conversa e o que precisa confirmar com o cliente. Vai junto para o projeto.</p>
               <textarea value={b.notes || ""} onChange={(e) => save({ notes: e.target.value }, 700)} rows={8} className="input" placeholder="Ex.: confirmar como o nome entra no logo. Ela fala muito de esporte: explorar comunidade." />
             </div>
-            {b.status === "respondido" && <button onClick={projeto} disabled={busy} className="btn btn-mint w-full"><I.shapes className="w-4 h-4" />{busy ? "Criando…" : "Criar projeto de marca"}</button>}
+            {b.status === "respondido" && !b.brand_id && !versao && <button onClick={projeto} disabled={busy} className="btn btn-mint w-full"><I.shapes className="w-4 h-4" />{busy ? "Criando…" : "Criar projeto de marca"}</button>}
             <p className="text-[11px] text-fog">O projeto já nasce com nome, o que faz, público, concorrentes, palavras, tipo de logo, cores, o que evitar, personalidade e as referências. Você segue pela Estratégia.</p>
             <div className="pt-3 border-t border-line flex flex-wrap gap-2">
-              {b.status !== "projeto" && <button onClick={() => save({ status: "aberto" })} className="btn btn-ghost btn-sm" title="O cliente pode reenviar pelo mesmo link">Reabrir para o cliente</button>}
+              {b.status !== "aberto" && <button onClick={() => { save({ status: "aberto" }); flash("O cliente já pode revisar e reenviar pelo mesmo link"); }} className="btn btn-ghost btn-sm" title="O cliente abre o link com as respostas atuais e pode ajustar">Pedir ajuste ao cliente</button>}
+              <button onClick={refazer} className="btn btn-ghost btn-sm" title="Guarda as respostas no histórico e o cliente responde do zero">Refazer do zero</button>
               {b.status !== "arquivado" ? <button onClick={() => save({ status: "arquivado" })} className="btn btn-ghost btn-sm">Arquivar</button>
                 : <button onClick={() => save({ status: b.brand_id ? "projeto" : "respondido" })} className="btn btn-ghost btn-sm">Desarquivar</button>}
             </div>
+            {Historico}
           </aside>
         </div>
       )}
