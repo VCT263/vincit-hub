@@ -2,7 +2,8 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { FORMATS, Presenter, ScaledSlide, useDeck, type Format } from "@/components/design/brand/Presentation";
+import { printAll } from "@/components/design/brand/lazy";
+import { FORMATS, Presenter, PrintDeck, ScaledSlide, useDeck, type Format } from "@/components/design/brand/Presentation";
 import Logo from "@/components/Logo";
 
 /* Apresentação pública da marca (link do projeto): o cliente vê os slides, apresenta em tela cheia,
@@ -31,12 +32,7 @@ function Deck({ token, p }: { token: string; p: any }) {
   const [done, setDone] = useState<"" | "aprovado" | "ajuste">("");
   const [aprovado, setAprovado] = useState<string | null>(ent.aprovado || null);
 
-  useEffect(() => {
-    const st = document.createElement("style");
-    st.textContent = `@media print { @page { size: ${x.W}px ${x.H}px; margin: 0; } body { background: #fff !important; } .deck-wrap { height: auto !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; break-after: page; } .deck-scale { transform: none !important; } .deck-slide { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .deck-list { gap: 0 !important; padding: 0 !important; } }`;
-    document.head.appendChild(st); document.title = `${nome} · identidade de marca`;
-    return () => st.remove();
-  }, [x.W, x.H, nome]);
+  useEffect(() => { document.title = `${nome} · identidade de marca`; }, [nome]);
 
   async function enviar(decisao: "aprovado" | "ajuste") {
     if (decisao === "ajuste" && !txt.trim()) return;
@@ -54,7 +50,7 @@ function Deck({ token, p }: { token: string; p: any }) {
         <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma, de preferência em tela grande; no celular, vire na horizontal ao apresentar.</p>
         <div className="flex flex-wrap gap-2 mt-6">
           <button onClick={() => setShow(0)} className="btn btn-mint">▶ Apresentar em tela cheia</button>
-          <button onClick={() => window.print()} className="btn btn-ghost">Baixar PDF</button>
+          <button onClick={printAll} className="btn btn-ghost">Baixar PDF</button>
           <a href="#retorno" className="btn btn-ghost">{aprovado ? "Aprovada" : "Aprovar ou pedir ajuste"}</a>
         </div>
         <p className="text-[11px] text-fog mt-3">{slides.length} páginas · no PDF, escolha “Salvar como PDF” e ative “Gráficos de fundo”.</p>
@@ -89,6 +85,7 @@ function Deck({ token, p }: { token: string; p: any }) {
           </div>
         )}
       </section>
+      <PrintDeck x={x} slides={slides} />
       {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} />}
     </main>
   );

@@ -87,13 +87,20 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   --color-on-primary-container: var(--color-mint);
 }
 
-/* Manual de marca do Design: uma página A4 deitada por lâmina ao salvar em PDF */
 @media print {
   html, body { background: #fff !important; }
   .grain::before { display: none !important; }
-  .manual-page { break-after: page; border-radius: 0 !important; width: 100vw !important; height: 100vh !important; aspect-ratio: auto !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
-@page { size: A4 landscape; margin: 0; }
+
+/* PDF do manual de marca: só os slides, no tamanho real, um por página (PrintDeck) */
+@media screen { .print-deck-root { display: none; } }
+@media print {
+  html.print-deck, html.print-deck body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  html.print-deck body > *:not(.print-deck-root) { display: none !important; }
+  .print-deck-page { position: relative; overflow: clip; contain: strict; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-deck-page:last-child { break-after: auto; page-break-after: auto; }
+  .print-deck-page * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 
 /* Roteiro técnico (folha A4 do Quadro de produção) */
 @layer components {

@@ -8,6 +8,8 @@ import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Sc
 import { MockupCover, byGroup, type Mockup } from "./MockupView";
 import { brandVoice } from "./MockupArt";
 import { brandPrompt } from "@/lib/brandPrompt";
+import { createPortal } from "react-dom";
+import { useNear, usePrintAll } from "./lazy";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
@@ -537,13 +539,34 @@ export function ScaledSlide({ x, s, n, total }: { x: Ctx; s: SlideDef; n: number
     const ro = new ResizeObserver(() => setK(el.clientWidth / x.W)); ro.observe(el); setK(el.clientWidth / x.W);
     return () => ro.disconnect();
   }, [x.W]);
+  const near = useNear(ref);
   return (
-    <div ref={ref} className="deck-wrap w-full relative overflow-hidden rounded-lg shadow-2xl" style={{ height: x.H * k }}>
-      <div className="deck-scale" style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>
+    <div ref={ref} className="deck-wrap w-full relative overflow-hidden rounded-lg shadow-2xl bg-panel2" style={{ height: x.H * k }}>
+      {near && <div className="deck-scale" style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>
         <Frame x={x} s={s} n={n} total={total}>{s.body(x)}</Frame>
-      </div>
+      </div>}
     </div>
   );
+}
+
+/** o PDF: na hora de imprimir, os slides vão para uma camada própria no body, no tamanho real
+   (sem escala, sem o layout do HUB em volta), uma página por slide no tamanho do formato */
+export function PrintDeck({ x, slides }: { x: Ctx; slides: SlideDef[] }) {
+  const on = usePrintAll();
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!on) return;
+    const root = document.createElement("div"); root.className = "print-deck-root";
+    const st = document.createElement("style");
+    st.textContent = `@media print { @page { size: ${x.W}px ${x.H}px; margin: 0; } }`;
+    document.body.appendChild(root); document.head.appendChild(st); document.documentElement.classList.add("print-deck");
+    setEl(root);
+    return () => { root.remove(); st.remove(); document.documentElement.classList.remove("print-deck"); setEl(null); };
+  }, [on, x.W, x.H]);
+  if (!el) return null;
+  return createPortal(slides.map((s, i) => (
+    <div key={s.key} className="print-deck-page" style={{ width: x.W, height: x.H }}><Frame x={x} s={s} n={i + 1} total={slides.length}>{s.body(x)}</Frame></div>
+  )), el);
 }
 
 /** apresentação em tela cheia: setas para navegar, Esc para sair */
