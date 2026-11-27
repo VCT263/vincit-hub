@@ -8,6 +8,7 @@ import {
   QUALITY_HIGH, canEncodeAudio, canEncodeVideo,
 } from "mediabunny";
 import * as M from "./model";
+import { preloadMotion } from "@/lib/motion/engine";
 import { activeOverlays, drawInsert, setFormat, shakeAt, cameraLevel, captionScreens, drawCover, speechCamera, drawOverlays, layout, outputWords, segLen, totalDuration, zoomAt, type Kit, type Media, type Project } from "./model";
 
 const RATE = 48000;
@@ -19,6 +20,8 @@ export async function exportMp4(p: Project, media: Media[], kit: Kit, onProgress
   if (!total) throw new Error("A timeline está vazia.");
   if (!(await canEncodeVideo("avc", { width: W, height: H }))) throw new Error("Este navegador não exporta H.264. Use o Chrome ou o Edge no computador.");
   const audioCodec = (await canEncodeAudio("aac")) ? "aac" : "opus";
+  // logos e imagens dos motions precisam estar carregados antes do primeiro quadro
+  await Promise.all((p.motions || []).map((m) => preloadMotion(m.spec)));
 
   const byId = new Map(media.map((m) => [m.id, m]));
   const words = outputWords(p, media);

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { I } from "@/components/icons";
 import { widgetScript } from "@/lib/widgetScript";
+import Ajuda from "@/components/ajuda/Ajuda";
 
 /** Minha conta → Widget no celular e no Mac: gera a chave pessoal e o script do Scriptable */
 export default function WidgetSettings() {
@@ -41,7 +42,7 @@ export default function WidgetSettings() {
       <div className="flex items-start gap-3">
         <span className="w-9 h-9 rounded-[10px] bg-panel2 grid place-items-center shrink-0 text-mint"><I.calendar className="w-5 h-5" /></span>
         <div>
-          <p className="font-display font-bold">Widget no celular e no Mac</p>
+          <p className="font-display font-bold flex items-center gap-2">Widget no celular e no Mac <Ajuda id="widget" /></p>
           <p className="text-xs text-fog">Tarefas de hoje, atrasadas, compromissos e o resumo da semana no widget de Calendário do iPhone e do Mac (sem baixar app) ou no widget do Scriptable.</p>
         </div>
       </div>
