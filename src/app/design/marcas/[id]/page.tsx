@@ -121,9 +121,9 @@ export default function BrandWorkspace() {
       {step === "manual" && <ManualStep {...props} />}
 
       {step !== "manual" && (
-        <div className="flex justify-between mt-8 print:hidden">
-          {idx > 0 ? <button onClick={() => go(STEPS[idx - 1].k)} className="btn btn-ghost"><I.back className="w-4 h-4" />{STEPS[idx - 1].l}</button> : <span />}
-          <button onClick={() => go(STEPS[idx + 1].k)} className="btn btn-mint">{STEPS[idx + 1].l}<I.arrow className="w-4 h-4" /></button>
+        <div className="flex justify-between gap-2 mt-8 print:hidden">
+          {idx > 0 ? <button onClick={() => go(STEPS[idx - 1].k)} className="btn btn-ghost min-w-0"><I.back className="w-4 h-4 shrink-0" /><span className="truncate">{STEPS[idx - 1].l}</span></button> : <span />}
+          <button onClick={() => go(STEPS[idx + 1].k)} className="btn btn-mint min-w-0"><span className="truncate">{STEPS[idx + 1].l}</span><I.arrow className="w-4 h-4 shrink-0" /></button>
         </div>
       )}
     </>

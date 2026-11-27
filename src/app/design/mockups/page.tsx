@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
+import { I } from "@/components/icons";
 import { processPsd } from "@/lib/mockupPsd";
 import { layerPixels, maskPixels, prepareLayer, readPsd } from "@/lib/psdRead";
 import { CATS, byGroup, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
@@ -89,17 +90,19 @@ export default function MockupsPage() {
   return (
     <>
       <PageHead kicker="Design · Mockups" title="Mockups fotográficos" desc="Fotos profissionais em que o logo, as cores e o grafismo de cada marca entram sozinhos, com a perspectiva, a luz e a sombra originais. Vêm dos PSD grátis do mockups-design.com." />
-      <div className="card p-4 space-y-3 mb-6">
-        <p className="font-semibold text-sm">Importar do mockups-design.com</p>
+      <details className="card p-4 mb-6 group" open={busy || !!log.length || undefined}>
+        <summary className="font-semibold text-sm cursor-pointer list-none flex items-center gap-2"><I.plus className="w-4 h-4 text-mint" />Importar novo mockup do mockups-design.com</summary>
+        <div className="space-y-3 mt-3">
         <div className="flex flex-wrap gap-2">
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mockups-design.com/…-mockup/" className="input flex-1 min-w-64 !py-1.5 text-sm" />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mockups-design.com/…-mockup/" className="input flex-1 min-w-0 sm:min-w-64 !py-1.5 text-sm" />
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nome (opcional)" className="input w-48 !py-1.5 text-sm" />
           <select value={cat} onChange={(e) => setCat(e.target.value)} className="input w-44 !py-1.5 text-sm">{Object.entries(CATS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           <button onClick={importar} disabled={busy || !url} className="btn btn-mint !py-1.5 text-sm">{busy ? "Importando…" : "Importar"}</button>
         </div>
         <p className="text-[11px] text-fog">Leva de 20 segundos a 2 minutos por pacote (o arquivo tem de 50 a 300 MB e é processado aqui no navegador). Funciona melhor com mockups de objeto inteligente plano ou em perspectiva; efeitos 3D de camada (chanfro, relevo) não são lidos. Licença do site: uso comercial liberado; o PSD não é guardado nem repassado.</p>
         {!!log.length && <div className="font-mono text-[11px] text-fog space-y-0.5">{log.map((l, i) => <p key={i}>{l}</p>)}</div>}
-      </div>
+        </div>
+      </details>
       {rows === null ? <div className="card h-40 animate-pulse" /> : (
         <div className="space-y-8">
         {byGroup(rows).map(({ g, items }) => (

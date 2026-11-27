@@ -64,7 +64,7 @@ export default function RefsStep({ d, set }: StepProps) {
         </div>
         <form onSubmit={addUrl} className="card p-6 flex flex-col justify-center gap-2">
           <label className="label">Link de referência (Behance, Pinterest, Instagram, site)</label>
-          <div className="flex gap-2"><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.behance.net/gallery/…" className="input" /><button className="btn btn-mint btn-sm">Adicionar</button></div>
+          <div className="flex gap-2"><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.behance.net/gallery/…" className="input min-w-0 flex-1" /><button className="btn btn-mint btn-sm">Adicionar</button></div>
         </form>
       </div>
 
