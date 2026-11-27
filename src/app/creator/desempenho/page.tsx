@@ -7,7 +7,9 @@ import { I } from "@/components/icons";
 export default async function Desempenho() {
   const s = await createClient();
   const { data: accounts } = await s.from("ig_accounts").select("id,username,connected,followers_count,profile_picture_url").order("created_at");
-  if (accounts?.length === 1) redirect(`/creator/desempenho/${accounts[0].id}`);
+  // abre direto o perfil principal (conectado e com mais seguidores); os outros ficam nas abas do topo
+  const main = [...(accounts || [])].sort((a, b) => Number(b.connected) - Number(a.connected) || (b.followers_count || 0) - (a.followers_count || 0))[0];
+  if (main) redirect(`/creator/desempenho/${main.id}`);
   return (
     <>
       <PageHead kicker="CREATOR · 01 ANÁLISE" title="Desempenho" desc="Métricas, posts fora da curva e diagnóstico de cada perfil." />
