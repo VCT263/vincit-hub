@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { runFrom, log, publishStep } from "@/lib/flows";
 import { gget, mediaRow, MEDIA_FIELDS } from "@/lib/meta";
 import { pushPending } from "@/lib/push";
-import { fotoDiaria } from "@/lib/igHistorico";
+import { fotoDiaria, preencherQuadrimestre } from "@/lib/igHistorico";
 
 export const maxDuration = 300;
 
@@ -59,7 +59,10 @@ export async function POST(req: Request) {
       for (const acc of (accs || []).filter((a: any) => !ja.has(a.id)).slice(0, 3)) {
         try {
           const { data: token } = await db.rpc("ig_token_for", { p_account_id: acc.id, p_owner: acc.owner_id });
-          if (token) out.historico += await fotoDiaria(db, acc as any, token as string);
+          if (token) {
+            out.historico += await fotoDiaria(db, acc as any, token as string);
+            try { out.historico += await preencherQuadrimestre(db, acc as any, token as string, 30); } catch {}
+          }
         } catch {} // token expirado: tenta no próximo tique
       }
     } catch {}
