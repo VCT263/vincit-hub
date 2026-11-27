@@ -36,7 +36,7 @@ const SAMPLE_LEN = sampleWords[sampleWords.length - 1].end + 0.8;
 const DEMO_TEXT: Record<TitleKind, [string, string?]> = {
   gancho: ["O erro que trava suas vendas"], cta: ["Comenta EU QUERO"], lower_third: ["Vinícius Gontijo", "VINCIT"], episodio: ["21KM em Floripa", "2026"], capitulo: ["A largada"],
   palavra: ["Vendas"], frase: ["Isso muda tudo", "tudo"], letreiro: ["Malícia"], data: ["16 de agosto de 2026", "domingo"], lista: ["O que muda o jogo", "dormir melhor | treinar cedo | escrever o dia"],
-  rec: ["REC", "4K UHD"], vazado: ["vendas", "sem anúncio"],
+  rec: ["REC", "4K UHD"], vazado: ["vendas", "sem anúncio"], riscado: ["tática", "estratégia"],
   numero: ["70%", "das vendas"], grafico: ["Vendas", "em 3 meses"], checklist: ["3 ajustes", "foto | preço | descrição"], seta: ["olha aqui", "baixo"], relogio: ["30 min", "por dia"], progresso: ["70", "da meta"],
 };
 /** em que momento da fala de exemplo cada demonstração entra (nunca fica fixo o vídeo todo) */
@@ -50,11 +50,11 @@ const CAMADAS: [Camada, string, string][] = [
   ["camera", "Câmera", "Movimentos que dão ritmo"],
   ["insercao", "Imagem de inserção", "Fotos e vídeos por cima da fala"],
   ["motion", "Motion", "Animações nas cores do kit"],
-  ["premiere", "Premiere", "MOGRTs (opcional)"],
+  ["premiere", "Premiere", "2ª saída e MOGRTs"],
 ];
 const FREQ: [string, string][] = [["pouco", "Pouco"], ["medio", "Médio"], ["muito", "Muito"]];
 const LET_DESC: Partial<Record<TitleKind, string>> = {
-  gancho: "Título nos 2 primeiros segundos.", palavra: "Palavra forte num selo colorido.", vazado: "Palavra grande e transparente no espaço vazio, com linha em itálico.",
+  gancho: "Título nos 2 primeiros segundos.", palavra: "Palavra forte num selo colorido.", vazado: "Palavra grande e transparente no espaço vazio, com linha em itálico.", riscado: "Uma palavra é riscada e a certa entra embaixo (\"não é X, é Y\").",
   frase: "Frase curta ocupa a tela, com o fundo escurecido.", letreiro: "Palavra gigante com letras espaçadas.", lower_third: "Nome e cargo no canto.", cta: "Pedido de ação no final.",
   episodio: "Abertura de série sobre o quadro desfocado.", capitulo: "Roda numerada de capítulos.", data: "Data e lugar do vlog.", lista: "Tela de explicação com itens.", rec: "Moldura de câmera antiga.",
 };
@@ -114,7 +114,7 @@ export default function KitPage() {
     const [{ data: k }, { data: p }, { data: b }] = await Promise.all([
       s.from("av_style_kits").select("id,name,account_id,data").order("updated_at", { ascending: false }),
       s.from("ig_accounts").select("id,username"),
-      s.from("design_projects").select("id,title,data").eq("kind", "marca").order("updated_at", { ascending: false }),
+      s.from("design_projects").select("id,title,data").eq("kind", "marca").is("archived_at", null).order("updated_at", { ascending: false }),
     ]);
     setBrands(b || []);
     setKits((k as Row[]) || []);
@@ -332,10 +332,23 @@ export default function KitPage() {
               </>)}
 
               {camada === "premiere" && (<>
-                <Intro>Caminho dos arquivos .mogrt no computador de quem edita. Sem MOGRT, legendas e títulos entram como marcadores no Premiere.</Intro>
+                <Intro>O Premiere é a segunda saída do Editor: no Editor, &quot;Enviar para o Premiere&quot; manda cortes, legendas, letterings, motion, câmera e imagens para o painel VINCIT HUB no Premiere, onde você ajusta à mão com mais recursos. Aqui ficam os arquivos .mogrt de cada tipo, no computador de quem edita. Tipo sem MOGRT entra como marcador com o texto e a instrução.</Intro>
+                <div className="flex flex-wrap gap-2">
+                  <a href="/downloads/vincit-hub-premiere.ccx" className="chip"><I.arrow className="w-3.5 h-3.5" />Baixar o plugin (.ccx)</a>
+                  <Link href="/audiovisual/premiere" className="chip">Como usar no Premiere</Link>
+                </div>
+                <p className="text-xs font-semibold text-fog uppercase tracking-wide">Legenda</p>
+                <Field label="Legenda"><input className="input font-mono text-xs" value={edit.data.mogrts?.legenda || ""} onChange={(e) => set(["mogrts", "legenda"], e.target.value)} placeholder="/Users/…/legenda.mogrt" /></Field>
+                <p className="text-xs font-semibold text-fog uppercase tracking-wide">Lettering</p>
                 <div className="grid sm:grid-cols-2 gap-2">
-                  {[["legenda", "Legenda"], ["gancho", "Gancho"], ["cta", "CTA"], ["lower_third", "Lower-third"]].map(([k, l]) => (
-                    <Field key={k} label={l}><input className="input font-mono text-xs" value={edit.data.mogrts?.[k] || ""} onChange={(e) => set(["mogrts", k], e.target.value)} placeholder="/Users/…/arquivo.mogrt" /></Field>
+                  {LETTERING_KINDS.map((k) => (
+                    <Field key={k} label={TITLE_LABEL[k]}><input className="input font-mono text-xs" value={edit.data.mogrts?.[k] || ""} onChange={(e) => set(["mogrts", k], e.target.value)} placeholder="/Users/…/arquivo.mogrt" /></Field>
+                  ))}
+                </div>
+                <p className="text-xs font-semibold text-fog uppercase tracking-wide">Motion</p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {MOTION_KINDS.map((k) => (
+                    <Field key={k} label={TITLE_LABEL[k]}><input className="input font-mono text-xs" value={edit.data.mogrts?.[k] || ""} onChange={(e) => set(["mogrts", k], e.target.value)} placeholder="/Users/…/arquivo.mogrt" /></Field>
                   ))}
                 </div>
               </>)}

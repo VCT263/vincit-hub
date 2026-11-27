@@ -5,7 +5,7 @@
   let current = null; // edição aberta (av_edit_sessions)
   let poll = null;
 
-  const LABELS = { cortes: "Cortes (marcadores)", legendas: "Legendas", titulos: "Títulos", zooms: "Zooms", insercoes: "Inserções de B-roll", marcadores: "Notas" };
+  const LABELS = { cortes: "Cortes (marcadores)", legendas: "Legendas", titulos: "Letterings", motion: "Motion", zooms: "Câmera (zooms)", insercoes: "Inserções de B-roll", marcadores: "Notas" };
 
   function show() {
     const ok = HUB.loggedIn();
@@ -116,7 +116,7 @@
       await HUB.setStatus(current.id, "aplicado");
       current.status = "aplicado";
       render();
-      const parts = [["marcadores", r.marcadores], ["legendas", r.legendas], ["títulos", r.titulos], ["zooms", r.zooms], ["inserções", r.insercoes]].filter((x) => x[1]).map((x) => `${x[1]} ${x[0]}`);
+      const parts = [["marcadores", r.marcadores], ["legendas", r.legendas], ["letterings", r.titulos], ["motion", r.motion], ["zooms", r.zooms], ["inserções", r.insercoes]].filter((x) => x[1]).map((x) => `${x[1]} ${x[0]}`);
       say(`Aplicado: ${parts.join(", ") || "nada"}.${r.avisos.length ? " Avisos: " + r.avisos.slice(0, 3).join(" | ") : ""}`);
     } catch (e) { say(e.message); }
     $("btnApply").disabled = false;
