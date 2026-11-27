@@ -4,18 +4,26 @@ import Link from "next/link";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import {
-  CAMERA_LEVELS, FONTS_CSS, H, W, applyCuts, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
-  type Kit, type Media, type Project, type Title, type Zoom,
+  CAMERA_LEVELS, FONTS_CSS, H, TITLE_LABEL, W, activeOverlays, applyCuts, drawInsert, isHot, setFormat, cameraLevel, speechCamera, captionScreens, drawCover, drawOverlays, fmt, layout, locate, mergeKit, outputWords, removeSilences, segLen, totalDuration, uid, zoomAt,
+  type Format, type Kit, type Media, type Overlay, type OverlayMode, type Project, type Title, type Zoom,
 } from "@/lib/editor/model";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
 
-const PRESETS = [
-  { key: "impacto", title: "Corte seco + zoom", desc: "Tira os silêncios, câmera forte que acompanha a fala, punch de 110% nas frases fortes, legenda palavra a palavra.", estilo: "impacto", zoom: true, cut: true, camera: 3 },
-  { key: "broll", title: "Talking head limpo", desc: "Tira os silêncios, legenda com caixa colorida, câmera média seguindo a fala.", estilo: "caixa", zoom: false, cut: true, camera: 2 },
-  { key: "editorial", title: "Editorial", desc: "Legenda serifada e discreta, cortes só nos silêncios longos, câmera suave.", estilo: "editorial", zoom: false, cut: true, camera: 1 },
-  { key: "documental", title: "Documental calmo", desc: "Mantém as pausas, legenda simples embaixo, câmera parada.", estilo: "documental", zoom: false, cut: false, camera: 0 },
+type Preset = { key: string; title: string; desc: string; estilo: string; zoom: boolean; cut: number | false; camera: number; captions: boolean; jump?: number; fade?: boolean; keywords?: boolean; abertura?: boolean };
+const PRESETS_V: Preset[] = [
+  { key: "impacto", title: "Corte seco + zoom", desc: "Tira os silêncios, câmera forte que acompanha a fala, punch de 110% nas frases fortes, legenda palavra a palavra.", estilo: "impacto", zoom: true, cut: 0, camera: 3, captions: true },
+  { key: "broll", title: "Talking head limpo", desc: "Tira os silêncios, legenda com caixa colorida, câmera média seguindo a fala.", estilo: "caixa", zoom: false, cut: 0, camera: 2, captions: true },
+  { key: "editorial", title: "Editorial", desc: "Legenda serifada e discreta, cortes só nos silêncios longos, câmera suave.", estilo: "editorial", zoom: false, cut: 0.9, camera: 1, captions: true },
+  { key: "documental", title: "Documental calmo", desc: "Mantém as pausas, legenda simples embaixo, câmera parada.", estilo: "documental", zoom: false, cut: false, camera: 0, captions: true },
+];
+/* horizontal (YouTube): a partir do seu vídeo "21KM em Floripa" e de canais de conhecimento/autodesenvolvimento */
+const PRESETS_H: Preset[] = [
+  { key: "vlog", title: "Vlog de série", desc: "Abertura com o título sobre o quadro desfocado, corte seco com punch alternado (jump cut), câmera suave, sem legenda, fade no fim. Coloque os B-rolls por cima.", estilo: "editorial", zoom: false, cut: 0, camera: 1, captions: false, jump: 112, fade: true, abertura: true },
+  { key: "conhecimento", title: "Conhecimento (ritmo alto)", desc: "Corte seco, punch alternado, câmera média, palavra-chave na tela nas ideias fortes. Estilo de canais de ciência e produtividade.", estilo: "impacto", zoom: true, cut: 0, camera: 2, captions: false, jump: 115, fade: true, keywords: true, abertura: true },
+  { key: "documentario", title: "Documentário", desc: "Mantém respiros (corta só pausas longas), câmera suave, legenda discreta embaixo, abertura e fade.", estilo: "documental", zoom: false, cut: 0.9, camera: 1, captions: true, fade: true, abertura: true },
+  { key: "conversa", title: "Conversa / podcast", desc: "Sem cortes, câmera parada, nome na tela no começo. Bom para entrevista.", estilo: "documental", zoom: false, cut: false, camera: 0, captions: false },
 ];
 
 export default function Editor() {
@@ -33,11 +41,17 @@ export default function Editor() {
   const [busy, setBusy] = useState<Busy>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; size: number } | null>(null);
-  const [preset, setPreset] = useState("impacto");
+  const [preset, setPreset] = useState("");
+  const [addAs, setAddAs] = useState<"fala" | "broll">("fala");
   const [ask, setAsk] = useState("");
   const [plan, setPlan] = useState<{ id: string; status: string; plan?: any; note?: string } | null>(null);
 
+  setFormat(p.format); // W e H da prévia acompanham o formato escolhido
+  const wide = p.format === "16:9";
+  const PRESETS = wide ? PRESETS_H : PRESETS_V;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const brollVideos = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const images = useRef<Map<string, HTMLImageElement>>(new Map());
   const videos = useRef<Map<string, HTMLVideoElement>>(new Map());
   const tRef = useRef(0);
   const playRef = useRef(false);
@@ -63,25 +77,42 @@ export default function Editor() {
   }, []);
 
   /* ---------- importar arquivos ---------- */
-  async function addFiles(files: FileList | null) {
+  async function addFiles(files: FileList | null, as: "fala" | "broll" = addAs) {
     if (!files?.length) return;
     const added: Media[] = [];
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith("video/") && !/\.(mov|mp4|m4v|mkv|webm)$/i.test(file.name)) continue;
+      const isImg = file.type.startsWith("image/");
+      if (isImg && as === "fala") { setMsg(`${file.name} é imagem: ela entra como B-roll (escolha "B-roll" antes de adicionar).`); continue; }
+      if (!isImg && !file.type.startsWith("video/") && !/\.(mov|mp4|m4v|mkv|webm)$/i.test(file.name)) continue;
       const url = URL.createObjectURL(file);
-      const meta = await new Promise<{ d: number; w: number; h: number }>((res) => {
-        const v = document.createElement("video");
-        v.preload = "metadata"; v.src = url;
-        v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight });
-        v.onerror = () => res({ d: 0, w: 0, h: 0 });
-      });
-      if (!meta.d) { setMsg(`Não consegui abrir ${file.name}. Use MP4 ou MOV em H.264/H.265.`); continue; }
-      added.push({ id: uid(), name: file.name, file, url, duration: meta.d, width: meta.w, height: meta.h });
+      const meta = isImg
+        ? await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; })
+        : await new Promise<{ d: number; w: number; h: number }>((res) => {
+          const v = document.createElement("video");
+          v.preload = "metadata"; v.src = url;
+          v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight });
+          v.onerror = () => res({ d: 0, w: 0, h: 0 });
+        });
+      if (!meta.d) { setMsg(`Não consegui abrir ${file.name}. Use MP4 ou MOV em H.264/H.265, ou JPG/PNG.`); continue; }
+      added.push({ id: uid(), name: file.name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: isImg, broll: as === "broll" });
     }
     if (!added.length) return;
     setMedia((m) => [...m, ...added]);
-    setP((pp) => ({ ...pp, segments: [...pp.segments, ...added.map((m) => ({ id: uid(), mediaId: m.id, in: 0, out: m.duration }))] }));
+    // o formato acompanha o primeiro take de fala (deitado → horizontal)
+    const firstTalk = added.find((m) => !m.broll);
+    if (firstTalk && !p.segments.length && !p.format && firstTalk.width > firstTalk.height) setP((pp) => ({ ...pp, format: "16:9" }));
+    if (as === "fala") setP((pp) => ({ ...pp, segments: [...pp.segments, ...added.map((m) => ({ id: uid(), mediaId: m.id, in: 0, out: m.duration }))] }));
+    else setMsg(`${added.length} B-roll(s) no acervo. Leve o cursor até o ponto e clique em "Tela cheia" ou "Lateral" na lista.`);
   }
+
+  function addOverlay(m: Media, mode: OverlayMode) {
+    const start = tRef.current;
+    const len = Math.min(m.image ? 4 : Math.max(1, m.duration), 4);
+    const end = Math.min(total || start + len, start + len);
+    if (end - start < 0.3) { setMsg("Leve o cursor para antes do fim do vídeo."); return; }
+    update((pp) => ({ ...pp, overlays: [...(pp.overlays || []), { id: uid(), mediaId: m.id, start, end, in: 0, mode }] }));
+  }
+  const setOv = (id: string, patch: Partial<Overlay>) => setP((pp) => ({ ...pp, overlays: (pp.overlays || []).map((o) => (o.id === id ? { ...o, ...patch } : o)) }));
 
   /* ---------- prévia ---------- */
   const draw = useCallback((time: number) => {
@@ -92,6 +123,18 @@ export default function Editor() {
     const v = loc ? videos.current.get(loc.seg.mediaId) : null;
     if (v && v.readyState >= 2) drawCover(ctx, v, v.videoWidth, v.videoHeight, zoomAt(p, time, cam));
     else { ctx.fillStyle = "#0c0c0d"; ctx.fillRect(0, 0, W, H); }
+    const act = activeOverlays(p, time);
+    brollVideos.current.forEach((bv, id) => { if (!act.some((o) => o.mediaId === id)) bv.pause(); });
+    for (const ov of act) {
+      const im = images.current.get(ov.mediaId);
+      if (im?.complete && im.naturalWidth) { drawInsert(ctx, ov, im, im.naturalWidth, im.naturalHeight, time); continue; }
+      const bv = brollVideos.current.get(ov.mediaId);
+      if (!bv) continue;
+      const target = ov.in + (time - ov.start);
+      if (!playRef.current || Math.abs(bv.currentTime - target) > 0.3) bv.currentTime = target;
+      if (playRef.current && bv.paused) bv.play().catch(() => {});
+      if (bv.readyState >= 2) drawInsert(ctx, ov, bv, bv.videoWidth, bv.videoHeight, time);
+    }
     drawOverlays(ctx, p, screens, time, kit);
   }, [p, screens, kit, cam]);
 
@@ -166,7 +209,7 @@ export default function Editor() {
   const trim = (id: string, key: "in" | "out", v: number) => update((pp) => ({ ...pp, segments: pp.segments.map((s) => s.id !== id ? s : { ...s, [key]: key === "in" ? Math.min(v, s.out - 0.1) : Math.max(v, s.in + 0.1) }) }));
 
   async function transcribeAll() {
-    const pending = media.filter((m) => !m.words);
+    const pending = media.filter((m) => !m.words && !m.broll);
     if (!pending.length) { setMsg("Todos os clipes já têm legenda."); return; }
     const { transcribe } = await import("@/lib/editor/transcribe");
     try {
@@ -183,30 +226,53 @@ export default function Editor() {
     const pr = PRESETS.find((x) => x.key === key)!;
     setPreset(key);
     setOverride((o) => ({ ...o, legenda: { ...(o.legenda || {}), estilo: pr.estilo } }));
-    if (!media.some((m) => m.words)) { setMsg("Gere a legenda primeiro (aba Legenda). O estilo usa a fala para cortar e dar zoom."); return; }
-    const minGap = pr.key === "editorial" ? 0.9 : (kit.regras?.silencio_ms || 350) / 1000;
-    let next: Project = { ...p, camera: pr.camera };
-    if (pr.cut) next = { ...next, segments: removeSilences(p, media, minGap) };
+    if (!media.some((m) => m.words)) { setMsg("Gere a legenda primeiro (aba Legenda). O estilo usa a fala para cortar e mexer a câmera."); return; }
+    const minGap = pr.cut === false ? 0 : pr.cut || (kit.regras?.silencio_ms || 350) / 1000;
+    let next: Project = { ...p, camera: pr.camera, captionsOn: pr.captions, jumpPunch: pr.jump, fade: !!pr.fade };
+    if (pr.cut !== false) next = { ...next, segments: removeSilences(p, media, minGap) };
+    const ws = outputWords(next, media);
+    const end = totalDuration(next);
     if (pr.zoom) {
-      const ws = outputWords(next, media);
       const zooms: Zoom[] = [];
       let last = -10;
       ws.forEach((w, i) => {
         const strong = /[!?]$/.test(w.t) || (i > 0 && ws[i - 1].t.match(/[.!?]$/));
-        if (strong && w.start - last > 3) { zooms.push({ id: uid(), start: w.start, end: Math.min(w.start + 1.6, next.segments.length ? totalDuration(next) : 0), scale: 110 }); last = w.start; }
+        if (strong && w.start - last > 3) { zooms.push({ id: uid(), start: w.start, end: Math.min(w.start + 1.6, end), scale: 110 }); last = w.start; }
       });
       next = { ...next, zooms };
     } else next = { ...next, zooms: [] };
+    let titles = next.titles.filter((x) => x.kind !== "palavra" && x.kind !== "episodio");
+    if (pr.keywords) {
+      let last = -10;
+      for (const w of ws) {
+        const clean = w.t.replace(/[^\p{L}\p{N}%$]/gu, "");
+        if (clean.length >= 4 && isHot(w.t) && w.start - last > 9 && w.start > 4) { titles.push({ id: uid(), kind: "palavra", text: clean, start: w.start, end: Math.min(end, w.start + 2.2) }); last = w.start; }
+      }
+    }
+    if (pr.abertura) {
+      const c = contents.find((x) => x.id === contentId);
+      titles = [{ id: uid(), kind: "episodio", text: c?.title || "Título do episódio", sub: String(new Date().getFullYear()), start: 0, end: Math.min(end, 3.5) }, ...titles];
+    }
+    next = { ...next, titles };
     update(() => next);
     seek(0);
-    setMsg(`Estilo "${pr.title}" aplicado.${pr.cut ? ` Ficou com ${next.segments.length} trechos.` : ""}`);
+    setMsg(`Estilo "${pr.title}" aplicado.${pr.cut !== false ? ` Ficou com ${next.segments.length} trechos.` : ""}`);
   }
 
   function addTitle(kind: Title["kind"]) {
     const c = contents.find((x) => x.id === contentId);
-    const text = kind === "gancho" ? c?.hook || c?.title || "Seu gancho aqui" : kind === "cta" ? "Comenta EU QUERO" : "Nome · Cargo";
-    const start = kind === "cta" ? Math.max(0, total - 3) : kind === "gancho" ? 0 : tRef.current;
-    update((pp) => ({ ...pp, titles: [...pp.titles, { id: uid(), kind, text, start, end: Math.min(total || 3, start + (kind === "gancho" ? 2.5 : 3)) }] }));
+    const n = p.titles.filter((x) => x.kind === "capitulo").length + 1;
+    const def: Record<Title["kind"], [string, string | undefined, number]> = {
+      gancho: [c?.hook || c?.title || "Seu gancho aqui", undefined, 2.5],
+      cta: [wide ? "Se inscreve e ativa o sininho" : "Comenta EU QUERO", undefined, 3],
+      lower_third: ["Nome", "Cargo ou @perfil", 3.5],
+      episodio: [c?.title || "Título do episódio", `EP. 01 · ${new Date().getFullYear()}`, 3.5],
+      capitulo: ["Título do capítulo", `Capítulo ${n}`, 3],
+      palavra: ["Palavra", undefined, 2.2],
+    };
+    const [text, sub, len] = def[kind];
+    const start = kind === "cta" ? Math.max(0, total - 3) : kind === "gancho" || kind === "episodio" ? 0 : tRef.current;
+    update((pp) => ({ ...pp, titles: [...pp.titles, { id: uid(), kind, text, sub, start, end: Math.min(total || len, start + len) }] }));
   }
 
   async function doExport() {
@@ -232,7 +298,7 @@ export default function Editor() {
       fps: 30, duration_sec: +total.toFixed(2),
       timeline: layout(p).map((l) => ({ faixa: "V1", nome: media.find((m) => m.id === l.seg.mediaId)?.name, inicio: +l.start.toFixed(2), fim: +l.end.toFixed(2) })),
       transcript: words.map((w) => ({ inicio: +w.start.toFixed(2), fim: +w.end.toFixed(2), texto: w.t })),
-      request: [ask.trim(), "Plano para o editor do HUB (vídeo vertical 9:16). Cortes são aplicados direto na timeline."].filter(Boolean).join(" · "),
+      request: [ask.trim(), wide ? "Plano para o editor do HUB (vídeo horizontal 16:9 para YouTube, formato série). Cortes são aplicados direto na timeline. B-rolls disponíveis: " + (media.filter((m) => m.broll).map((m) => m.name).join(", ") || "nenhum") : "Plano para o editor do HUB (vídeo vertical 9:16). Cortes são aplicados direto na timeline."].filter(Boolean).join(" · "),
     };
     const { data, error } = await s.from("av_edit_sessions").insert(row).select("id,status").single();
     if (error) { setMsg(error.message); return; }
@@ -252,20 +318,27 @@ export default function Editor() {
     if (!plan?.plan) return;
     const pl = plan.plan;
     let next: Project = { ...p, ...(pl.camera != null && !isNaN(+pl.camera) ? { camera: Math.max(0, Math.min(3, Math.round(+pl.camera))) } : {}) };
-    if ((pl.titulos || []).length) next = { ...next, titles: [...next.titles, ...pl.titulos.map((x: any) => ({ id: uid(), kind: ["gancho", "cta", "lower_third"].includes(x.tipo) ? x.tipo : "gancho", text: String(x.texto || ""), start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 2.5 }))] };
+    if ((pl.titulos || []).length) next = { ...next, titles: [...next.titles, ...pl.titulos.map((x: any) => ({ id: uid(), kind: Object.keys(TITLE_LABEL).includes(x.tipo) ? x.tipo : "gancho", text: String(x.texto || ""), sub: x.linha ? String(x.linha) : undefined, start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 2.5 }))] };
     if ((pl.zooms || []).length) next = { ...next, zooms: [...next.zooms, ...pl.zooms.map((z: any) => ({ id: uid(), start: +z.inicio, end: z.fim != null ? +z.fim : +z.inicio + 1.5, scale: +z.escala || 110 }))] };
+    // B-roll do plano: casa pelo nome do arquivo que está no acervo
+    const ins = (pl.insercoes || []).map((x: any) => {
+      const name = String(x.midia || "").toLowerCase();
+      const m = name && media.find((mm) => mm.name.toLowerCase().includes(name) || name.includes(mm.name.toLowerCase().replace(/\.[a-z0-9]+$/, "")));
+      return m ? { id: uid(), mediaId: m.id, start: +x.inicio, end: x.fim != null ? +x.fim : +x.inicio + 3, in: 0, mode: (["esquerda", "direita"].includes(x.modo) ? x.modo : "cheia") as OverlayMode } : null;
+    }).filter(Boolean) as Overlay[];
+    if (ins.length) next = { ...next, overlays: [...(next.overlays || []), ...ins] };
     // cortes por último: títulos e zooms do plano estão no tempo de antes dos cortes
     const cuts = (pl.cortes || []).map((c: any) => ({ inicio: +c.inicio, fim: +c.fim }));
     if (cuts.length) {
       const shift = (x: number) => x - cuts.filter((c: any) => c.fim <= x).reduce((a: number, c: any) => a + (c.fim - c.inicio), 0);
-      next = { ...next, segments: applyCuts(next, cuts), titles: next.titles.map((x) => ({ ...x, start: shift(x.start), end: shift(x.end) })), zooms: next.zooms.map((z) => ({ ...z, start: shift(z.start), end: shift(z.end) })) };
+      next = { ...next, segments: applyCuts(next, cuts), titles: next.titles.map((x) => ({ ...x, start: shift(x.start), end: shift(x.end) })), zooms: next.zooms.map((z) => ({ ...z, start: shift(z.start), end: shift(z.end) })), overlays: (next.overlays || []).map((o) => ({ ...o, start: shift(o.start), end: shift(o.end) })) };
     }
     update(() => next);
     seek(0);
     const s = createClient();
     await s.from("av_edit_sessions").update({ status: "aplicado", applied_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", plan.id);
     setPlan({ ...plan, status: "aplicado" });
-    setMsg(`Plano aplicado: ${cuts.length} cortes, ${(pl.zooms || []).length} zooms, ${(pl.titulos || []).length} textos. Espaço para ver.`);
+    setMsg(`Plano aplicado: ${cuts.length} cortes, ${(pl.zooms || []).length} zooms, ${(pl.titulos || []).length} textos${ins.length ? `, ${ins.length} B-rolls` : ""}. Espaço para ver.`);
   }
 
   /* ---------- timeline ---------- */
@@ -286,7 +359,7 @@ export default function Editor() {
         <div>
           <p className="font-mono text-[11px] tracking-[.2em] text-mint uppercase">Audiovisual · Pós-produção</p>
           <h1 className="font-display text-3xl font-extrabold tracking-tight mt-1">Editor</h1>
-          <p className="text-sm text-fog mt-1 max-w-2xl">Cortes, legenda automática no estilo do cliente, títulos e zoom, exportado em 9:16. Tudo roda no seu computador. Para vídeos maiores, use o <Link href="/audiovisual/premiere" className="text-mint">Premiere com o Claude</Link>.</p>
+          <p className="text-sm text-fog mt-1 max-w-2xl">Cortes, legenda automática no estilo do cliente, títulos, B-roll e câmera, em 9:16 para Reels ou 16:9 para YouTube. Tudo roda no seu computador. Para vídeos maiores, use o <Link href="/audiovisual/premiere" className="text-mint">Premiere com o Claude</Link>.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <select className="input !w-auto" value={contentId} onChange={(e) => setContentId(e.target.value)}>
@@ -298,7 +371,12 @@ export default function Editor() {
             {kits.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
           </select>
           <Link href="/audiovisual/kit" className="chip self-center">Editar kits</Link>
-          <button disabled={!total || !!busy} onClick={doExport} className="px-4 py-2 rounded-xl bg-mint text-ink font-semibold text-sm disabled:opacity-40 inline-flex items-center gap-2"><I.arrow className="w-4 h-4 rotate-90" />Exportar 1080×1920</button>
+          <div className="flex rounded-xl border border-line overflow-hidden text-sm">
+            {(["9:16", "16:9"] as Format[]).map((f) => (
+              <button key={f} onClick={() => { update((pp) => ({ ...pp, format: f })); setPreset(""); }} className={`px-3 py-2 font-semibold ${(p.format || "9:16") === f ? "bg-mint/10 text-mint" : "text-fog"}`}>{f === "9:16" ? "Vertical 9:16" : "YouTube 16:9"}</button>
+            ))}
+          </div>
+          <button disabled={!total || !!busy} onClick={doExport} className="px-4 py-2 rounded-xl bg-mint text-ink font-semibold text-sm disabled:opacity-40 inline-flex items-center gap-2"><I.arrow className="w-4 h-4 rotate-90" />Exportar {wide ? "1920×1080" : "1080×1920"}</button>
         </div>
       </div>
 
@@ -310,7 +388,7 @@ export default function Editor() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-[300px_minmax(0,1fr)_290px] gap-3">
+      <div className={`grid gap-3 ${wide ? "lg:grid-cols-[280px_minmax(0,1fr)_260px]" : "lg:grid-cols-[300px_minmax(0,1fr)_290px]"}`}>
         {/* ---------- esquerda ---------- */}
         <aside className="card p-3 min-w-0 order-2 lg:order-1">
           <div className="flex flex-wrap gap-1 mb-3">
@@ -321,9 +399,14 @@ export default function Editor() {
 
           {tab === "clipes" && (
             <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                {([["fala", "Fala (timeline)"], ["broll", "B-roll (por cima)"]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setAddAs(k)} className={`rounded-lg border px-2 py-1.5 font-semibold ${addAs === k ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
+                ))}
+              </div>
               <label className="block border border-dashed border-line rounded-xl p-4 text-center text-sm text-fog cursor-pointer hover:border-mint-dim">
-                <input type="file" accept="video/*,.mov,.mp4" multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-                <I.plus className="w-5 h-5 mx-auto mb-1" />Adicionar vídeos do computador
+                <input type="file" accept={addAs === "broll" ? "video/*,image/*,.mov,.mp4" : "video/*,.mov,.mp4"} multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos do computador"}
               </label>
               {selSeg && selMedia ? (
                 <div className="rounded-xl border border-line p-3 space-y-2">
@@ -338,9 +421,32 @@ export default function Editor() {
                   </div>
                 </div>
               ) : <p className="text-xs text-fog">Clique num trecho da timeline para cortar, dividir ou mudar a ordem.</p>}
-              <ul className="text-xs text-fog space-y-1">
-                {media.map((m) => <li key={m.id} className="flex justify-between gap-2"><span className="truncate">{m.name}</span><span className="font-mono">{fmt(m.duration)}{m.words ? " · legenda" : ""}</span></li>)}
+              <ul className="text-xs text-fog space-y-1.5">
+                {media.map((m) => (
+                  <li key={m.id}>
+                    <div className="flex justify-between gap-2"><span className="truncate">{m.broll ? "▧ " : ""}{m.name}</span><span className="font-mono shrink-0">{m.image ? "imagem" : fmt(m.duration)}{m.words ? " · legenda" : ""}</span></div>
+                    {m.broll && <div className="flex gap-1 mt-1"><button onClick={() => addOverlay(m, "cheia")} className="chip">Tela cheia no cursor</button><button onClick={() => addOverlay(m, wide ? "esquerda" : "direita")} className="chip">{wide ? "Lateral" : "Cartão"}</button></div>}
+                  </li>
+                ))}
               </ul>
+              {(p.overlays || []).length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">B-rolls na timeline</p>
+                  {(p.overlays || []).map((o) => (
+                    <div key={o.id} className="rounded-xl border border-line p-2 space-y-1.5">
+                      <div className="flex justify-between text-xs"><span className="truncate">{media.find((m) => m.id === o.mediaId)?.name}</span><button onClick={() => update((pp) => ({ ...pp, overlays: (pp.overlays || []).filter((x) => x.id !== o.id) }))} className="text-red-400">Apagar</button></div>
+                      <select className="input !py-1 text-xs" value={o.mode} onChange={(e) => setOv(o.id, { mode: e.target.value as OverlayMode })}>
+                        <option value="cheia">Tela cheia</option><option value="esquerda">Cartão à esquerda</option><option value="direita">Cartão à direita</option>
+                      </select>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <NumIn label="De" value={o.start} onChange={(v) => setOv(o.id, { start: v })} />
+                        <NumIn label="Até" value={o.end} onChange={(v) => setOv(o.id, { end: v })} />
+                        <NumIn label="Início do clipe" value={o.in} onChange={(v) => setOv(o.id, { in: Math.max(0, v) })} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -371,12 +477,16 @@ export default function Editor() {
                 <button onClick={() => addTitle("gancho")} className="chip">+ Gancho</button>
                 <button onClick={() => addTitle("cta")} className="chip">+ CTA</button>
                 <button onClick={() => addTitle("lower_third")} className="chip">+ Nome na tela</button>
+                <button onClick={() => addTitle("episodio")} className="chip">+ Abertura do episódio</button>
+                <button onClick={() => addTitle("capitulo")} className="chip">+ Capítulo</button>
+                <button onClick={() => addTitle("palavra")} className="chip">+ Palavra-chave</button>
                 <button onClick={() => update((pp) => ({ ...pp, zooms: [...pp.zooms, { id: uid(), start: tRef.current, end: Math.min(total, tRef.current + 1.5), scale: 112 }] }))} className="chip">+ Zoom no cursor</button>
               </div>
               {p.titles.map((tt) => (
                 <div key={tt.id} className="rounded-xl border border-line p-2.5 space-y-2">
-                  <div className="flex justify-between text-xs text-fog"><span>{{ gancho: "Gancho", cta: "CTA", lower_third: "Nome na tela" }[tt.kind]}</span><button onClick={() => update((pp) => ({ ...pp, titles: pp.titles.filter((x) => x.id !== tt.id) }))} className="text-red-400">Apagar</button></div>
+                  <div className="flex justify-between text-xs text-fog"><span>{TITLE_LABEL[tt.kind]}</span><button onClick={() => update((pp) => ({ ...pp, titles: pp.titles.filter((x) => x.id !== tt.id) }))} className="text-red-400">Apagar</button></div>
                   <input className="input !py-1.5 text-sm" value={tt.text} onChange={(e) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, text: e.target.value } : x)) }))} />
+                  {["episodio", "capitulo", "lower_third", "palavra"].includes(tt.kind) && <input className="input !py-1 text-xs" placeholder={tt.kind === "episodio" ? "Linha de baixo (ex.: EP. 03 · 2026)" : tt.kind === "capitulo" ? "Linha de cima (ex.: Capítulo 2)" : "Linha pequena"} value={tt.sub || ""} onChange={(e) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, sub: e.target.value || undefined } : x)) }))} />}
                   <div className="grid grid-cols-2 gap-2">
                     <NumIn label="De (s)" value={tt.start} onChange={(v) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, start: v } : x)) }))} />
                     <NumIn label="Até (s)" value={tt.end} onChange={(v) => setP((pp) => ({ ...pp, titles: pp.titles.map((x) => (x.id === tt.id ? { ...x, end: v } : x)) }))} />
@@ -410,7 +520,7 @@ export default function Editor() {
 
         {/* ---------- centro ---------- */}
         <div className="card p-3 flex flex-col items-center gap-3 order-1 lg:order-2 min-w-0">
-          <canvas ref={canvasRef} width={W} height={H} className="w-full max-w-[320px] aspect-[9/16] rounded-2xl border border-line bg-black" />
+          <canvas key={wide ? "h" : "v"} ref={canvasRef} width={W} height={H} className={`w-full rounded-2xl border border-line bg-black ${wide ? "aspect-video" : "max-w-[320px] aspect-[9/16]"}`} />
           <div className="flex items-center gap-3">
             <button disabled={!total} onClick={() => setPlaying((x) => !x)} className="px-4 py-2 rounded-xl border border-line text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-40">{playing ? <I.pause className="w-4 h-4" /> : <I.play className="w-4 h-4" />}{playing ? "Pausar" : "Tocar"}</button>
             <span className="font-mono text-xs text-soft tabular-nums">{fmt(t)} / {fmt(total)}</span>
@@ -441,6 +551,10 @@ export default function Editor() {
                 <button key={l} onClick={() => update((pp) => ({ ...pp, camera: i }))} className={`rounded-lg border px-1 py-1.5 text-[11px] font-semibold ${camLevel === i ? "border-mint text-mint" : "border-line text-fog"}`}>{l}</button>
               ))}
             </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+              <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!p.jumpPunch} onChange={(e) => update((pp) => ({ ...pp, jumpPunch: e.target.checked ? 112 : undefined }))} />Punch alternado nos cortes</label>
+              <label className="flex items-center gap-1.5"><input type="checkbox" checked={!!p.fade} onChange={(e) => update((pp) => ({ ...pp, fade: e.target.checked }))} />Fade no começo e no fim</label>
+            </div>
             {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
           </div>
           <div className="rounded-xl border border-purple-400/30 bg-purple-400/5 p-3 text-xs text-soft">
@@ -468,6 +582,7 @@ export default function Editor() {
             <Track name="TEXTO">{p.titles.map((x) => <Block key={x.id} left={pct(x.start)} width={pct(x.end - x.start)} cls="bg-purple-400 text-ink">{x.text}</Block>)}</Track>
             <Track name="LEGENDA">{p.captionsOn && screens.map((s, i) => <Block key={i} left={pct(s.start)} width={pct(s.end - s.start)} cls="bg-amber-300/80 text-ink">{s.words.map((w) => w.t).join(" ")}</Block>)}</Track>
             <Track name="ZOOM">{p.zooms.map((z) => <Block key={z.id} left={pct(z.start)} width={pct(z.end - z.start)} cls="border border-dashed border-mint text-mint">{z.scale}%</Block>)}</Track>
+            {(p.overlays || []).length > 0 && <Track name="B-ROLL">{(p.overlays || []).map((o) => <Block key={o.id} left={pct(o.start)} width={pct(o.end - o.start)} cls="bg-sky-400/80 text-ink">{o.mode === "cheia" ? "▣" : "◧"} {media.find((m) => m.id === o.mediaId)?.name}</Block>)}</Track>}
             <Track name="CÂMERA">{cam.moves.map((m, i) => <Block key={i} left={pct(m.start)} width={pct(m.end - m.start)} cls={`border ${m.to >= m.from ? "border-sky-400/70 text-sky-300" : "border-orange-400/70 text-orange-300"}`}>{m.to >= m.from ? "zoom in" : "zoom out"} {Math.round(m.to * 100)}%</Block>)}{cam.hits.map((h, i) => <span key={`h${i}`} className="absolute top-2 w-2 h-2 -ml-1 rounded-full bg-sky-300 pointer-events-none" style={{ left: pct(h.t) }} />)}</Track>
             <Track name="VÍDEO">
               {L.map((l, i) => (
@@ -485,7 +600,14 @@ export default function Editor() {
 
       {/* vídeos escondidos que alimentam a prévia */}
       <div className="hidden">
-        {media.map((m) => (
+        {media.filter((m) => m.broll && !m.image).map((m) => (
+          <video key={`b${m.id}`} src={m.url} preload="auto" muted playsInline ref={(el) => { if (el) brollVideos.current.set(m.id, el); else brollVideos.current.delete(m.id); }} onLoadedData={() => draw(tRef.current)} />
+        ))}
+        {media.filter((m) => m.image).map((m) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={`i${m.id}`} src={m.url} alt="" ref={(el) => { if (el) images.current.set(m.id, el); else images.current.delete(m.id); }} onLoad={() => draw(tRef.current)} />
+        ))}
+        {media.filter((m) => !m.broll).map((m) => (
           <video key={m.id} src={m.url} preload="auto" playsInline ref={(el) => { if (el) videos.current.set(m.id, el); else videos.current.delete(m.id); }} onLoadedData={() => draw(tRef.current)} />
         ))}
       </div>
