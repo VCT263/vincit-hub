@@ -56,19 +56,52 @@ export default function ManualStep({ d, id, set }: StepProps) {
 
   return (
     <div className="space-y-5">
-      <div className="card p-4 flex flex-wrap gap-2 items-center print:hidden">
-        <div className="flex gap-1.5 mr-2">{(Object.keys(FORMATS) as Format[]).map((k) => <button key={k} onClick={() => { setFormat(k); set({ deck_format: k }); }} className={`chip !px-3 !py-1.5 ${format === k ? "chip-mint" : ""}`} title={FORMATS[k].l}>{k}</button>)}</div>
-        <div className="flex gap-1.5 mr-2">{(Object.keys(STYLES) as DeckStyle[]).map((k) => <button key={k} onClick={() => set({ deck_style: k })} className={`chip !px-3 !py-1.5 ${styleFor(d) === k ? "chip-mint" : ""}`} title={STYLES[k].d}>{STYLES[k].l}</button>)}</div>
-        <button onClick={() => setShow(0)} className="btn btn-mint btn-sm"><I.play className="w-3.5 h-3.5" />Apresentar</button>
-        <button onClick={printAll} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Salvar PDF</button>
-        <VideoControls x={x} slides={slides} name={name} d={d} />
-        {logo && <button onClick={() => logoFile("svg")} className="btn btn-ghost btn-sm">Logo SVG</button>}
-        {logo && <button onClick={() => logoFile("png")} className="btn btn-ghost btn-sm">Logo PNG</button>}
-        <button onClick={copyKit} className="btn btn-ghost btn-sm"><I.copy className="w-3.5 h-3.5" />Copiar cores e fontes</button>
-        <a href={CANVA_BRAND_KIT} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Kit de Marca no Canva ↗</a>
-        <button onClick={carrossel} className="btn btn-ghost btn-sm ml-auto"><I.cards className="w-3.5 h-3.5" />Criar carrossel com a marca</button>
-        {msg && <p className="w-full text-xs text-fog">{msg}</p>}
-        <p className="w-full text-[11px] text-fog">{slides.length} slides em {FORMATS[format].l}, estilo {STYLES[styleFor(d)].l}{d.deck_style ? "" : " (escolhido pelo nicho)"}: {STYLES[styleFor(d)].d} No PDF, escolha "Salvar como PDF" e ative "Gráficos de fundo"; o tamanho da página já vem certo. Clique num slide para apresentar a partir dele.</p>
+      {/* primeira seção: agrupada pelo que a pessoa quer fazer (apresentar, vídeo, arquivos, usar) */}
+      <div className="card p-4 sm:p-5 print:hidden">
+        <div className="grid gap-5 md:grid-cols-2">
+          <section className="space-y-3">
+            <Eyebrow>Apresentação</Eyebrow>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setShow(0)} className="btn btn-mint btn-sm"><I.play className="w-3.5 h-3.5" />Apresentar</button>
+              <button onClick={printAll} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Salvar PDF</button>
+            </div>
+            <div className="grid grid-cols-[4.5rem_1fr] items-center gap-x-2 gap-y-2">
+              <span className="text-[11px] text-fog">Formato</span>
+              <div className="flex flex-wrap gap-1.5">{(Object.keys(FORMATS) as Format[]).map((k) => <button key={k} onClick={() => { setFormat(k); set({ deck_format: k }); }} className={`chip !px-3 !py-1 ${format === k ? "chip-mint" : ""}`} title={FORMATS[k].l}>{k}</button>)}</div>
+              <span className="text-[11px] text-fog">Estilo</span>
+              <div className="flex flex-wrap gap-1.5">{(Object.keys(STYLES) as DeckStyle[]).map((k) => <button key={k} onClick={() => set({ deck_style: k })} className={`chip !px-3 !py-1 ${styleFor(d) === k ? "chip-mint" : ""}`} title={STYLES[k].d}>{STYLES[k].l}</button>)}</div>
+            </div>
+            <p className="text-[11px] text-fog leading-relaxed">{slides.length} slides · {STYLES[styleFor(d)].l}{d.deck_style ? "" : " (pelo nicho)"}: {STYLES[styleFor(d)].d}</p>
+            <details className="text-[11px] text-fog">
+              <summary className="cursor-pointer select-none hover:text-paper">Como salvar o PDF</summary>
+              <p className="mt-1 leading-relaxed">Na janela de impressão, escolha &quot;Salvar como PDF&quot; e ative &quot;Gráficos de fundo&quot;; o tamanho da página já vem certo. Para apresentar a partir de um slide, toque nele na lista abaixo.</p>
+            </details>
+          </section>
+
+          <section className="space-y-3 md:border-l md:border-line md:pl-5 border-t border-line pt-4 md:border-t-0 md:pt-0">
+            <Eyebrow>Vídeo da marca</Eyebrow>
+            <div className="flex flex-wrap items-center gap-2"><VideoControls x={x} slides={slides} name={name} d={d} /></div>
+            <p className="text-[11px] text-fog leading-relaxed">A mesma apresentação em movimento, com a vinheta de abertura. Curto para redes, completo para o cliente.</p>
+          </section>
+
+          <section className="space-y-3 border-t border-line pt-4">
+            <Eyebrow>Arquivos da marca</Eyebrow>
+            <div className="flex flex-wrap gap-2">
+              {logo && <button onClick={() => logoFile("svg")} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Logo SVG</button>}
+              {logo && <button onClick={() => logoFile("png")} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Logo PNG</button>}
+              <button onClick={copyKit} className="btn btn-ghost btn-sm"><I.copy className="w-3.5 h-3.5" />Copiar cores e fontes</button>
+            </div>
+            {msg && <p className="text-xs text-fog">{msg}</p>}
+          </section>
+
+          <section className="space-y-3 border-t border-line pt-4 md:border-l md:pl-5">
+            <Eyebrow>Usar a marca</Eyebrow>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={carrossel} className="btn btn-ghost btn-sm"><I.cards className="w-3.5 h-3.5" />Criar carrossel com a marca</button>
+              <a href={CANVA_BRAND_KIT} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Kit de Marca no Canva ↗</a>
+            </div>
+          </section>
+        </div>
       </div>
 
       <LinkApresentacao id={id} d={d} set={set} />
@@ -98,4 +131,8 @@ export default function ManualStep({ d, id, set }: StepProps) {
       {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} />}
     </div>
   );
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-fog">{children}</p>;
 }
