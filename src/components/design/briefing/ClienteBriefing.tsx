@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { LETRAS, arqMix } from "@/lib/briefing-cliente";
 
 /* Faixa no projeto de marca que veio de um briefing: deixa à vista o que o cliente pediu e,
    principalmente, o que ele não quer, para não haver leitura errada em nenhuma etapa. */
@@ -10,7 +11,7 @@ export default function ClienteBriefing({ briefingId }: { briefingId?: string | 
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!briefingId) return;
-    createClient().from("design_briefings").select("id,respondent,answered_at,notes,nao_quer:answers->>nao_quer,palavras:answers->palavras,nao_palavras:answers->nao_palavras,nome_extra:answers->>nome_extra,antes:answers->>antes")
+    createClient().from("design_briefings").select("id,respondent,answered_at,notes,nao_quer:answers->>nao_quer,palavras:answers->palavras,nao_palavras:answers->nao_palavras,nome_extra:answers->>nome_extra,antes:answers->>antes,arq:answers->arq,letras:answers->letras,paletas:answers->paletas")
       .eq("id", briefingId).maybeSingle().then(({ data }) => setB(data));
   }, [briefingId]);
   if (!b) return null;
@@ -28,6 +29,9 @@ export default function ClienteBriefing({ briefingId }: { briefingId?: string | 
           {!!b.nao_palavras?.length && <div><p className="label">Não pode parecer</p><p>{b.nao_palavras.join(", ")}</p></div>}
           {b.nome_extra && <div><p className="label">Fora do logo</p><p>{b.nome_extra}</p></div>}
           {b.antes && <div className="md:col-span-2"><p className="label">Sobre a marca anterior</p><p className="whitespace-pre-wrap">{b.antes}</p></div>}
+          {arqMix(b.arq).length > 0 && <div><p className="label">Personalidade que o cliente marcou</p><p>{arqMix(b.arq).map((m) => `${m.a.l} ${m.pct}%`).join(", ")}</p></div>}
+          {!!b.letras?.length && <div><p className="label">Tipos de letra que marcou</p><p>{b.letras.map((k: string) => LETRAS.find((x) => x.k === k)?.l || k).join(", ")}</p></div>}
+          {!!b.paletas?.length && <div className="md:col-span-2"><p className="label">Paletas que montou</p><div className="flex flex-wrap gap-2">{b.paletas.map((p: any, i: number) => <div key={i} className="flex h-6 w-40 rounded overflow-hidden border border-line">{p.cores.map((c: string, j: number) => <span key={j} className="flex-1" style={{ background: c }} />)}</div>)}</div></div>}
           {b.notes && <div className="md:col-span-2"><p className="label">Suas notas</p><p className="whitespace-pre-wrap text-fog">{b.notes}</p></div>}
           <Link href={`/design/briefings/${b.id}`} className="text-mint text-sm md:col-span-2">Ver o briefing completo →</Link>
         </div>

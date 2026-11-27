@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { shrink, uid } from "@/lib/design";
 import { CORES, EIXOS_CLIENTE, ESTILOS, TIPOS_LOGO, type Q, type RefImg } from "@/lib/briefing-cliente";
+import { Arquetipo, LetraEixos, Letras, Roda } from "./Visuais";
 
 /* Campos do briefing público, em tema claro editorial (papel + tinta), feitos para o dedo no celular. */
 
@@ -149,6 +150,10 @@ export default function Pergunta({ q, v, set, all }: { q: Q; v: any; set: (v: an
         )}
         {t === "cores" && <Cores value={v || []} onChange={set} other={q.k === "cores_evita" ? all.cores_gosta : q.k === "cores_gosta" ? all.cores_evita : undefined} />}
         {t === "imagens" && <Imagens value={v || []} onChange={set} />}
+        {t === "arquetipo" && <Arquetipo value={v} onChange={set} />}
+        {t === "roda" && <Roda value={v || []} onChange={set} />}
+        {t === "letras" && <Letras value={v || []} onChange={set} nome={all.marca_nome} />}
+        {t === "letra_eixos" && <LetraEixos value={v || {}} onChange={set} nome={all.marca_nome} />}
       </div>
     </div>
   );
