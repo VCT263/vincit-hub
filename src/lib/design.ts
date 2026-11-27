@@ -2,12 +2,13 @@ import { FONT_LIB, fontCssUrl, fontDef } from "./fonts";
 /** Seção Design: criação de marca (briefing → referências → logo → cores → tipografia → manual) e peças (carrossel e estático). */
 
 export type Kind = "marca" | "carrossel" | "peca";
-export type Step = "estrategia" | "briefing" | "conceito" | "referencias" | "simbolo" | "logotipo" | "construcao" | "cores" | "tipografia" | "grafismos" | "aplicacoes" | "manual";
+export type Step = "estrategia" | "briefing" | "preprojeto" | "conceito" | "referencias" | "simbolo" | "logotipo" | "construcao" | "cores" | "tipografia" | "grafismos" | "aplicacoes" | "manual";
 
 export const PHASES = ["Estratégia", "Conceito", "Construção", "Sistema", "Entrega"];
 export const STEPS: { k: Step; l: string; fase: string; d: string; dica: string }[] = [
   { k: "estrategia", fase: "Estratégia", l: "Nicho e posição", d: "Em que mercado a marca joga, que arquétipo ela veste e onde fica no mapa contra os concorrentes.", dica: "Os melhores cases do Behance começam pelo sentido, não pela logo: pesquisa de público, mapa de concorrentes e o código visual do nicho, para decidir o que seguir e o que quebrar." },
   { k: "briefing", fase: "Estratégia", l: "Plataforma", d: "Propósito, missão, pilares, personalidade e identidade verbal.", dica: "Cada elemento (nome, fonte, composição, texto) precisa carregar o mesmo significado. A plataforma é o filtro de todas as decisões de forma." },
+  { k: "preprojeto", fase: "Estratégia", l: "Pré-projeto", d: "O mostruário do gosto: tipos de letra, letras por estilo, pesos e o mapa do que o cliente gosta e não gosta.", dica: "Como um arquiteto com amostras de piso e tinta: antes de desenhar, mostre muitas opções e deixe o cliente apontar. Cada amostra tem código, e o resultado guia território, logotipo e tipografia." },
   { k: "conceito", fase: "Conceito", l: "Território criativo", d: "A grande ideia: uma metáfora que vira forma, cor e tipografia.", dica: "Explore 3 territórios bem diferentes antes de desenhar. O escolhido guia símbolo, cores e fontes, e é o que dá intenção ao design." },
   { k: "referencias", fase: "Conceito", l: "Referências", d: "Moodboard do território: o que inspira e o que evitar.", dica: "Junte marcas do nicho e de fora dele. Anote o porquê de cada uma: é a nota que ensina o Claude e o seu olho." },
   { k: "simbolo", fase: "Construção", l: "Símbolo e monograma", d: "Exploração do símbolo e das iniciais, com vários caminhos lado a lado.", dica: "Desenhe largo: símbolo abstrato, figurativo, monograma, selo. Funciona pequeno? Funciona em uma cor? Tem uma ideia por trás?" },

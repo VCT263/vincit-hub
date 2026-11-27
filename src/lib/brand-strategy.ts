@@ -1,3 +1,4 @@
+import { tasteText } from "./brand-knowledge";
 /** Estratégia de marca: nichos, arquétipos e posicionamento (base para a criação ser intencional). */
 
 export type Niche = { k: string; l: string; codigos: string; quebrar: string; cores: string[]; fontes: string; formas: string; busca: string[]; evitar: string };
@@ -107,5 +108,6 @@ export function strategyText(d: any = {}) {
     arr(s.fala).length && `A marca fala: ${arr(s.fala).join("; ")}`,
     arr(s.nunca).length && `A marca nunca fala: ${arr(s.nunca).join("; ")}`,
     t && `Território criativo escolhido: ${t.nome}. ${t.ideia} Forma: ${t.forma}. Cor: ${t.cor}. Tipografia: ${t.tipo}.`,
+    tasteText(d.gosto),
   ].filter(Boolean).join("\n");
 }

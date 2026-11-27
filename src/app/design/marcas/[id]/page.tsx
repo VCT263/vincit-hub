@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
 import { PHASES, STEPS, stepOf, type Step } from "@/lib/design";
 import BriefStep from "@/components/design/brand/BriefStep";
+import TasteStep from "@/components/design/brand/TasteStep";
 import RefsStep from "@/components/design/brand/RefsStep";
 import StrategyStep from "@/components/design/brand/StrategyStep";
 import ConceptStep from "@/components/design/brand/ConceptStep";
@@ -107,6 +108,7 @@ export default function BrandWorkspace() {
 
       {step === "estrategia" && <StrategyStep {...props} />}
       {step === "briefing" && <BriefStep {...props} />}
+      {step === "preprojeto" && <TasteStep {...props} />}
       {step === "conceito" && <ConceptStep {...props} />}
       {step === "referencias" && <RefsStep {...props} />}
       {step === "simbolo" && <SymbolStep {...props} />}

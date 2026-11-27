@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { PAIRS, loadFonts, type Pair } from "@/lib/design";
 import { FONT_CATS, fontDef, fontsOfCat, type FontCat } from "@/lib/fonts";
 import { archetypeMix } from "@/lib/brand-strategy";
-import { VOICES, systemsFor, TYPE_GROUPS, TYPE_GUIDE, TYPE_AXES, type TypeSystem } from "@/lib/brand-knowledge";
+import { VOICES, systemsFor, TYPE_GROUPS, TYPE_GUIDE, TYPE_AXES, tasteText, type TypeSystem } from "@/lib/brand-knowledge";
 import { SCALES } from "@/lib/brand-strategy";
 import { FontSelect } from "../ui";
 import type { StepProps } from "./types";
@@ -31,7 +31,9 @@ export default function TypeStep({ d, set }: StepProps) {
   useEffect(() => { loadFonts(PAIRS.flatMap((p) => [p.title, p.body])); }, []);
   const mix = archetypeMix(d.strategy);
   const [cat, setCat] = useState<FontCat>((fontDef(mix[0]?.a.fontes[0] || "")?.cat) || "grotesca");
-  const [guide, setGuide] = useState(true);
+  const [guide, setGuide] = useState(!d.gosto?.fontes);
+  const taste = Object.entries(d.gosto?.fontes || {}).filter(([, v]) => v === 1).map(([f]) => f);
+  useEffect(() => { loadFonts(taste); }, [taste.length]); // eslint-disable-line
   useEffect(() => { loadFonts(TYPE_GUIDE.map((c) => c.ex)); }, []);
   useEffect(() => { loadFonts([...fontsOfCat(cat).map((x) => x.f), ...mix.flatMap((m) => m.a.fontes)]); }, [cat, mix.length]); // eslint-disable-line
   const ranked = systemsFor(mix.map((m) => m.a.k), d.strategy?.nicho);
@@ -111,6 +113,20 @@ export default function TypeStep({ d, set }: StepProps) {
           </div>
         )}
       </section>
+
+      {taste.length > 0 && (
+        <section className="card p-5">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-1">Do pré-projeto · letras que o cliente gostou</p>
+          <p className="text-xs text-fog mb-3 whitespace-pre-line">{tasteText(d.gosto)}</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{taste.map((f) => (
+            <div key={f} className="flex items-center gap-2 rounded-xl border border-line p-3">
+              <span className="flex-1 text-2xl truncate" style={{ fontFamily: `"${f}"` }}>{name}</span>
+              <button onClick={() => useAs(f, "title")} className={`chip !px-2 !py-0.5 ${t.title === f ? "chip-mint" : ""}`}>Título</button>
+              <button onClick={() => useAs(f, "body")} className={`chip !px-2 !py-0.5 ${t.body === f ? "chip-mint" : ""}`}>Texto</button>
+            </div>
+          ))}</div>
+        </section>
+      )}
 
       {mix.length > 0 && (
         <section className="card p-5">

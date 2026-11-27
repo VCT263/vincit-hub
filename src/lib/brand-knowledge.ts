@@ -104,6 +104,32 @@ export const TYPE_AXES = [
   { l: "Caixa", d: "Maiúsculas espaçadas soam caras e silenciosas; minúsculas soam próximas." },
 ];
 
+/** Pré-projeto: mapa do gosto do cliente, um lado em cada linha (0, 1 ou 2) */
+export const TASTE_AXES = [
+  { k: "serifa", l: "Serifa", o: ["Com serifa", "Tanto faz", "Sem serifa"] },
+  { k: "contraste", l: "Contraste", o: ["Alto, de moda", "Médio", "Traço igual"] },
+  { k: "peso", l: "Peso", o: ["Fino", "Regular", "Forte"] },
+  { k: "largura", l: "Largura", o: ["Alta e estreita", "Normal", "Larga"] },
+  { k: "inclinacao", l: "Inclinação", o: ["Reta", "Itálico num detalhe", "Itálico em tudo"] },
+  { k: "caixa", l: "Caixa", o: ["Maiúsculas espaçadas", "Tanto faz", "Minúsculas"] },
+  { k: "gesto", l: "Manuscrita", o: ["Nenhuma", "Só num detalhe", "Assinatura em destaque"] },
+] as const;
+/** famílias mostradas em vários pesos no pré-projeto */
+export const TASTE_WEIGHTS = ["Bodoni Moda", "Fraunces", "Jost", "Montserrat"];
+
+/** resumo do gosto em texto, para o Claude e para a etapa de Tipografia */
+export function tasteText(g: any = {}) {
+  const fav = Object.entries(g.fontes || {}).filter(([, v]) => v === 1).map(([f]) => f);
+  const nao = Object.entries(g.fontes || {}).filter(([, v]) => v === -1).map(([f]) => f);
+  const eixos = TASTE_AXES.filter((a) => g.eixos?.[a.k] !== undefined).map((a) => `${a.l}: ${a.o[g.eixos[a.k]]}`);
+  const out = [];
+  if (eixos.length) out.push("Gosto do cliente (pré-projeto): " + eixos.join("; ") + ".");
+  if (fav.length) out.push("Letras que gostou: " + fav.join(", ") + ".");
+  if (nao.length) out.push("Letras que não quer: " + nao.join(", ") + ".");
+  if (g.notas) out.push("Observações: " + g.notas);
+  return out.join("\n");
+}
+
 /** regras que vão junto nos pedidos ao Claude */
 export function knowledgeText() {
   return [
