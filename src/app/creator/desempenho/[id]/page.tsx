@@ -43,6 +43,7 @@ export default function Perfil() {
   const [insErr, setInsErr] = useState<string | null>(null);
   const [insLoading, setInsLoading] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [rankBy, setRankBy] = useState<"formato" | "pilar">("formato");
   const ai = useAI();
 
   const load = useCallback(async () => {
@@ -52,7 +53,10 @@ export default function Perfil() {
       s.from("ig_posts").select("*").eq("account_id", id).order("posted_at", { ascending: false }),
       s.from("ig_accounts").select("id,username,profile_picture_url,connected").order("created_at"),
     ]);
-    setAcc(a); setPosts(p || []); setAccounts(all || []);
+    // pilar do card do Quadro que publicou o post (content_ideas.ig_media_id)
+    const { data: ideas } = await s.from("content_ideas").select("ig_media_id,pillar").eq("account_id", id).not("ig_media_id", "is", null);
+    const pil = new Map((ideas || []).filter((i: any) => i.pillar).map((i: any) => [i.ig_media_id, i.pillar]));
+    setAcc(a); setPosts((p || []).map((x: any) => ({ ...x, pilar: pil.get(x.ig_media_id) || null }))); setAccounts(all || []);
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
@@ -114,26 +118,28 @@ export default function Perfil() {
     const avgEng = posts.length ? posts.reduce((a, p) => a + eng(p), 0) / posts.length : null;
     const engRate = avgEng != null && acc?.followers_count ? avgEng / acc.followers_count : null;
     const watchMed = avgOf(posts.map((p) => p.avg_watch_ms ?? null));
-    const byType: Record<string, { n: number; s: number[]; r: number[]; w: number[]; e: number }> = {};
-    posts.forEach((p) => {
-      const k = p.media_type || "?"; byType[k] ??= { n: 0, s: [], r: [], w: [], e: 0 };
-      byType[k].n++; byType[k].e += eng(p);
-      const t = taxas(p).sinal; if (t != null) byType[k].s.push(t);
-      if (p.reach != null) byType[k].r.push(p.reach);
-      if (p.avg_watch_ms != null) byType[k].w.push(p.avg_watch_ms);
-    });
-    const useRate = Object.values(byType).some((v) => v.s.length);
-    const ranking = Object.entries(byType).map(([k, v]) => ({
-      k, n: v.n, val: useRate ? avgOf(v.s) ?? 0 : v.e / v.n, reach: avgOf(v.r), watch: avgOf(v.w),
-    })).sort((a, b) => b.val - a.val);
+    const useRate = posts.some((p) => taxas(p).sinal != null);
+    const rank = (key: (p: any) => string | null) => {
+      const g: Record<string, { n: number; s: number[]; r: number[]; w: number[]; e: number }> = {};
+      posts.forEach((p) => {
+        const k = key(p); if (!k) return; g[k] ??= { n: 0, s: [], r: [], w: [], e: 0 };
+        g[k].n++; g[k].e += eng(p);
+        const t = taxas(p).sinal; if (t != null) g[k].s.push(t);
+        if (p.reach != null) g[k].r.push(p.reach);
+        if (p.avg_watch_ms != null) g[k].w.push(p.avg_watch_ms);
+      });
+      return Object.entries(g).map(([k, v]) => ({ k, n: v.n, val: useRate ? avgOf(v.s) ?? 0 : v.e / v.n, reach: avgOf(v.r), watch: avgOf(v.w) })).sort((a, b) => b.val - a.val);
+    };
+    const ranking = rank((p) => p.media_type || "?");
+    const rankingPilar = rank((p) => p.pilar);
     const sinal = (p: any) => taxas(p).sinal ?? -1;
     const top = [...posts].filter((p) => taxas(p).sinal != null).sort((a, b) => sinal(b) - sinal(a)).slice(0, 6);
     const cols = [...posts].reverse().filter((p) => p.reach).map((p) => ({ id: p.id, date: (p.posted_at || "").slice(0, 10), a: taxas(p).compart || 0, b: taxas(p).salvos || 0, caption: p.caption, thumb: p.thumbnail_url, tipo: formato(p.media_type) }));
-    return { watchMed, xMed, eng, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal };
+    return { rankingPilar, watchMed, xMed, eng, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal };
   }, [posts, acc?.followers_count]);
 
   if (!acc) return <p className="text-fog">Carregando…</p>;
-  const { watchMed, xMed, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal } = calc;
+  const { rankingPilar, watchMed, xMed, compartMed, salvosMed, avgReach, avgViews, engRate, ranking, useRate, top, cols, sinal } = calc;
   const sorted = sort === "sinal" ? [...posts].sort((a, b) => sinal(b) - sinal(a) || calc.eng(b) - calc.eng(a)) : posts;
   const sel = METRICAS.find((m) => m.k === metric)!;
   const serie = (k: MK) => (ins?.series || []).map((d: any) => ({ date: d.date, v: d[k] ?? null }));
@@ -259,23 +265,38 @@ export default function Perfil() {
       {/* 3. Ranking de formatos + melhores posts */}
       <section className="grid lg:grid-cols-3 gap-3 mb-8">
         <div className="card p-4 md:p-5">
-          <p className="font-mono text-[11px] text-mint tracking-widest uppercase">03 · Ranking de formatos</p>
-          <p className="text-xs text-fog mb-4">{useRate ? "Compartilhamentos + salvamentos por alcance, média por formato" : "Engajamento médio por formato"}</p>
-          {!ranking.length ? <p className="text-fog text-sm">Sem posts sincronizados.</p> : (
-            <ol className="space-y-4">
-              {ranking.map((r, i) => (
-                <li key={r.k}>
-                  <div className="flex items-baseline gap-3 mb-1.5">
-                    <span className={`font-display text-lg font-extrabold w-6 ${i === 0 ? "text-mint" : "text-fog"}`}>{i + 1}</span>
-                    <span className="font-semibold flex-1 min-w-0">{formato(r.k)}<span className="block text-fog text-[11px] font-normal">{r.n} {r.n === 1 ? "post" : "posts"}{r.reach != null ? ` · alcance médio ${num(Math.round(r.reach))}` : ""}{r.watch != null ? ` · assistido ${seg(r.watch)}` : ""}</span></span>
-                    <span className="font-semibold text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>{useRate ? pct(r.val, 2) : num(Math.round(r.val))}</span>
-                  </div>
-                  <div className="pl-9"><HBar value={r.val} max={ranking[0].val} color={i === 0 ? "var(--color-mint)" : "var(--color-slate)"} /></div>
-                </li>
-              ))}
-            </ol>
-          )}
-          {ranking.length > 1 && <p className="text-xs text-fog mt-5 pt-4 border-t border-line">Faça mais <b className="text-paper">{formato(ranking[0].k)}</b>: é o formato que mais gera compartilhamento e salvamento por pessoa alcançada.</p>}
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="font-mono text-[11px] text-mint tracking-widest uppercase">03 · Ranking</p>
+            <div className="flex rounded-[10px] border border-line p-0.5 text-[11px]">
+              {(["formato", "pilar"] as const).map((k) => <button key={k} onClick={() => setRankBy(k)} className={`px-2.5 py-1 rounded-[8px] ${rankBy === k ? "bg-mint text-[#06140e] font-semibold" : "text-fog hover:text-paper"}`}>{k === "formato" ? "Formato" : "Pilar"}</button>)}
+            </div>
+          </div>
+          <p className="text-xs text-fog mb-4">{useRate ? `Compartilhamentos + salvamentos por alcance, média por ${rankBy}` : `Engajamento médio por ${rankBy}`}</p>
+          {(() => {
+            const list = rankBy === "formato" ? ranking : rankingPilar;
+            const nome = (k: string) => (rankBy === "formato" ? formato(k) : k);
+            if (!list.length) return rankBy === "pilar"
+              ? <p className="text-fog text-sm">Ainda nenhum post publicado pelo Quadro de produção. Quando um card com pilar for publicado (o link do post fica no card), ele entra aqui.</p>
+              : <p className="text-fog text-sm">Sem posts sincronizados.</p>;
+            return (
+              <>
+                <ol className="space-y-4">
+                  {list.map((r, i) => (
+                    <li key={r.k}>
+                      <div className="flex items-baseline gap-3 mb-1.5">
+                        <span className={`font-display text-lg font-extrabold w-6 ${i === 0 ? "text-mint" : "text-fog"}`}>{i + 1}</span>
+                        <span className="font-semibold flex-1 min-w-0">{nome(r.k)}<span className="block text-fog text-[11px] font-normal">{r.n} {r.n === 1 ? "post" : "posts"}{r.reach != null ? ` · alcance médio ${num(Math.round(r.reach))}` : ""}{r.watch != null ? ` · assistido ${seg(r.watch)}` : ""}</span></span>
+                        <span className="font-semibold text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>{useRate ? pct(r.val, 2) : num(Math.round(r.val))}</span>
+                      </div>
+                      <div className="pl-9"><HBar value={r.val} max={list[0].val} color={i === 0 ? "var(--color-mint)" : "var(--color-slate)"} /></div>
+                    </li>
+                  ))}
+                </ol>
+                {list.length > 1 && <p className="text-xs text-fog mt-5 pt-4 border-t border-line">Faça mais <b className="text-paper">{nome(list[0].k)}</b>: é o {rankBy} que mais gera compartilhamento e salvamento por pessoa alcançada.</p>}
+                {rankBy === "pilar" && <p className="text-[11px] text-fog mt-3">{list.reduce((t, r) => t + r.n, 0)} de {posts.length} posts têm pilar (vêm do Quadro de produção).</p>}
+              </>
+            );
+          })()}
         </div>
 
         <div className="card p-4 md:p-5 lg:col-span-2">
