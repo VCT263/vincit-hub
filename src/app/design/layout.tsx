@@ -7,7 +7,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <TopBar />
       <DesignNav />
       <main className="lg:pl-60 print:pl-0">
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-10 print:p-0 print:max-w-none">{children}</div>
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-8 py-5 sm:py-8 md:py-10 print:p-0 print:max-w-none">{children}</div>
       </main>
     </div>
   );

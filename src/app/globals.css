@@ -17,7 +17,12 @@
 }
 
 html, body { background: var(--color-ink); color: var(--color-paper); }
-body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+/* nada passa da largura da tela: item de grade e de flex pode encolher abaixo do texto
+   (sem isso, uma linha com truncate empurra o card para fora no celular) */
+@layer base { .grid > *, main { min-width: 0; } }
+/* celular compacto (lib/compacto.ts): sem o zoom do iPhone ao tocar num campo e linhas mais justas */
+html.compacto { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 ::selection { background: var(--color-mint); color: #000; }
 
 .grain::before {
