@@ -3,7 +3,7 @@ import { useRef, useState, type CSSProperties } from "react";
 import { hexToHsl, hslToHex, readableOn } from "@/lib/design";
 import { TYPE_GROUPS } from "@/lib/brand-knowledge";
 import { ARCHETYPES } from "@/lib/brand-strategy";
-import { LETRAS, LETRA_EIXOS, QUADRANTES, REGRAS, arqMix, arqPos, paletaDe, type Paleta } from "@/lib/briefing-cliente";
+import { LETRAS, LETRA_EIXOS, QUADRANTES, REGRAS, TRACOS, arqMix, arqPos, paletaDe, type Paleta } from "@/lib/briefing-cliente";
 
 /* Perguntas visuais do briefing público: quadro de arquétipos, roda de cores e tipos de letra.
    Tema claro editorial, feitas para arrastar com o dedo. */
@@ -29,6 +29,8 @@ export function Arquetipo({ value, onChange }: { value?: { x: number; y: number 
   const drag = useDrag((x, y) => onChange({ x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 }));
   const mix = arqMix(value);
   const top = mix[0]?.a;
+  const [ver, setVer] = useState<string | null>(null);
+  const vendo = ARCHETYPES.find((a) => a.k === ver);
   const tons = ["#ece6dc", "#e6e0d3", "#e9e3d9", "#e3ddd0"];
   return (
     <div className="space-y-4">
@@ -55,17 +57,48 @@ export function Arquetipo({ value, onChange }: { value?: { x: number; y: number 
           <p className="text-[11px] tracking-[.18em] uppercase" style={{ color: fog }}>A sua marca hoje parece</p>
           <p className="text-[32px] leading-tight mt-1" style={{ fontFamily: '"Bodoni Moda", Georgia, serif' }}>{top.l}</p>
           <p className="text-[15px] text-[#4a463f] mt-1">{top.d} Atrai {top.atracao.charAt(0).toLowerCase() + top.atracao.slice(1)}</p>
-          <p className="text-[13px] mt-2" style={{ color: fog }}>Marcas assim: {top.marcas}</p>
-          <div className="mt-4 space-y-2">
-            {mix.map((m) => (
+          <Tracos k={top.k} />
+          <p className="text-[13px] mt-3" style={{ color: fog }}>Marcas assim: {top.marcas}</p>
+          <div className="mt-4 space-y-3">
+            {mix.map((m, i) => (
               <div key={m.a.k}>
                 <div className="flex justify-between text-[13px]"><span>{m.a.l}</span><span className="tabular-nums">{m.pct}%</span></div>
                 <div className="h-1.5 rounded-full bg-[#e2ddd4] overflow-hidden"><div className="h-full bg-[#151515] transition-all" style={{ width: `${m.pct}%` }} /></div>
+                {i > 0 && TRACOS[m.a.k] ? <p className="text-[12px] mt-1" style={{ color: fog }}>Traz um pouco de: {TRACOS[m.a.k].jeito.slice(0, 3).join(", ")}</p> : null}
               </div>
             ))}
           </div>
         </div>
       ) : <p className="text-[13px]" style={{ color: fog }}>Não precisa acertar: é um ponto de partida para a conversa.</p>}
+      <div className="pt-1">
+        <p className="text-[14px] text-[#3a3733]">Na dúvida, conheça cada personalidade e veja com qual você se identifica:</p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {ARCHETYPES.map((a) => <button key={a.k} type="button" onClick={() => setVer(ver === a.k ? null : a.k)} className={chip(ver === a.k)}>{a.l}</button>)}
+        </div>
+        {vendo ? (
+          <div className="mt-3 bg-white/70 border border-[#d9d4cb] rounded-2xl p-4">
+            <p className="text-[22px] leading-tight" style={{ fontFamily: '"Bodoni Moda", Georgia, serif' }}>{vendo.l}</p>
+            <p className="text-[14px] text-[#4a463f] mt-1">{vendo.d}</p>
+            <Tracos k={vendo.k} />
+            <button type="button" onClick={() => { const p = arqPos(vendo.k); onChange({ x: .5 + (p.x - .5) * .8, y: .5 + (p.y - .5) * .8 }); setVer(null); }} className="mt-4 w-full bg-[#151515] text-[#f4f2ee] rounded-full px-4 py-3 text-[15px]">Sou assim, levar o VOCÊ para cá</button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** como é a personalidade: jeito de ser, sinais de que é você e um exemplo de fala */
+function Tracos({ k }: { k: string }) {
+  const t = TRACOS[k];
+  if (!t) return null;
+  return (
+    <div className="mt-4 pt-4 border-t border-[#e2ddd4]">
+      <p className="text-[11px] tracking-[.18em] uppercase" style={{ color: fog }}>Jeito de ser</p>
+      <div className="flex flex-wrap gap-1.5 mt-2">{t.jeito.map((j) => <span key={j} className="px-3 py-1 rounded-full bg-[#ece6dc] text-[13px] text-[#3a3733]">{j}</span>)}</div>
+      <p className="text-[11px] tracking-[.18em] uppercase mt-4" style={{ color: fog }}>É você se a sua marca</p>
+      <ul className="mt-1.5 space-y-1">{t.seVe.map((x) => <li key={x} className="text-[14px] text-[#3a3733] pl-4 relative before:content-['—'] before:absolute before:left-0 before:text-[#9a9388]">{x}</li>)}</ul>
+      <p className="text-[17px] mt-3 italic" style={{ fontFamily: '"Bodoni Moda", Georgia, serif' }}>{t.fala}</p>
     </div>
   );
 }

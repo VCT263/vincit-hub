@@ -109,6 +109,22 @@ const ARQ_ANG: Record<string, number> = { inocente: 165, sabio: 135, explorador:
 /** posição do arquétipo no quadro (0..1, y para baixo) */
 export function arqPos(k: string) { const a = (ARQ_ANG[k] * Math.PI) / 180; return { x: .5 + .33 * Math.cos(a), y: .5 - .31 * Math.sin(a) }; }
 /** mistura de arquétipos a partir do ponto (x, y em 0..1): até 3, somando 100% */
+/** traços de personalidade em linguagem do dia a dia, para o cliente se reconhecer em cada arquétipo */
+export const TRACOS: Record<string, { jeito: string[]; seVe: string[]; fala: string }> = {
+  inocente: { jeito: ["otimista", "simples", "honesta", "leve", "acolhedora"], seVe: ["Acredita que o bem vence e gosta das coisas sem complicação.", "Prefere a verdade dita com carinho a um discurso esperto."], fala: "\u201cÉ simples: faz bem e pronto.\u201d" },
+  sabio: { jeito: ["curiosa", "criteriosa", "calma", "didática", "confiável"], seVe: ["Pesquisa antes de decidir e gosta de explicar o porquê das coisas.", "Prefere provar com fatos a prometer demais."], fala: "\u201cDeixa eu te mostrar como funciona.\u201d" },
+  explorador: { jeito: ["livre", "aventureira", "inquieta", "autêntica", "independente"], seVe: ["Fica entediada com rotina e quer sempre conhecer o novo.", "Valoriza ser dona do próprio caminho."], fala: "\u201cBora ver o que tem do outro lado?\u201d" },
+  rebelde: { jeito: ["ousada", "direta", "provocadora", "corajosa", "sem filtro"], seVe: ["Questiona o jeito de sempre e não pede licença para fazer diferente.", "Prefere dividir opiniões a ser mais uma igual às outras."], fala: "\u201cIsso aí não funciona. A gente faz diferente.\u201d" },
+  mago: { jeito: ["visionária", "encantadora", "intuitiva", "transformadora", "misteriosa"], seVe: ["Gosta de ver a cara de surpresa das pessoas com o resultado.", "Acredita que dá para transformar a vida de alguém."], fala: "\u201cImagina como vai ficar depois.\u201d" },
+  heroi: { jeito: ["determinada", "forte", "disciplinada", "competitiva", "focada"], seVe: ["Gosta de desafio e de mostrar resultado.", "Puxa as pessoas para darem o seu melhor."], fala: "\u201cVocê consegue. Vamos juntos até o fim.\u201d" },
+  amante: { jeito: ["sensível", "sedutora", "elegante", "calorosa", "detalhista"], seVe: ["Cuida de cada detalhe para a experiência ser bonita e marcante.", "Quer que a pessoa se sinta especial e desejada."], fala: "\u201cVocê merece se sentir assim.\u201d" },
+  bobo: { jeito: ["divertida", "espontânea", "bem-humorada", "leve", "irreverente"], seVe: ["Tira sorriso das pessoas e não leva tudo tão a sério.", "Acha que comprar e trabalhar pode ser gostoso."], fala: "\u201cA vida já é séria demais, né?\u201d" },
+  cara_comum: { jeito: ["próxima", "pé no chão", "sincera", "prática", "amiga"], seVe: ["Fala de igual para igual, sem pose nem frescura.", "Quer que todo mundo se sinta bem-vindo."], fala: "\u201cÉ gente como a gente.\u201d" },
+  cuidador: { jeito: ["atenciosa", "protetora", "paciente", "generosa", "presente"], seVe: ["Lembra do nome, do problema e da história de cada cliente.", "Se sente bem quando o outro está bem cuidado."], fala: "\u201cPode deixar comigo, eu cuido de você.\u201d" },
+  criador: { jeito: ["criativa", "original", "caprichosa", "artística", "imaginativa"], seVe: ["Faz questão de ter a própria assinatura em tudo.", "Prefere fazer do zero a copiar o que já existe."], fala: "\u201cFiz pensando só em você.\u201d" },
+  governante: { jeito: ["segura", "exigente", "sofisticada", "organizada", "líder"], seVe: ["Gosta de padrão alto, de ordem e de tudo no lugar.", "Quer passar a sensação de que está no controle."], fala: "\u201cAqui é o melhor. Sem improviso.\u201d" },
+};
+
 export function arqMix(p?: { x: number; y: number }): { a: Archetype; pct: number }[] {
   if (!p) return [];
   const sc = ARCHETYPES.map((a) => { const q = arqPos(a.k); const d2 = (q.x - p.x) ** 2 + (q.y - p.y) ** 2; return { a, s: Math.exp(-d2 / .02) }; }).sort((m, n) => n.s - m.s).slice(0, 3);
