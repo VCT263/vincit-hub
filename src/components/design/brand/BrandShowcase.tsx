@@ -2,6 +2,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { A, Avatar, Bg, Caps, Corners, GRAIN, LayoutArt, Lema, Logo, Phrase, Quote, Seal, Sizes, StatusBar, Stitch, Svg, mix, type Voice } from "./MockupArt";
 import { SvgView } from "../ui";
+import { grainBg } from "./grain";
 
 /* A marca já em uso: protótipo do site (desktop e celular) e um feed de 9 posts do Instagram,
    montados com o mesmo sistema das aplicações (brandVoice). Entram no manual depois dos mockups. */
@@ -67,7 +68,7 @@ export function SitePage({ v }: { v: Voice }) {
             return (
               <div key={o}>
                 <div style={{ position: "relative", height: 420, background: tone, backgroundImage: pat ? `url("${pat}")` : undefined, backgroundSize: "cover", overflow: "hidden" }}>
-                  {v.dark && <div style={A({ inset: 0, backgroundImage: GRAIN, opacity: .12, mixBlendMode: "screen" })} />}
+                  {v.dark && <div style={A({ inset: 0, backgroundImage: grainBg(GRAIN), opacity: .12, mixBlendMode: "screen" })} />}
                   {!pat && <Svg svg={k.mark(mix(ink, tone, .15))} style={{ right: -60, bottom: -60, width: 260, height: 260 }} />}
                   {v.corners && <Corners inset={18} len={26} th={2} c={mix(ink, tone, .4)} />}
                   <span style={k.B({ position: "absolute", left: 22, top: 20, fontSize: 13, letterSpacing: ".2em", color: ink })}>0{i + 1}</span>
@@ -184,7 +185,7 @@ export function Post9({ v, i }: { v: Voice; i: number }) {
         <div style={box}>
           <div style={A({ inset: 0, background: `radial-gradient(70% 55% at 55% 45%, ${mix(v.soft, k.ink, .3)}, ${k.ink} 75%)` })} />
           <div style={A({ left: "-20%", top: "-10%", width: "60%", height: "130%", transform: "rotate(20deg)", background: `linear-gradient(90deg, transparent, ${v.light}22 45%, ${v.light}3a 50%, ${v.light}22 55%, transparent)`, filter: "blur(30px)" })} />
-          <div style={A({ inset: 0, backgroundImage: GRAIN, opacity: .2, mixBlendMode: "screen" })} />
+          <div style={A({ inset: 0, backgroundImage: grainBg(GRAIN), opacity: .2, mixBlendMode: "screen" })} />
           <Corners inset={70} len={90} th={6} c={v.light} />
           <span style={k.B({ position: "absolute", left: 110, top: 110, fontSize: 30, color: k.C["Claro"], letterSpacing: ".15em", display: "flex", alignItems: "center", gap: 14 })}><i style={{ width: 22, height: 22, borderRadius: 99, background: "#ff3b30" }} />REC</span>
           <Caps v={v} size={24} c={v.light} style={{ position: "absolute", left: 110, bottom: 300 }}>Bastidor</Caps>
@@ -202,7 +203,7 @@ export function Post9({ v, i }: { v: Voice; i: number }) {
     }
     case 6: { // segunda frase na cor de apoio
       const bg = v.dark ? v.soft : k.ink; const fg = v.dark ? v.light : k.paper;
-      return <div style={box}><Bg c={bg} v={v} grain={false} />{v.dark && <div style={A({ inset: 0, backgroundImage: GRAIN, opacity: .14, mixBlendMode: "screen" })} />}<p style={k.T({ position: "absolute", left: m, right: m, top: 420, fontSize: 84, color: fg, lineHeight: 1.08 })}>{v.b.proposito || v.frase3}</p><Logo svg={k.logo(fg)} h={50} style={{ left: m, bottom: m }} /></div>;
+      return <div style={box}><Bg c={bg} v={v} grain={false} />{v.dark && <div style={A({ inset: 0, backgroundImage: grainBg(GRAIN), opacity: .14, mixBlendMode: "screen" })} />}<p style={k.T({ position: "absolute", left: m, right: m, top: 420, fontSize: 84, color: fg, lineHeight: 1.08 })}>{v.b.proposito || v.frase3}</p><Logo svg={k.logo(fg)} h={50} style={{ left: m, bottom: m }} /></div>;
     }
     case 7: // lema + símbolo
       return <div style={box}><Bg c={v.base} v={v} /><Svg svg={k.mark(hi)} style={{ left: 330, right: 330, top: 220, height: 420 }} /><div style={A({ left: m, right: m, top: 760 })}><Lema v={v} size={100} c={v.text} tc={hi} align="center" /></div>{v.corners && <Corners inset={60} len={80} th={4} c={mix(v.text, v.base, .6)} />}</div>;

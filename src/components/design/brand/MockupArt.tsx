@@ -1,8 +1,9 @@
 "use client";
-import type { CSSProperties, ReactNode } from "react";
-import { monoSvg, svgParts } from "@/lib/design";
+import { createContext, useContext, type CSSProperties, type ReactNode } from "react";
+import { monoSvg, svgParts, svgUrl } from "@/lib/design";
 import { sceneKit } from "./Scenes";
 import { SvgView } from "../ui";
+import { grainBg, warmGrain } from "./grain";
 
 /* Peças desenhadas para cada objeto dos mockups fotográficos.
    Nada de logo carimbado no meio: cada área recebe a peça que ela é de verdade (carta, cartão, story, claquete…)
@@ -10,6 +11,7 @@ import { SvgView } from "../ui";
    o manual manda, grafismo do território (cantos de enquadramento, pesponto de losangos), frases da marca. */
 
 export const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
+warmGrain(GRAIN);
 
 export function mix(a: string, b: string, t: number) {
   const p = (h: string) => { const x = h.replace("#", ""); const n = parseInt(x.length === 3 ? x.split("").map((c) => c + c).join("") : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -64,13 +66,21 @@ export type Voice = ReturnType<typeof brandVoice>;
 
 /* ───────── peças de apoio ───────── */
 export const A = (s: CSSProperties): CSSProperties => ({ position: "absolute", ...s });
-export const Svg = ({ svg, style }: { svg: string; style: CSSProperties }) => <div style={A(style)}><SvgView svg={svg} className="w-full h-full" /></div>;
+/** true dentro da caneca (arte em faixas): o SVG vai como imagem. Inline, a máscara de cor do logo
+   é desenhada à parte em cada faixa e a borda de cada uma deixava um fio escuro no símbolo. */
+export const FlatSvg = createContext(false);
+export const Svg = ({ svg, style }: { svg: string; style: CSSProperties }) => {
+  const flat = useContext(FlatSvg);
+  // eslint-disable-next-line @next/next/no-img-element
+  if (flat) return <div style={A(style)}><img src={svgUrl(svg)} alt="" style={{ width: "100%", height: "100%", display: "block" }} /></div>;
+  return <div style={A(style)}><SvgView svg={svg} className="w-full h-full" /></div>;
+};
 /** logo com a largura certa para a altura pedida (alinha à esquerda/direita de verdade) */
 export const Logo = ({ svg, h, style }: { svg: string; h: number; style: CSSProperties }) => <Svg svg={svg} style={{ height: h, width: h * ar(svg), ...style }} />;
 export const Bg = ({ c, v, grain }: { c: string; v: Voice; grain?: boolean }) => (
   <>
     <div style={A({ inset: 0, background: c })} />
-    {(grain ?? (v.grain && c === v.k.ink)) && <div style={A({ inset: 0, backgroundImage: GRAIN, opacity: .16, mixBlendMode: "screen" })} />}
+    {(grain ?? (v.grain && c === v.k.ink)) && <div style={A({ inset: 0, backgroundImage: grainBg(GRAIN), opacity: .16, mixBlendMode: "screen" })} />}
   </>
 );
 /** cantos de enquadramento (o visor da câmera) */
@@ -335,7 +345,7 @@ function Camera({ v, w, h }: P) {
     <div style={A({ inset: 0, overflow: "hidden" })}>
       <div style={A({ inset: 0, background: `radial-gradient(70% 45% at 50% 45%, ${mix(v.soft, k.ink, .35)}, ${k.ink} 75%)` })} />
       <div style={A({ left: "-30%", top: "-10%", width: "70%", height: "130%", transform: "rotate(18deg)", background: `linear-gradient(90deg, transparent, ${v.light}26 45%, ${v.light}40 50%, ${v.light}26 55%, transparent)`, filter: `blur(${w * .03}px)` })} />
-      <div style={A({ inset: 0, backgroundImage: GRAIN, opacity: .2, mixBlendMode: "screen" })} />
+      <div style={A({ inset: 0, backgroundImage: grainBg(GRAIN), opacity: .2, mixBlendMode: "screen" })} />
       {[1, 2].map((i) => <div key={"v" + i} style={A({ left: `${(i * 100) / 3}%`, top: 0, bottom: 0, width: Math.max(1, w * .002), background: `${fg}30` })} />)}
       {[1, 2].map((i) => <div key={"h" + i} style={A({ top: `${(i * 100) / 3}%`, left: 0, right: 0, height: Math.max(1, w * .002), background: `${fg}30` })} />)}
       <div style={A({ left: m, right: m, top: w * .17, display: "flex", justifyContent: "space-between", alignItems: "center" })}>
