@@ -129,14 +129,39 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
         {err.length > 0 && <div className="mb-4 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm"><p className="font-semibold text-danger">Para avançar, preencha:</p><p className="text-fog mt-1">{err.join(", ")}.</p></div>}
         {f.publish_error && <div className="mb-4 rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm"><p className="font-semibold text-danger">A publicação falhou</p><p className="text-fog mt-1">{f.publish_error}</p></div>}
 
-        <label className="label">Título</label>
-        <input className="input mb-4" value={f.title || ""} onChange={(e) => set("title", e.target.value)} />
+        {/* jornada do card: onde está e qual o próximo passo (visual, 27/11) */}
+        <div className="flex items-center gap-1 mb-4 overflow-x-auto scroll-thin pb-1">
+          {statuses.map((x, i) => {
+            const done = (x.position ?? 0) < curPos, now = x.id === f.status_id;
+            return (
+              <button key={x.id} type="button" onClick={() => set("status_id", x.id)} title={x.name} className="flex items-center gap-1 shrink-0">
+                {i > 0 && <span className="w-3 h-px" style={{ background: done || now ? x.color : "var(--color-line)" }} />}
+                <span className={`rounded-full text-[10px] font-semibold px-2 py-0.5 border ${now ? "" : "opacity-70"}`} style={now ? { background: x.color + "26", borderColor: x.color, color: x.color } : done ? { borderColor: x.color + "66", color: x.color } : { borderColor: "var(--color-line)", color: "var(--color-fog)" }}>{done ? "✓ " : ""}{x.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <input className="w-full bg-transparent font-display font-extrabold text-2xl leading-tight outline-none border-b border-transparent focus:border-line mb-3" value={f.title || ""} onChange={(e) => set("title", e.target.value)} aria-label="Título" />
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {f.format && <span className="chip">{f.format}</span>}
+          {f.planned_for && <span className="chip"><I.calendar className="w-3 h-3" />{new Date(f.planned_for + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>}
+          {f.account_id && <span className="chip">@{accounts.find((a) => a.id === f.account_id)?.username}</span>}
+          {f.pillar && <span className="chip">{f.pillar}</span>}
+        </div>
+
+        <NextStep stage={st} f={f} itemId={item.id} onSheet={() => setSheet(true)} onShare={shareLink} copied={copied}
+          next={statuses.find((x) => (x.position ?? 0) > curPos)} onAdvance={(id) => save({ status_id: id }, false)} busy={busy} />
+
+        <details className="mb-2 group">
+          <summary className="cursor-pointer text-xs text-fog hover:text-mint w-fit mb-3">Perfil, cliente e responsável</summary>
 
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div><label className="label">Perfil</label><select className="input" value={f.account_id || ""} onChange={(e) => set("account_id", e.target.value)}><option value="">–</option>{accounts.map((a) => <option key={a.id} value={a.id}>@{a.username}</option>)}</select></div>
           <div><label className="label">Cliente</label><select className="input" value={f.client_id || ""} onChange={(e) => set("client_id", e.target.value)}><option value="">Conteúdo próprio</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.company || c.name}</option>)}</select></div>
           <div className="col-span-2"><label className="label">Responsável</label><input className="input" list="cd-assignees" value={f.assignee || ""} onChange={(e) => set("assignee", e.target.value)} placeholder="Nome de quem cuida (sem login)" /><datalist id="cd-assignees">{assignees.map((x) => <option key={x} value={x} />)}</datalist></div>
         </div>
+        </details>
 
         <Section title="Pauta">
           <div className="grid grid-cols-3 gap-3">
@@ -252,6 +277,33 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           onClose={() => setSheet(false)}
         />
       )}
+    </div>
+  );
+}
+
+/** o próximo passo da etapa atual, em um cartão com um botão principal */
+function NextStep({ stage, f, itemId, onSheet, onShare, copied, next, onAdvance, busy }: { stage?: string; f: any; itemId: string; onSheet: () => void; onShare: () => void; copied: boolean; next?: any; onAdvance: (id: string) => void; busy: boolean }) {
+  const map: Record<string, { t: string; d: string; a?: React.ReactNode }> = {
+    ideia: { t: "Escrever o roteiro", d: "Gancho, falas e direção técnica na folha A4.", a: <button type="button" onClick={onSheet} className="btn btn-mint btn-sm"><I.pen className="w-4 h-4" />Abrir roteiro</button> },
+    roteiro: { t: "Fechar o roteiro e marcar a gravação", d: "Confira a folha e defina a data de gravação abaixo.", a: <button type="button" onClick={onSheet} className="btn btn-mint btn-sm"><I.pen className="w-4 h-4" />Abrir roteiro</button> },
+    producao: { t: "Gravar", d: "Teleprompter no celular e a ordem do dia para a equipe.", a: <><Link href={`/audiovisual/teleprompter?c=${itemId}`} className="btn btn-mint btn-sm"><I.prompter className="w-4 h-4" />Teleprompter</Link><Link href={`/audiovisual/ordem-do-dia?c=${itemId}`} className="btn btn-ghost btn-sm"><I.calendar className="w-4 h-4" />Ordem do dia</Link></> },
+    edicao: { t: "Editar", d: "Edite no Editor do HUB e cole o link da versão final.", a: <Link href="/audiovisual/editor" className="btn btn-mint btn-sm"><I.video className="w-4 h-4" />Abrir Editor</Link> },
+    revisao: { t: "Revisar e escrever a legenda", d: "Primeira linha até 125 caracteres, até 5 hashtags." },
+    aprovacao: { t: "Enviar para o cliente aprovar", d: "O cliente abre o link sem login.", a: <button type="button" onClick={onShare} className="btn btn-mint btn-sm"><I.link className="w-4 h-4" />{copied ? "Link copiado" : "Copiar link"}</button> },
+    agendado: { t: "Publicar", d: "Depois de postar, cole o link do post para puxar as métricas." },
+    publicado: { t: "Acompanhar os resultados", d: "A análise de 7 dias usa o link do post.", a: f.post_url ? <a href={f.post_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">Ver post ↗</a> : null },
+  };
+  const m = map[stage || "ideia"];
+  if (!m) return null;
+  return (
+    <div className="rounded-2xl border border-mint-dim bg-mint/[.05] p-4 mb-5">
+      <p className="font-mono text-[10px] uppercase tracking-widest text-mint">Próximo passo</p>
+      <p className="font-display font-bold text-lg mt-1">{m.t}</p>
+      <p className="text-xs text-fog mt-0.5">{m.d}</p>
+      <div className="flex flex-wrap gap-2 mt-3">
+        {m.a}
+        {next && <button type="button" disabled={busy} onClick={() => onAdvance(next.id)} className="btn btn-ghost btn-sm ml-auto">Mover para {next.name} →</button>}
+      </div>
     </div>
   );
 }

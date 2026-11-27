@@ -10,11 +10,19 @@ export default async function Overview() {
   const [{ data: accounts }, { data: posts }, { data: board }, { data: ideas }, { count: refs }, { count: refProfiles }] = await Promise.all([
     s.from("ig_accounts").select("*").order("created_at"),
     s.from("ig_posts").select("account_id,like_count,comments_count,reach,saved,shares,plays,posted_at,caption,permalink,media_type,thumbnail_url").order("posted_at", { ascending: false }).limit(200),
-    s.from("content_ideas").select("id,planned_for").is("archived_at", null),
+    s.from("content_ideas").select("id,title,format,planned_for,status_id").is("archived_at", null).order("planned_for", { ascending: true, nullsFirst: false }),
     s.from("content_ideas").select("id,title,status,format,kind,planned_for").order("created_at", { ascending: false }).limit(6),
     s.from("references_lib").select("id", { count: "exact", head: true }),
     s.from("ref_profiles").select("id", { count: "exact", head: true }),
   ]);
+  const { data: sts } = await s.from("content_statuses").select("id,stage,name,color");
+  const stageOf = (id: string | null) => (sts || []).find((x) => x.id === id)?.stage || "ideia";
+  const colorOf = (id: string | null) => (sts || []).find((x) => x.id === id)?.color || "#8a8f94";
+  const lanes = [
+    { t: "Escrever", d: "ideia e roteiro", Icon: I.pen, stages: ["ideia", "roteiro"] },
+    { t: "Gravar", d: "pronto para o set", Icon: I.camera, stages: ["producao"] },
+    { t: "Editar e publicar", d: "edição até agendado", Icon: I.video, stages: ["edicao", "revisao", "aprovacao", "agendado"] },
+  ].map((l) => ({ ...l, items: (board || []).filter((c) => l.stages.includes(stageOf(c.status_id))) }));
 
   const totalFollowers = (accounts || []).reduce((a, x) => a + (x.followers_count || 0), 0);
   const eng = (p: any) => (p.like_count || 0) + (p.comments_count || 0) + (p.saved || 0) + (p.shares || 0);
@@ -31,15 +39,15 @@ export default async function Overview() {
   ];
 
   const flow = [
-    { n: "00", t: "Base", d: "Perfis conectados e o briefing: negócio, público, mercado e estilo.", links: [["Perfis & briefing", "/creator/perfis"]] },
-    { n: "01", t: "Análise", d: "Os números do perfil, o que funciona nas referências e o Raio-X com a estratégia 30/60/90.", links: [["Desempenho & insights", "/creator/desempenho"], ["Referências", "/creator/referencias"], ["Raio-X e estratégia", "/creator/diagnostico"]] },
-    { n: "02", t: "Criação", d: "Da ideia ao roteiro; tudo termina como card no Quadro.", links: [["Brainstorm", "/creator/brainstorm"], ["Laboratório e cartas", "/creator/laboratorio"]] },
-    { n: "03", t: "Produção", d: "Cada conteúdo com status, data, roteiro técnico, gravação e edição.", links: [["Quadro de produção", "/creator/producao"], ["Calendário", "/creator/pauta"]] },
+    { t: "Base", Icon: I.user, links: [["Perfis & briefing", "/creator/perfis"]] },
+    { t: "Análise", Icon: I.chart, links: [["Desempenho", "/creator/desempenho"], ["Referências", "/creator/referencias"], ["Raio-X", "/creator/diagnostico"]] },
+    { t: "Criação", Icon: I.flask, links: [["Brainstorm", "/creator/brainstorm"], ["Laboratório", "/creator/laboratorio"]] },
+    { t: "Produção", Icon: I.board, links: [["Quadro", "/creator/producao"], ["Calendário", "/creator/pauta"]] },
   ];
 
   return (
     <>
-      <PageHead kicker="CREATOR" title="Visão geral" desc="Analisar o perfil, criar e planejar o conteúdo e crescer com estratégia — tudo a partir do briefing." />
+      <PageHead kicker="CREATOR" title="Visão geral" desc="O que está em cada etapa e o próximo passo de cada conteúdo." />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {kpis.map(([k, v], i) => (
@@ -60,16 +68,36 @@ export default async function Overview() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
-        {flow.map((f, i) => (
-          <div key={f.n} className="card p-5 relative rise" style={{ animationDelay: `${i * 0.05}s` }}>
-            <p className="font-mono text-xs text-mint">{f.n}</p>
-            <p className="font-display font-bold text-xl mt-1">{f.t}</p>
-            <p className="text-fog text-sm mt-1 mb-4">{f.d}</p>
-            <div className="flex flex-col gap-1">
-              {f.links.map(([l, h]) => <Link key={h} href={h} className="flex items-center justify-between text-sm rounded-lg px-2.5 py-1.5 bg-panel2 hover:text-mint">{l}<I.arrow className="w-3.5 h-3.5" /></Link>)}
+      {/* o que fazer agora: o Quadro dividido pelo próximo passo (visual, 27/11) */}
+      <div className="flex items-end justify-between mb-3"><h2 className="font-display font-bold text-xl">O que fazer agora</h2><Link href="/creator/producao" className="text-xs text-fog hover:text-mint">Abrir Quadro →</Link></div>
+      <div className="grid md:grid-cols-3 gap-3 mb-8">
+        {lanes.map((l) => (
+          <section key={l.t} className="card p-4">
+            <div className="flex items-center gap-2.5 mb-3">
+              <span className="w-9 h-9 rounded-xl bg-mint/10 text-mint grid place-items-center"><l.Icon className="w-[18px] h-[18px]" /></span>
+              <div className="min-w-0 flex-1"><p className="font-display font-bold leading-none">{l.t}</p><p className="text-[11px] text-fog mt-1">{l.d}</p></div>
+              <span className="font-display text-2xl font-bold tabular-nums">{l.items.length}</span>
             </div>
-            {i < 3 && <span className="hidden lg:block absolute -right-2.5 top-1/2 -translate-y-1/2 text-fog z-10">›</span>}
+            {!l.items.length ? <p className="text-xs text-fog bg-panel2 rounded-lg px-3 py-3 text-center">Nada aqui agora.</p> : (
+              <ul className="space-y-1.5">
+                {l.items.slice(0, 4).map((c) => (
+                  <li key={c.id}><Link href={`/creator/producao?c=${c.id}`} className="flex items-center gap-2 bg-panel2 hover:bg-panel2/70 rounded-lg px-2.5 py-2">
+                    <span className="w-1.5 h-6 rounded-full shrink-0" style={{ background: colorOf(c.status_id) }} />
+                    <span className="min-w-0 flex-1"><span className="block text-sm truncate">{c.title}</span><span className="block text-[10px] text-fog">{[c.format, c.planned_for && new Date(c.planned_for + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })].filter(Boolean).join(" · ")}</span></span>
+                  </Link></li>
+                ))}
+                {l.items.length > 4 && <li className="text-[11px] text-fog px-1">+{l.items.length - 4} no Quadro</li>}
+              </ul>
+            )}
+          </section>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-10">
+        {flow.map((f) => (
+          <div key={f.t} className="rounded-xl border border-line p-3">
+            <p className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-fog mb-2"><f.Icon className="w-4 h-4 text-mint" />{f.t}</p>
+            <div className="flex flex-wrap gap-1">{f.links.map(([l, h]) => <Link key={h} href={h} className="chip hover:text-mint">{l}</Link>)}</div>
           </div>
         ))}
       </div>
