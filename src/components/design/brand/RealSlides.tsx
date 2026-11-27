@@ -184,3 +184,121 @@ export function PhotoRulesSlide({ x, m }: { x: X; m: FotoMood }) {
     </div>
   );
 }
+
+/* ---------- feed ideal: o que existe, o que fazer e como fica ---------- */
+
+export type FeedIdeal = {
+  diagnostico?: string; regra?: string;
+  manter?: string[]; melhorar?: { o_que: string; como: string }[]; fazer?: string[];
+  posts?: (FeedPost & { base?: string; ref?: string })[];
+  referencias?: { id: string; url: string; marca?: string; o_que_pegar?: string }[];
+};
+
+/** um post do feed ideal: a foto quando existe; sem foto, uma representação desenhada pelo tipo */
+export function IdealPost({ x, p, small }: { x: X; p: FeedPost; small?: boolean }) {
+  const f = small ? .6 : 1;
+  const t = p.tipo || "";
+  if (p.img) return <Pic url={p.img}><div style={{ position: "absolute", left: 8, top: 8 }}><Tag x={x} dark>{tipo(t)}</Tag></div></Pic>;
+  const head = (bg: string, fg: string, inner: ReactNode) => (
+    <div style={{ position: "relative", overflow: "hidden", background: bg, color: fg, boxShadow: `inset 0 0 0 1px ${x.ink}22`, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 14 * f }}>
+      <div><Tag x={x} dark>{tipo(t)}</Tag></div>{inner}
+    </div>
+  );
+  if (t === "arte") return head(x.acc, "#fff", <p style={x.T({ fontSize: 26 * f, lineHeight: 1.05 })}>{p.titulo}</p>);
+  if (t === "reels") return head(x.ink, x.paper, <>
+    <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", opacity: .35 }}><div style={{ width: 56 * f, height: 56 * f, borderRadius: 99, border: `2px solid ${x.paper}`, display: "grid", placeItems: "center", fontSize: 20 * f }}>▶</div></div>
+    <p style={x.B({ fontSize: 15 * f, lineHeight: 1.25, fontWeight: 700, position: "relative" })}>{p.titulo}</p>
+  </>);
+  if (t === "carrossel") return head(x.paper, x.ink, <>
+    <p style={x.T({ fontSize: 24 * f, lineHeight: 1.05 })}>{p.titulo}</p>
+    <div style={{ display: "flex", gap: 4 }}>{[0, 1, 2, 3, 4].map((n) => <span key={n} style={{ width: 6 * f, height: 6 * f, borderRadius: 9, background: x.ink, opacity: n ? .25 : 1 }} />)}</div>
+  </>);
+  return head(`repeating-linear-gradient(135deg, ${x.ink}10 0 10px, ${x.ink}1c 10px 20px)`, x.ink, <p style={x.B({ fontSize: 13 * f, lineHeight: 1.35 })}><span style={{ opacity: .55 }}>Foto: </span>{p.titulo}</p>);
+}
+
+const Grid9 = ({ x, posts, size, ideal }: { x: X; posts: FeedPost[]; size: number; ideal?: boolean }) => (
+  <div style={{ width: size, height: size * 4 / 3, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(3, 1fr)", gap: 3 }}>
+    {posts.slice(0, 9).map((p, i) => ideal ? <IdealPost key={p.id || i} x={x} p={p} small /> : <Pic key={p.id || i} url={p.img}><div style={{ position: "absolute", left: 6, top: 6 }}><Tag x={x} dark>{tipo(p.tipo)}</Tag></div></Pic>)}
+  </div>
+);
+
+/** o feed de hoje ao lado do feed ideal */
+export function FeedCompareSlide({ x, atual, ideal }: { x: X; atual: Feed; ideal: FeedIdeal }) {
+  const size = (x.H - 150) * 3 / 4;
+  return (
+    <div style={{ position: "absolute", inset: 0, background: x.paper, color: x.ink, display: "grid", gridTemplateColumns: `${size}px 1fr ${size}px`, gap: 44, padding: "52px 56px" }}>
+      <div><Label x={x} style={{ opacity: .55, marginBottom: 12 }}>Hoje</Label><Grid9 x={x} posts={atual.posts || []} size={size} /></div>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 22 }}>
+        <Label x={x} style={{ opacity: .6 }}>Instagram · feed ideal</Label>
+        <h2 style={x.T({ fontSize: 58, textTransform: "uppercase", lineHeight: .95 })}>Do que existe ao ideal</h2>
+        {ideal.diagnostico && <p style={x.B({ fontSize: 16, lineHeight: 1.55 })}>{ideal.diagnostico}</p>}
+        {ideal.regra && <p style={x.B({ fontSize: 15, lineHeight: 1.5, borderTop: `2px solid ${x.ink}`, paddingTop: 12, fontWeight: 600 })}>{ideal.regra}</p>}
+        <p style={x.T({ fontSize: 46, textAlign: "right", opacity: .3 })}>→</p>
+      </div>
+      <div><Label x={x} style={{ opacity: .55, marginBottom: 12, color: x.acc }}>Ideal</Label><Grid9 x={x} posts={ideal.posts || []} size={size} ideal /></div>
+    </div>
+  );
+}
+
+/** manter, melhorar e fazer */
+export function FeedPlanSlide({ x, ideal }: { x: X; ideal: FeedIdeal }) {
+  const col = (l: string, mark: string, items: ReactNode[]) => (
+    <div style={{ minWidth: 0 }}>
+      <Label x={x} style={{ borderBottom: `2px solid ${x.ink}`, paddingBottom: 10 }}>{l}</Label>
+      {items.map((it, i) => <div key={i} style={x.B({ fontSize: 15, lineHeight: 1.45, padding: "12px 0", borderBottom: `1px solid ${x.ink}20`, display: "flex", gap: 10 })}><span style={{ opacity: .5, flex: "none" }}>{mark}</span><div>{it}</div></div>)}
+    </div>
+  );
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", gap: 26 }}>
+      <h2 style={x.T({ fontSize: 60, textTransform: "uppercase", lineHeight: .95 })}>O plano do feed</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr 1fr", gap: 40, flex: 1, minHeight: 0 }}>
+        {col("Manter", "✓", (ideal.manter || []).map((t) => t))}
+        {col("Melhorar", "↗", (ideal.melhorar || []).map((m) => <><b style={{ fontWeight: 700 }}>{m.o_que}</b><br /><span style={{ opacity: .75 }}>{m.como}</span></>))}
+        {col("Começar a fazer", "+", (ideal.fazer || []).map((t) => t))}
+      </div>
+    </div>
+  );
+}
+
+/** cada post do ideal, com legenda, porquê e de onde ele vem */
+export function FeedIdealWhySlide({ x, ideal, atual }: { x: X; ideal: FeedIdeal; atual: Feed }) {
+  const posts = (ideal.posts || []).slice(0, 9);
+  const byId = new Map((atual.posts || []).map((p) => [p.id, p]));
+  return (
+    <div style={{ height: "100%", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(3, 1fr)", gap: "14px 28px" }}>
+      {posts.map((p, i) => { const base = p.base ? byId.get(p.base) : undefined; return (
+        <div key={p.id || i} style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: 14, borderTop: `1px solid ${x.ink}30`, paddingTop: 12, minHeight: 0 }}>
+          <div style={{ display: "grid", height: 128 }}><IdealPost x={x} p={p} small /></div>
+          <div style={{ minWidth: 0, overflow: "hidden" }}>
+            <Label x={x} style={{ fontSize: 10, opacity: .55 }}>{String(i + 1).padStart(2, "0")} · {tipo(p.tipo)}{base ? " · melhora um post atual" : " · novo"}</Label>
+            {p.titulo && <p style={x.T({ fontSize: 16, marginTop: 4, lineHeight: 1.1 })}>{p.titulo}</p>}
+            {p.legenda && <p style={x.B({ fontSize: 12, lineHeight: 1.4, marginTop: 5, fontStyle: "italic", opacity: .85 })}>“{p.legenda}”</p>}
+            {p.por_que && <p style={x.B({ fontSize: 11.5, lineHeight: 1.4, marginTop: 5, opacity: .6 })}>{p.por_que}</p>}
+          </div>
+        </div>
+      ); })}
+    </div>
+  );
+}
+
+/** referências de outras marcas: o que pegar de cada uma */
+export function FeedRefsSlide({ x, ideal }: { x: X; ideal: FeedIdeal }) {
+  const refs = (ideal.referencias || []).filter((r) => r.url).slice(0, 6);
+  return (
+    <div style={{ position: "absolute", inset: 0, background: x.paper, color: x.ink, padding: "52px 56px", display: "grid", gridTemplateRows: "auto 1fr", gap: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end" }}>
+        <h2 style={x.T({ fontSize: 58, textTransform: "uppercase", lineHeight: .95 })}>Referências</h2>
+        <Label x={x} style={{ opacity: .55 }}>Instagram · o que pegar de cada uma</Label>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(3, refs.length)}, 1fr)`, gap: 16, minHeight: 0 }}>
+        {refs.map((r) => (
+          <div key={r.id} style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <Pic url={r.url} style={{ flex: 1, minHeight: 0 }} />
+            {r.marca && <p style={x.T({ fontSize: 20, marginTop: 10 })}>{r.marca}</p>}
+            {r.o_que_pegar && <p style={x.B({ fontSize: 13, lineHeight: 1.4, marginTop: 4, opacity: .75 })}>{r.o_que_pegar}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
