@@ -271,7 +271,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   S.push({ key: "logo", tone: "light", section: "Identidade visual · logo", body: (x) => (
     <div style={{ display: "grid", gridTemplateRows: "1fr auto", height: "100%" }}>
       <div style={{ display: "grid", placeItems: "center" }}><Logo svg={sys} x={x} style={{ width: "64%", height: x.H * .42 }} /></div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}><h2 style={x.T({ fontSize: 72, textTransform: "uppercase" })}>Logo</h2><p style={x.B({ fontSize: 17, maxWidth: 560, lineHeight: 1.5, opacity: .75 })}>{terr ? `Nasce do território "${terr.nome}". ` : ""}{mix[0] ? `Traduz o ${mix[0].a.l.toLowerCase()}: ${mix[0].a.forma.toLowerCase()}` : "A assinatura principal da marca."}</p></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}><h2 style={x.T({ fontSize: 72, textTransform: "uppercase" })}>Logo</h2><p style={x.B({ fontSize: 17, maxWidth: 560, lineHeight: 1.5, opacity: .75 })}>{terr ? `Nasce do território "${terr.nome}". ` : ""}{terr?.forma ? terr.forma : mix[0] ? `Traduz o ${mix[0].a.l.toLowerCase()}: ${mix[0].a.forma.toLowerCase()}` : "A assinatura principal da marca."}</p></div>
     </div>
   ) });
   S.push({ key: "versoes", tone: "light", section: "Identidade visual · versões", bare: true, body: (x) => (
