@@ -34,6 +34,7 @@ export default function Diagnostico() {
   const [err, setErr] = useState<string | null>(null);
   const [sel, setSel] = useState<string[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [queued, setQueued] = useState<{ id: string; since: string } | null>(null);
   const acc = accounts.find((a) => a.id === accId);
 
   useEffect(() => { if (!accId && accounts[0]) setAccId(new URLSearchParams(location.search).get("perfil") || accounts[0].id); }, [accounts, accId]);
@@ -45,16 +46,30 @@ export default function Diagnostico() {
   }, [accId]);
   useEffect(() => { load(); }, [load]);
 
-  async function run() {
+  // Pedido já feito e ainda não entregue (a pessoa saiu da tela ou clicou de novo): retoma em vez de criar outro.
+  useEffect(() => {
+    if (!accId) return;
+    setQueued(null);
+    (async () => {
+      const since = new Date(Date.now() - 2 * 864e5).toISOString();
+      const { data } = await createClient().from("ai_requests").select("id,status,created_at").eq("endpoint", "diagnostico").eq("account_id", accId)
+        .in("status", ["pending", "done"]).is("delivered_at", null).gte("created_at", since).order("created_at", { ascending: false }).limit(1);
+      const q = data?.[0];
+      if (q) { setQueued({ id: q.id, since: q.created_at }); run(q.id); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accId]);
+
+  async function run(resume?: string) {
     setBusy(true); setErr(null); setMsg(null);
     try {
-      const r = await aiFetch("/api/ai/diagnostico", { account_id: accId });
+      const r = await aiFetch("/api/ai/diagnostico", resume ? { account_id: accId, _ai_request: resume } : { account_id: accId });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Erro");
       const row = { id: j.id, created_at: j.created_at, result: j.result, inputs: j.inputs, account_id: accId };
       if (j.saved) await load(); else { setList([row, ...list]); setNoTable(true); setCur(row); setSel([]); }
     } catch (e: any) { setErr(e.message); }
-    setBusy(false);
+    setQueued(null); setBusy(false);
   }
 
   async function toPauta() {
@@ -93,9 +108,17 @@ export default function Diagnostico() {
         <select className="input !w-auto" value={accId} onChange={(e) => setAccId(e.target.value)}>{accounts.map((a) => <option key={a.id} value={a.id}>@{a.username}</option>)}</select>
         {acc && <span className="text-xs text-fog">{fmt(acc.followers_count)} seguidores</span>}
         {list.length > 1 && <select className="input !w-auto ml-auto" value={list.indexOf(cur)} onChange={(e) => { setCur(list[Number(e.target.value)]); setSel([]); }}>{list.map((x, i) => <option key={x.id || i} value={i}>{new Date(x.created_at).toLocaleDateString("pt-BR")}</option>)}</select>}
-        <button onClick={run} disabled={busy || !acc} className={`btn btn-sm btn-mint ${list.length > 1 ? "" : "ml-auto"}`}><I.spark className="w-4 h-4" />{busy ? "Analisando perfil e mercado… (até 2 min)" : cur ? "Refazer diagnóstico" : "Fazer diagnóstico"}</button>
+        <button onClick={() => run()} disabled={busy || !acc} className={`btn btn-sm btn-mint ${list.length > 1 ? "" : "ml-auto"}`}><I.spark className="w-4 h-4" />{busy ? "Aguardando o Claude…" : cur ? "Refazer diagnóstico" : "Fazer diagnóstico"}</button>
       </div>
       {!accounts.length && <p className="text-fog text-sm text-center py-10">Cadastre um perfil em <Link href="/creator/perfis" className="text-mint underline">Perfis & briefing</Link> para fazer o diagnóstico.</p>}
+      {busy && <section className="card p-5 mb-5 border-mint-dim">
+        <p className="label text-mint mb-3">Raio-X na fila do Claude{queued ? ` desde ${new Date(queued.since).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
+        <div className="grid sm:grid-cols-3 gap-2 text-sm">
+          <div className="bg-panel2 rounded-lg p-3"><p className="font-mono text-[11px] text-mint">1 · ENVIADO</p><p>O HUB juntou métricas, briefing e referências e mandou o pedido.</p></div>
+          <div className="rounded-lg p-3 border border-mint/40"><p className="font-mono text-[11px] text-mint">2 · VOCÊ</p><p>Abra o Claude e peça: <b>“responda os pedidos do HUB”</b>. Leva de 2 a 5 minutos, com pesquisa de mercado.</p></div>
+          <div className="bg-panel2 rounded-lg p-3"><p className="font-mono text-[11px] text-fog">3 · PRONTO</p><p className="text-fog">O resultado aparece aqui sozinho. Pode sair desta tela: ao voltar, ele é retomado.</p></div>
+        </div>
+      </section>}
       {err && <div className="card px-4 py-3 mb-5 text-sm text-danger border-danger/40">{err}</div>}
       {noTable && cur && <div className="card px-4 py-3 mb-5 text-sm text-fog">O histórico de versões ainda está sendo preparado no banco: este diagnóstico aparece agora, mas não fica salvo para comparar depois.</div>}
 
