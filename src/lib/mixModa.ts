@@ -28,4 +28,4 @@ export function taxas(p: { reach?: number | null; saved?: number | null; shares?
   return { compart, salvos, sinal: compart + salvos };
 }
 
-export const pct = (v: number | null | undefined, casas = 1) => (v == null ? "–" : `${(v * 100).toFixed(casas)}%`);
+export const pct = (v: number | null | undefined, casas = 1) => (v == null ? "–" : `${(v * 100).toFixed(casas).replace(".", ",")}%`);
