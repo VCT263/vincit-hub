@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { CANVA_BRAND_KIT, download, loadImg, primaryLogo, svgUrl, svgWithFonts, type Logo, type Swatch } from "@/lib/design";
 import { FORMATS, Presenter, ScaledSlide, useDeck, type Format } from "./Presentation";
 import LogoMotion from "./LogoMotion";
+import { useMockups } from "./MockupView";
 import { I } from "@/components/icons";
 import type { StepProps } from "./types";
 
@@ -25,7 +26,8 @@ export default function ManualStep({ d, id, set }: StepProps) {
   const name = b.nome || "Marca";
   const [msg, setMsg] = useState("");
   const [format, setFormat] = useState<Format>((d.deck_format as Format) in FORMATS ? d.deck_format : "16:9");
-  const { x, slides } = useDeck(d, format);
+  const mockups = useMockups();
+  const { x, slides } = useDeck(d, format, mockups || []);
   const [show, setShow] = useState<number | null>(null);
   const ent = d.entrega || {};
   const setEnt = (patch: any) => set({ entrega: { ...ent, ...patch } });

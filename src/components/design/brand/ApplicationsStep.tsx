@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { shrink, uid } from "@/lib/design";
 import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
+import { ARTS, CATS, MockupStage, useMockups } from "./MockupView";
 import type { StepProps } from "./types";
 
 /* mockups-design.com: licença permite uso comercial e para clientes, sem crédito; só não pode redistribuir os PSD */
@@ -17,23 +18,29 @@ const PEXELS = [["Parede lisa", "parede lisa"], ["Fachada de loja", "fachada de 
 const W = 1600, H = 900;
 
 /** desenha a cena em 1600×900 e escala para a largura disponível */
-function Fit({ children }: { children: ReactNode }) {
+function Fit({ children, w = W, h = H }: { children: ReactNode; w?: number; h?: number }) {
   const ref = useRef<HTMLDivElement>(null); const [k, setK] = useState(.3);
   useLayoutEffect(() => {
     const el = ref.current; if (!el) return;
-    const ro = new ResizeObserver(() => setK(el.clientWidth / W)); ro.observe(el); setK(el.clientWidth / W);
+    const ro = new ResizeObserver(() => setK(el.clientWidth / w)); ro.observe(el); setK(el.clientWidth / w);
     return () => ro.disconnect();
-  }, []);
+  }, [w]);
   return (
-    <div ref={ref} className="relative w-full overflow-hidden rounded-lg" style={{ height: H * k }}>
-      <div style={{ position: "absolute", left: 0, top: 0, width: W, height: H, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+    <div ref={ref} className="relative w-full overflow-hidden rounded-lg" style={{ height: h * k }}>
+      <div style={{ position: "absolute", left: 0, top: 0, width: w, height: h, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
     </div>
   );
 }
 
 export default function ApplicationsStep({ d, set, go }: StepProps) {
   const kit = sceneKit(d);
-  const cenas: string[] = Array.isArray(d.cenas) ? d.cenas : SCENES.map((c) => c.k);
+  const cenas: string[] = Array.isArray(d.cenas) ? d.cenas : [];
+  const lib = useMockups();
+  const chosen: string[] = Array.isArray(d.mockups) ? d.mockups : (lib || []).slice(0, 12).map((m) => m.id);
+  const arts: Record<string, string[]> = d.mockup_arts || {};
+  const [cat, setCat] = useState("");
+  const toggleMk = (id: string) => set({ mockups: chosen.includes(id) ? chosen.filter((c) => c !== id) : [...chosen, id] });
+  const setArt = (id: string, i: number, a: string, n: number) => { const cur = arts[id] || []; const next = Array.from({ length: n }, (_, j) => (j === i ? a : cur[j] || "")); set({ mockup_arts: { ...arts, [id]: next } }); };
   const fotos: Foto[] = d.fotos || [];
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState("");
@@ -65,6 +72,47 @@ export default function ApplicationsStep({ d, set, go }: StepProps) {
     <div className="space-y-6">
       <SceneStyle />
       <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="font-semibold">Mockups fotográficos</p>
+            <p className="text-xs text-fog">Fotos profissionais (PSD grátis do mockups-design.com) com o logo, as cores e o grafismo da marca aplicados em perspectiva, com a luz, o papel e a sombra da foto. Cada um marcado vira uma página do manual. Escolha a arte de cada área nos botões.</p>
+          </div>
+          <a href="/design/mockups" className="btn btn-ghost !py-1.5 text-sm">Biblioteca e importar ↗</a>
+        </div>
+        {lib === null ? <div className="card h-40 animate-pulse" /> : !lib.length ? <p className="text-sm text-fog card p-6 text-center">Nenhum mockup na biblioteca ainda.</p> : (
+          <>
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => setCat("")} className={`chip ${!cat ? "!border-mint text-mint" : ""}`}>Todos · {lib.length}</button>
+              {Array.from(new Set(lib.map((m) => m.category))).map((c) => <button key={c} onClick={() => setCat(c)} className={`chip ${cat === c ? "!border-mint text-mint" : ""}`}>{CATS[c] || c}</button>)}
+              <span className="text-[11px] text-fog self-center ml-auto">{chosen.length} no manual</span>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {lib.filter((m) => !cat || m.category === cat).map((m) => {
+                const on = chosen.includes(m.id);
+                return (
+                  <div key={m.id} className={`rounded-xl border p-2 transition-colors ${on ? "border-mint" : "border-line"}`}>
+                    <button onClick={() => toggleMk(m.id)} className="block w-full text-left"><Fit w={m.width} h={m.height}><MockupStage d={d} m={m} arts={arts[m.id]} /></Fit></button>
+                    <div className="flex items-center justify-between px-1 pt-2 gap-2">
+                      <span className="text-sm font-semibold truncate">{m.title}</span>
+                      <button onClick={() => toggleMk(m.id)} className={`text-[11px] font-mono shrink-0 ${on ? "text-mint" : "text-fog"}`}>{on ? "no manual" : "fora"}</button>
+                    </div>
+                    {m.slots.map((sl, i) => (
+                      <div key={i} className="flex flex-wrap gap-1 px-1 pt-1.5">
+                        {m.slots.length > 1 && <span className="text-[10px] text-fog self-center mr-1">{sl.name}</span>}
+                        {ARTS.map((a) => { const cur = (arts[m.id] || [])[i] || sl.art || "claro"; return <button key={a.k} onClick={() => setArt(m.id, i, a.k, m.slots.length)} className={`chip !text-[10px] !px-1.5 !py-0 ${cur === a.k ? "!border-mint text-mint" : ""}`}>{a.l}</button>; })}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </section>
+
+      <details className="card p-4">
+        <summary className="cursor-pointer font-semibold text-sm">Cenas desenhadas (simples, sem foto)</summary>
+      <section className="space-y-3 mt-3">
         <div>
           <p className="font-semibold">Objetos em cena</p>
           <p className="text-xs text-fog">Cada cena vira uma página do manual, montada com o logo, as cores e o grafismo da marca. O cartão e o símbolo em 3D giram na tela e saem parados no PDF. Toque para tirar ou pôr no manual.</p>
@@ -84,6 +132,7 @@ export default function ApplicationsStep({ d, set, go }: StepProps) {
           })}
         </div>
       </section>
+      </details>
 
       <section className="card p-4 space-y-3">
         <div>
