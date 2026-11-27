@@ -268,10 +268,14 @@ export const monoSvg = (svg: string, color: string) => {
   if (/<image\b/.test(svg) || !/^\s*<svg/.test(svg)) return swap(svg, color, "transparent");
   const open = svg.match(/^\s*<svg[^>]*>/)![0];
   const vb = (open.match(/viewBox="([^"]+)"/)?.[1] || "0 0 100 100").split(/[\s,]+/).map(Number);
-  const inner = svg.replace(/^\s*<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+  const all = svg.replace(/^\s*<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+  // elementos com data-keep (ex.: a sarda ruiva da Alanis Gomes) mantêm a cor própria em qualquer versão
+  const KEEP = /<(?:circle|ellipse|rect|path|polygon)\b[^>]*\bdata-keep\b[^>]*\/>/g;
+  const kept = all.match(KEEP) || [];
+  const inner = all.replace(KEEP, "");
   let hsh = 5381; for (const ch of svg + color) hsh = ((hsh * 33) ^ ch.charCodeAt(0)) >>> 0;
   const id = `m${hsh.toString(36)}`;
-  return `${open}<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}"><g fill="#fff">${swap(inner, "#fff", "#000")}</g></mask></defs><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${color}" mask="url(#${id})"/></svg>`;
+  return `${open}<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}"><g fill="#fff">${swap(inner, "#fff", "#000")}</g></mask></defs><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${color}" mask="url(#${id})"/>${kept.join("")}</svg>`;
 };
 
 export const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -543,7 +547,8 @@ export function lockupSvg(kind: LockupKind, d: any, mono?: string) {
     const W = sw + gap + L.w, H = sh;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}">${nest(symS, 0, 0, sw, sh)}${nest(L.svg, sw + gap, (H - L.h) / 2, L.w, L.h)}</svg>`;
   }
-  const sh = L.h * 1.4, sw = sh * ar, gap = L.h * .35;
+  // nome longo e espaçado: o símbolo acompanha a largura do nome (mín. 30%) para não ficar miúdo em cima dele
+  const sw = Math.max(L.h * 1.4 * ar, L.w * .3), sh = sw / ar, gap = Math.max(L.h * .35, sh * .2);
   const W = Math.max(sw, L.w), H = sh + gap + L.h;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}">${nest(symS, (W - sw) / 2, 0, sw, sh)}${nest(L.svg, (W - L.w) / 2, sh + gap, L.w, L.h)}</svg>`;
 }
