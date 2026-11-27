@@ -9,9 +9,9 @@ import { SvgView } from "../ui";
    escrita na voz da marca e montada com as regras do manual: fundo e proporção da paleta, cor de destaque só onde
    o manual manda, grafismo do território (cantos de enquadramento, pesponto de losangos), frases da marca. */
 
-const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
+export const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
 
-function mix(a: string, b: string, t: number) {
+export function mix(a: string, b: string, t: number) {
   const p = (h: string) => { const x = h.replace("#", ""); const n = parseInt(x.length === 3 ? x.split("").map((c) => c + c).join("") : x, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
   const [A, B] = [p(a), p(b)];
   return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
@@ -63,18 +63,18 @@ export function brandVoice(d: any) {
 export type Voice = ReturnType<typeof brandVoice>;
 
 /* ───────── peças de apoio ───────── */
-const A = (s: CSSProperties): CSSProperties => ({ position: "absolute", ...s });
-const Svg = ({ svg, style }: { svg: string; style: CSSProperties }) => <div style={A(style)}><SvgView svg={svg} className="w-full h-full" /></div>;
+export const A = (s: CSSProperties): CSSProperties => ({ position: "absolute", ...s });
+export const Svg = ({ svg, style }: { svg: string; style: CSSProperties }) => <div style={A(style)}><SvgView svg={svg} className="w-full h-full" /></div>;
 /** logo com a largura certa para a altura pedida (alinha à esquerda/direita de verdade) */
-const Logo = ({ svg, h, style }: { svg: string; h: number; style: CSSProperties }) => <Svg svg={svg} style={{ height: h, width: h * ar(svg), ...style }} />;
-const Bg = ({ c, v, grain }: { c: string; v: Voice; grain?: boolean }) => (
+export const Logo = ({ svg, h, style }: { svg: string; h: number; style: CSSProperties }) => <Svg svg={svg} style={{ height: h, width: h * ar(svg), ...style }} />;
+export const Bg = ({ c, v, grain }: { c: string; v: Voice; grain?: boolean }) => (
   <>
     <div style={A({ inset: 0, background: c })} />
     {(grain ?? (v.grain && c === v.k.ink)) && <div style={A({ inset: 0, backgroundImage: GRAIN, opacity: .16, mixBlendMode: "screen" })} />}
   </>
 );
 /** cantos de enquadramento (o visor da câmera) */
-function Corners({ inset, len, th, c, box }: { inset: number; len: number; th: number; c: string; box?: CSSProperties }) {
+export function Corners({ inset, len, th, c, box }: { inset: number; len: number; th: number; c: string; box?: CSSProperties }) {
   const s = (p: CSSProperties): CSSProperties => A({ width: len, height: len, borderColor: c, borderStyle: "solid", borderWidth: 0, ...p });
   return (
     <div style={A({ inset, ...box })}>
@@ -86,7 +86,7 @@ function Corners({ inset, len, th, c, box }: { inset: number; len: number; th: n
   );
 }
 /** pesponto de losangos: o detalhe do logo costurado em volta (frame) ou numa linha (row) */
-function stitchSvg(W: number, H: number, size: number, gap: number, c: string, frame = true) {
+export function stitchSvg(W: number, H: number, size: number, gap: number, c: string, frame = true) {
   let s = ""; const step = size + gap;
   const dia = (x: number, y: number) => { s += `<polygon points="${x.toFixed(1)},${(y - size / 2).toFixed(1)} ${(x + size / 2).toFixed(1)},${y.toFixed(1)} ${x.toFixed(1)},${(y + size / 2).toFixed(1)} ${(x - size / 2).toFixed(1)},${y.toFixed(1)}" fill="${c}"/>`; };
   const line = (x1: number, y1: number, x2: number, y2: number, skipEnd: boolean) => { const L = Math.hypot(x2 - x1, y2 - y1); const n = Math.max(1, Math.round(L / step)); for (let i = 0; i < n + (skipEnd ? 0 : 1); i++) dia(x1 + ((x2 - x1) * i) / n, y1 + ((y2 - y1) * i) / n); };
@@ -95,10 +95,10 @@ function stitchSvg(W: number, H: number, size: number, gap: number, c: string, f
   else line(m, H / 2, W - m, H / 2, false);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(0)} ${H.toFixed(0)}">${s}</svg>`;
 }
-const Stitch = ({ style, w, h, size, c, frame = true }: { style: CSSProperties; w: number; h: number; size: number; c: string; frame?: boolean }) => <Svg svg={stitchSvg(w, h, size, size * 1.6, c, frame)} style={{ width: w, height: h, ...style }} />;
+export const Stitch = ({ style, w, h, size, c, frame = true }: { style: CSSProperties; w: number; h: number; size: number; c: string; frame?: boolean }) => <Svg svg={stitchSvg(w, h, size, size * 1.6, c, frame)} style={{ width: w, height: h, ...style }} />;
 
 /** frase com a palavra-chave em destaque (e o ponto de gravação quando a palavra é REC) */
-function Phrase({ v, text, style, kw }: { v: Voice; text: string; style: CSSProperties; kw?: string }) {
+export function Phrase({ v, text, style, kw }: { v: Voice; text: string; style: CSSProperties; kw?: string }) {
   const w = kw ?? v.kw(text); const i = w ? text.lastIndexOf(w) : -1;
   if (i < 0) return <p style={style}>{text}</p>;
   const rec = /^rec$/i.test(w);
@@ -111,7 +111,7 @@ function Phrase({ v, text, style, kw }: { v: Voice; text: string; style: CSSProp
   );
 }
 /** lema: em latim vira assinatura à mão (VINCIT); nas outras, título em itálico */
-function Lema({ v, size, c, tc, align = "left" }: { v: Voice; size: number; c: string; tc?: string; align?: "left" | "center" | "right" }) {
+export function Lema({ v, size, c, tc, align = "left" }: { v: Voice; size: number; c: string; tc?: string; align?: "left" | "center" | "right" }) {
   return (
     <div style={{ textAlign: align }}>
       <p style={v.latinScript ? v.G({ fontSize: size * 1.5, color: c }) : v.k.T({ fontSize: size, color: c, fontStyle: "italic", fontWeight: 400 })}>{v.lema}</p>
@@ -120,7 +120,7 @@ function Lema({ v, size, c, tc, align = "left" }: { v: Voice; size: number; c: s
   );
 }
 /** selo: o único lugar da assinatura caligráfica na ISYS (pesponto em volta + monograma) */
-function Seal({ v, size, c, bg, text, style }: { v: Voice; size: number; c: string; bg: string; text?: string; style: CSSProperties }) {
+export function Seal({ v, size, c, bg, text, style }: { v: Voice; size: number; c: string; bg: string; text?: string; style: CSSProperties }) {
   return (
     <div style={A({ width: size, height: size, borderRadius: "50%", background: bg, ...style })}>
       <div style={A({ inset: size * .05, borderRadius: "50%", border: `${size * .008}px dashed ${c}` })} />
@@ -129,11 +129,11 @@ function Seal({ v, size, c, bg, text, style }: { v: Voice; size: number; c: stri
     </div>
   );
 }
-const Caps = ({ v, size, c, children, style }: { v: Voice; size: number; c: string; children: ReactNode; style?: CSSProperties }) => (
+export const Caps = ({ v, size, c, children, style }: { v: Voice; size: number; c: string; children: ReactNode; style?: CSSProperties }) => (
   <p style={v.k.B({ fontSize: size, color: c, letterSpacing: ".22em", textTransform: "uppercase", fontWeight: 500, lineHeight: 1.6, ...style })}>{children}</p>
 );
-const Quote = ({ v, size, c, style }: { v: Voice; size: number; c: string; style: CSSProperties }) => <p style={v.k.T({ position: "absolute", fontSize: size, color: c, lineHeight: .8, ...style })}>“</p>;
-function Sizes({ v, size, c, fill, pick, style }: { v: Voice; size: number; c: string; fill: string; pick?: number; style?: CSSProperties }) {
+export const Quote = ({ v, size, c, style }: { v: Voice; size: number; c: string; style: CSSProperties }) => <p style={v.k.T({ position: "absolute", fontSize: size, color: c, lineHeight: .8, ...style })}>“</p>;
+export function Sizes({ v, size, c, fill, pick, style }: { v: Voice; size: number; c: string; fill: string; pick?: number; style?: CSSProperties }) {
   return (
     <div style={{ display: "flex", gap: size * .28, ...style }}>
       {v.sizes.map((s, i) => (
@@ -284,7 +284,7 @@ function Post({ v, w, h }: P) {
 }
 
 /* interface do celular */
-function StatusBar({ v, w, c }: { v: Voice; w: number; c: string }) {
+export function StatusBar({ v, w, c }: { v: Voice; w: number; c: string }) {
   return (
     <div style={A({ left: w * .09, right: w * .09, top: w * .06, display: "flex", justifyContent: "space-between", alignItems: "center" })}>
       <span style={v.k.B({ fontSize: w * .038, fontWeight: 600, color: c })}>9:41</span>
@@ -292,7 +292,7 @@ function StatusBar({ v, w, c }: { v: Voice; w: number; c: string }) {
     </div>
   );
 }
-function Avatar({ v, size }: { v: Voice; size: number }) {
+export function Avatar({ v, size }: { v: Voice; size: number }) {
   return <div style={{ width: size, height: size, borderRadius: 99, background: v.k.acc, position: "relative", flex: "none", boxShadow: `0 0 0 ${size * .06}px ${v.base}, 0 0 0 ${size * .1}px ${v.light}` }}><Svg svg={v.k.mark(v.onAcc)} style={{ inset: "22%" }} /></div>;
 }
 
