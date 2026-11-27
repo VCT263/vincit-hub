@@ -31,33 +31,50 @@ export async function listChildren(token: string, q: string, fields = FIELDS) {
   return out;
 }
 
-/** Áreas do banco de mídia. Cada arquivo do Drive fica em uma área (coluna kind). */
-export const KINDS = [
-  { k: "sfx", l: "Efeitos sonoros", d: "Whooshes, impactos, transições e foley", pasta: "Efeitos sonoros" },
-  { k: "trilha", l: "Trilhas", d: "Músicas e beds para os vídeos", pasta: "Trilhas" },
-  { k: "insercao", l: "Imagens de inserção", d: "B-roll e takes de apoio para cobrir a fala", pasta: "Inserções" },
-  { k: "externo", l: "Banco de imagens externo", d: "Stock baixado de Pexels, Envato, Artgrid e outros", pasta: "Banco externo" },
-  { k: "interno", l: "Banco de conteúdos interno", d: "O que a produtora gravou e entregou: brutos, cortes e finais", pasta: "Conteúdos internos" },
-  { k: "marca", l: "Marcas e logos", d: "Logos, fontes e manuais dos clientes", pasta: "Marcas" },
-  { k: "imagem", l: "Fotos e PNGs", d: "Fotos, recortes, ícones e elementos gráficos", pasta: "Fotos e PNGs" },
-  { k: "lut", l: "LUTs", d: "Correção e look de cor", pasta: "LUTs" },
-  { k: "modelo", l: "Modelos", d: "Templates de edição, motion e presets", pasta: "Modelos" },
-  { k: "referencia", l: "Referências", d: "Vídeos e imagens de inspiração", pasta: "Referências" },
-  { k: "outro", l: "Outros", d: "O que não entrou em nenhuma área", pasta: "" },
+/** Os dois lados do banco: recursos técnicos de edição e o que a própria produtora gravou */
+export const GROUPS = [
+  { g: "tecnico", l: "Técnico", d: "Recursos para editar: efeitos, trilhas, inserções de banco, transições, LUTs, modelos e referências", pasta: "Técnico" },
+  { g: "meu", l: "Meus conteúdos", d: "O que você gravou: fotos, vídeos, inserções e projetos entregues", pasta: "Meus conteúdos" },
 ] as const;
 
+/** Áreas do banco de mídia. Cada arquivo do Drive fica em uma área (coluna kind), e cada área num dos dois lados. */
+export const KINDS = [
+  { k: "sfx", g: "tecnico", l: "Efeitos sonoros", d: "Whooshes, impactos, risers e foley", pasta: "Efeitos sonoros" },
+  { k: "trilha", g: "tecnico", l: "Trilhas", d: "Músicas e beds para os vídeos", pasta: "Trilhas" },
+  { k: "insercao", g: "tecnico", l: "Inserções de banco", d: "B-roll pronto para cobrir a fala", pasta: "Inserções de banco" },
+  { k: "externo", g: "tecnico", l: "Banco externo", d: "Stock baixado de Pexels, Envato, Artgrid e outros", pasta: "Banco externo" },
+  { k: "transicao", g: "tecnico", l: "Transições", d: "Transições, overlays, light leaks e texturas", pasta: "Transições" },
+  { k: "imagem", g: "tecnico", l: "Elementos e PNGs", d: "Recortes, ícones, PNGs e elementos gráficos", pasta: "Elementos e PNGs" },
+  { k: "marca", g: "tecnico", l: "Marcas e logos", d: "Logos, fontes e manuais dos clientes", pasta: "Marcas" },
+  { k: "lut", g: "tecnico", l: "LUTs", d: "Correção e look de cor", pasta: "LUTs" },
+  { k: "modelo", g: "tecnico", l: "Modelos", d: "Templates de edição, motion e presets", pasta: "Modelos" },
+  { k: "referencia", g: "tecnico", l: "Referências", d: "Vídeos e imagens de inspiração", pasta: "Referências" },
+  { k: "video", g: "meu", l: "Vídeos gravados", d: "Brutos e takes das suas gravações", pasta: "Vídeos" },
+  { k: "take", g: "meu", l: "Inserções gravadas", d: "B-roll que você mesmo gravou", pasta: "Inserções gravadas" },
+  { k: "foto", g: "meu", l: "Fotos", d: "Fotos que você tirou, brutas e editadas", pasta: "Fotos" },
+  { k: "interno", g: "meu", l: "Projetos e entregas", d: "Cortes, finais e posts entregues", pasta: "Projetos e entregas" },
+  { k: "outro", g: "tecnico", l: "Outros", d: "O que não entrou em nenhuma área", pasta: "" },
+] as const;
+export const groupOf = (k: string) => KINDS.find((x) => x.k === k)?.g || "tecnico";
+
+const MEU = /(meus?|minhas?|pr[oó]prios?|autora?is|gravad[oa]s|capta[cç][aãõ]|clientes?|eventos?|shows?|ensaios?|sess[aãõ])/i;
+const TEC = /(t[eé]cnico|recursos|assets|kit|biblioteca|library)/i;
 const BY_FOLDER: [RegExp, string][] = [
-  [/(^|\b)(sfx|efeitos?|sound ?effects?|foley|whoosh|transi[cç])/i, "sfx"],
+  [/(transi[cç]|overlays?|light ?leaks?|texturas?|glitch)/i, "transicao"],
+  [/(^|\b)(sfx|efeitos?|sound ?effects?|foley|whoosh)/i, "sfx"],
   [/(trilhas?|m[uú]sicas?|music|soundtrack|bgm)/i, "trilha"],
   [/(refer[eê]ncias?|inspira)/i, "referencia"],
   [/(^|\b)luts?\b/i, "lut"],
   [/(modelos?|templates?|presets?|mogrt|motion)/i, "modelo"],
   [/(marcas?|logos?|brand|identidade|fontes?|fonts?|manual)/i, "marca"],
   [/(externo|stock|pexels|unsplash|pixabay|envato|artgrid|artlist|storyblocks|shutterstock|freepik|adobe ?stock|banco de (imagens|v[ií]deos))/i, "externo"],
-  [/(interno|brutos?|raw|grava[cç][aãõ]|capta[cç][aãõ]|entregas?|finais|finalizados?|cortes|conte[uú]dos?|projetos?|posts?|reels?)/i, "interno"],
+  [/(entregas?|finais|finalizados?|cortes|projetos?|posts?|reels?|interno)/i, "interno"],
   [/(b-?roll|inser[cç][aãõ]|takes?|footage|apoio)/i, "insercao"],
-  [/(fotos?|imagens?|png|photos?|images?|[ií]cones?|icons?|elementos?)/i, "imagem"],
+  [/(elementos?|png|[ií]cones?|icons?|recortes?|gr[aá]ficos?)/i, "imagem"],
+  [/(fotos?|photos?)/i, "foto"],
+  [/(v[ií]deos?|brutos?|raw)/i, "video"],
 ];
+const PHOTO = ["jpg", "jpeg", "heic", "heif", "arw", "cr2", "cr3", "nef", "dng", "raf", "orf", "rw2", "tif", "tiff"];
 
 /** área sugerida pelo nome, pela pasta e pelo formato; o usuário pode trocar depois */
 export function inferKind(name: string, mime: string, folder: string, size?: number): string {
@@ -65,20 +82,40 @@ export function inferKind(name: string, mime: string, folder: string, size?: num
   if (["cube", "3dl", "look", "lut"].includes(ext)) return "lut";
   if (["mogrt", "aep", "aet", "drp", "drfx", "setting", "prfpst", "ffx", "moti", "motn", "prproj", "epr"].includes(ext)) return "modelo";
   if (["ttf", "otf", "woff", "woff2", "ai", "eps"].includes(ext)) return "marca";
+  const audio = mime.startsWith("audio/"), video = mime.startsWith("video/"), image = mime.startsWith("image/");
+  const segs = (folder || "").split("/").filter(Boolean);
+  // lado: a pasta mais de cima que disser "Técnico" ou "Meus conteúdos" (ou parecer gravação própria)
+  let side: "tecnico" | "meu" | "" = "";
+  for (const s of segs) { if (TEC.test(s)) { side = "tecnico"; break; } if (MEU.test(s)) { side = "meu"; break; } }
   // a pasta de cima define a área (ex.: "Marcas/Cliente X" fica em Marcas)
-  const segs = (folder || "").split("/");
-  for (const s of segs) for (const [re, k] of BY_FOLDER) if (re.test(s)) {
-    const audio = mime.startsWith("audio/");
-    // pasta diz "inserção" ou "banco de imagens" mas o arquivo é áudio: respeita o formato
-    if (["insercao", "imagem", "externo", "marca"].includes(k) && audio) continue;
-    if (k === "sfx" || k === "trilha") { if (!audio && !mime.startsWith("video/")) continue; }
+  for (const s of segs) for (const [re, k0] of BY_FOLDER) if (re.test(s)) {
+    let k = k0;
+    if (["insercao", "imagem", "externo", "marca", "foto", "video", "transicao"].includes(k) && audio) continue;
+    if ((k === "sfx" || k === "trilha") && !audio && !video) continue;
+    if (k === "foto" && !image) continue;
+    if (k === "video" && !video) continue;
+    // no lado "Meus conteúdos", inserção é a gravada por você; no técnico, "vídeos/fotos" viram banco
+    if (side === "meu" && k === "insercao") k = "take";
+    if (side === "tecnico" && (k === "video" || k === "take")) k = "insercao";
+    if (side === "tecnico" && k === "foto") k = "imagem";
     return k;
   }
   if (/logo/i.test(name)) return "marca";
-  if (mime.startsWith("audio/")) return (size || 0) > 4_000_000 ? "trilha" : "sfx";
-  if (mime.startsWith("video/")) return "insercao";
-  if (mime.startsWith("image/")) return "imagem";
+  if (audio) return (size || 0) > 4_000_000 ? "trilha" : "sfx";
+  // sem pasta que diga a área: arquivo de câmera é seu; PNG e afins são elementos
+  if (video) return side === "tecnico" ? "insercao" : "video";
+  if (image) return PHOTO.includes(ext) && side !== "tecnico" ? "foto" : "imagem";
   return "outro";
+}
+
+/** subpasta do arquivo dentro da área: tira da frente as pastas que só dizem o lado ou a área */
+export function subPath(folder: string, kind: string): string[] {
+  const segs = (folder || "").split("/").filter(Boolean);
+  const same = (k: string) => k === kind || (kind === "take" && k === "insercao") || (kind === "insercao" && (k === "video" || k === "take")) || (kind === "imagem" && k === "foto");
+  let i = 0;
+  while (i < segs.length && (TEC.test(segs[i]) || /^meus conte[uú]dos$/i.test(segs[i]))) i++;
+  if (i < segs.length && BY_FOLDER.some(([re, k]) => re.test(segs[i]) && same(k))) i++;
+  return segs.slice(i);
 }
 
 /** campos do Drive que vão para a tabela */
