@@ -89,3 +89,12 @@ input:focus, textarea:focus { border-color: #6eefb6; }
 .chips { margin-top: 2px; margin-bottom: -8px; }
 .msg:empty { display: none; }
 .step-body > .lab:first-child { margin-top: 4px; }
+
+/* corte de pausas */
+.pair { display: flex; }
+.half { flex: 1; }
+.half + .half { margin-left: 8px; }
+.cut-head { margin-top: 16px; }
+.cuts { max-height: 220px; }
+.cuts .item { padding: 8px 10px; }
+.cuts .item .n { font-weight: 400; }

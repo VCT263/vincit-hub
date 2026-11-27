@@ -66,11 +66,43 @@
     clear(box);
     const mk = (id, name) => {
       const c = el("div", "chip" + (kitId === id ? " on" : ""), name);
-      c.addEventListener("click", () => { kitId = id; renderKits(); });
+      c.addEventListener("click", () => { kitId = id; renderKits(); kitPausa(); });
       box.appendChild(c);
     };
     mk("", "Sem kit");
     kits.forEach((k) => mk(k.id, k.name));
+  }
+
+  /** a pausa mínima padrão vem do kit escolhido (regras.silencio_ms) */
+  function kitPausa() {
+    const k = kits.find((x) => x.id === kitId);
+    const ms = k && k.data && k.data.regras && +k.data.regras.silencio_ms;
+    if (ms) $("pausaMin").value = String(Math.round(ms) / 1000);
+  }
+
+  /* ---------- cortar pausas ---------- */
+  let cuts = [];
+  function renderCuts() {
+    const box = $("cutBox");
+    box.hidden = !cuts.length;
+    const list = $("cutList");
+    clear(list);
+    cuts.forEach((c) => {
+      const row = el("div", "item" + (c.on ? " on" : ""));
+      row.appendChild(el("div", "check", c.on ? "✓" : ""));
+      row.appendChild(el("span", null, `${fmtT(c.inicio)}–${fmtT(c.fim)}`));
+      row.appendChild(el("span", "n", c.motivo || `${(c.fim - c.inicio).toFixed(1)} s`));
+      row.addEventListener("click", () => { c.on = !c.on; renderCuts(); });
+      list.appendChild(row);
+    });
+    const on = cuts.filter((c) => c.on);
+    $("cutSum").textContent = `${on.length} de ${cuts.length} cortes · tira ${CORTES.total(on).toFixed(1)} s`;
+    $("cutAll").textContent = on.length ? "Desmarcar tudo" : "Marcar tudo";
+  }
+  const fmtT = (s) => { s = +s || 0; const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(1).padStart(4, "0")}`; };
+  function loadCuts(list) {
+    cuts = CORTES.juntar(list).map((c) => Object.assign({}, c, { on: true }));
+    renderCuts();
   }
 
   async function boot() {
@@ -79,7 +111,7 @@
       const [c, k] = await Promise.all([HUB.contents(), HUB.kits()]);
       contents = c || []; kits = k || [];
       if (!kitId && kits.length === 1) kitId = kits[0].id;
-      renderContents(); renderKits();
+      renderContents(); renderKits(); kitPausa();
       const open = await HUB.lastOpen();
       if (open) { current = open; follow(); }
     } catch (e) { say("Não consegui ler o HUB: " + e.message, "err"); renderContents(); renderKits(); }
@@ -106,6 +138,7 @@
     if (!current || current.status !== "plano_pronto" || !current.plan) { box.hidden = true; return; }
     const p = current.plan;
     box.hidden = false;
+    $("btnPlanCuts").hidden = !(p.cortes || []).length;
     $("planOrigin").textContent = p.origem === "editor_hub" ? "do Editor do HUB" : "do Claude";
     $("planSummary").textContent = [p.resumo, current.plan_note && current.plan_note !== "Montado no Editor do HUB" ? current.plan_note : ""].filter(Boolean).join(" · ");
     const items = $("planItems");
@@ -194,6 +227,40 @@
       say(`Aplicado: ${parts.join(", ") || "nada"}.${r.avisos.length ? " Avisos: " + r.avisos.slice(0, 3).join(" | ") : ""}`, "ok");
     } catch (e) { say(e.message, "err"); }
     busy("btnApply", false);
+  });
+
+  $("btnFind").addEventListener("click", async () => {
+    if (isBusy("btnFind")) return;
+    busy("btnFind", true, "Procurando…");
+    try {
+      const tl = await PR.readTimeline();
+      const words = await PR.readTranscript(tl);
+      if (!words.length) throw new Error("A sequência não tem transcrição. Faça a etapa 1 e espere o Premiere terminar.");
+      const pausa = Math.max(0.1, parseFloat($("pausaMin").value) || 0.35);
+      const folga = Math.max(0, parseFloat($("folga").value) || 0);
+      loadCuts(CORTES.acharPausas(words, tl.duration, pausa, folga));
+      say(cuts.length ? "Confira a lista: clique para tirar um corte." : "Nenhuma pausa desse tamanho.", cuts.length ? "" : "ok");
+    } catch (e) { say(e.message, "err"); }
+    busy("btnFind", false);
+  });
+  $("cutAll").addEventListener("click", () => { const any = cuts.some((c) => c.on); cuts.forEach((c) => { c.on = !any; }); renderCuts(); });
+  $("btnPlanCuts").addEventListener("click", () => {
+    if (!current || !current.plan) return;
+    loadCuts((current.plan.cortes || []).map((c) => ({ inicio: +c.inicio, fim: +c.fim, motivo: c.motivo || "Corte do plano" })));
+    picked.cortes = false; render();
+    say("Os cortes do plano estão na etapa 2. Confira e corte numa sequência nova.");
+  });
+  $("btnCut").addEventListener("click", async () => {
+    const on = cuts.filter((c) => c.on);
+    if (!on.length || isBusy("btnCut")) return;
+    busy("btnCut", true, "Cortando…");
+    try {
+      const r = await PR.cutSequence(on);
+      cuts = []; renderCuts();
+      say(`Pronto: "${r.nome}" com ${r.pedacos} pedaços, de ${r.antes.toFixed(1)} s para ${r.depois.toFixed(1)} s.${r.avisos.length ? " " + r.avisos.slice(0, 3).join(" ") : ""} A transcrição dos clipes continua valendo para a etapa 3.`, "ok");
+      watchSeq();
+    } catch (e) { say(e.message, "err"); }
+    busy("btnCut", false);
   });
 
   $("btnDiscard").addEventListener("click", async () => {

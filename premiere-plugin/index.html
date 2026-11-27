@@ -48,6 +48,7 @@
         <div id="btnApply" class="btn primary grow">Aplicar no Premiere</div>
         <div id="btnDiscard" class="btn ghost">Descartar</div>
       </div>
+      <div id="btnPlanCuts" class="btn ghost" hidden>Revisar e cortar de verdade</div>
       <p class="muted small">Entra como uma ação só. Cmd+Z desfaz tudo.</p>
     </div>
 
@@ -70,7 +71,24 @@
     </div>
 
     <div class="step">
-      <div class="step-head"><div class="num">2</div><div class="step-title">Enviar ao Claude</div></div>
+      <div class="step-head"><div class="num">2</div><div class="step-title">Cortar pausas</div></div>
+      <div class="step-body">
+        <div class="muted small">Acha as pausas pela transcrição. Você confere a lista e o painel monta uma sequência nova sem elas. A original não muda.</div>
+        <div class="pair">
+          <div class="half"><div class="lab">Pausa mínima (s)</div><input id="pausaMin" type="number" step="0.05" min="0.1" value="0.35"></div>
+          <div class="half"><div class="lab">Folga (s)</div><input id="folga" type="number" step="0.02" min="0" value="0.1"></div>
+        </div>
+        <div id="btnFind" class="btn ghost">Achar pausas</div>
+        <div id="cutBox" hidden>
+          <div class="row-between cut-head"><span id="cutSum" class="small"></span><span id="cutAll" class="link small">Desmarcar tudo</span></div>
+          <div id="cutList" class="list cuts"></div>
+          <div id="btnCut" class="btn primary block">Cortar numa sequência nova</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><div class="num">3</div><div class="step-title">Enviar ao Claude</div></div>
       <div class="step-body">
         <div class="lab">Conteúdo do HUB</div>
         <input id="contentSearch" type="text" placeholder="Buscar roteiro…">
@@ -84,7 +102,7 @@
     </div>
 
     <div class="step last">
-      <div class="step-head"><div class="num">3</div><div class="step-title">Aplicar</div></div>
+      <div class="step-head"><div class="num">4</div><div class="step-title">Aplicar</div></div>
       <div class="step-body">
         <div class="muted small">O plano aparece no topo. Edições enviadas pelo Editor do HUB também chegam aqui.</div>
       </div>
@@ -94,10 +112,11 @@
 
     <div class="foot">
       <span id="lnkHub" class="link">Abrir o HUB</span>
-      <span class="muted small">v0.3.1</span>
+      <span class="muted small">v0.4.0</span>
     </div>
   </section>
   <script src="hub.js"></script>
+  <script src="cortes.js"></script>
   <script src="premiere.js"></script>
   <script src="main.js"></script>
 </body>
