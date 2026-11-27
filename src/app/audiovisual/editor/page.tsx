@@ -10,6 +10,9 @@ import {
 import { CAMADA_LABEL, sugerir, type Sugestao } from "@/lib/editor/sugestoes";
 import { planoPremiere } from "@/lib/editor/premiere";
 import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from "@/lib/editor/styles";
+import MotionStudio, { MotionThumb, type MotionDoc } from "@/components/av/MotionStudio";
+import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type MotionSpec } from "@/lib/motion/engine";
+import { motionEnd, type MotionClip } from "@/lib/editor/model";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -21,7 +24,9 @@ export default function Editor() {
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
-  const [tab, setTab] = useState<"clipes" | "legenda" | "textos" | "estilo">("clipes");
+  const [tab, setTab] = useState<"clipes" | "legenda" | "textos" | "estilo" | "motion">("clipes");
+  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec }[]>([]);
+  const [studio, setStudio] = useState<Partial<MotionDoc> | null>(null);
   const [kits, setKits] = useState<{ id: string; name: string; data: Kit }[]>([]);
   const [kitId, setKitId] = useState("");
   const [override, setOverride] = useState<Kit>({});
@@ -65,7 +70,18 @@ export default function Editor() {
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
     s.from("content_ideas").select("id,title,hook,format,body").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
     if (document.fonts) FONTS_LOAD.forEach((f) => document.fonts.load(f).catch(() => {}));
-  }, []);
+    loadMotions().then((list) => {
+      const id = new URLSearchParams(window.location.search).get("motion");
+      const m = id && list.find((x) => x.id === id);
+      if (m) { setTab("motion"); setMsg(`Motion "${m.titulo}" pronto para entrar. Adicione o vídeo e, na aba Motion, escolha por cima no cursor ou como clipe.`); }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  async function loadMotions() {
+    const { data } = await createClient().from("av_motions").select("id,titulo,spec").eq("status", "pronto").order("updated_at", { ascending: false }).limit(40);
+    const list = ((data as any) || []).map((r: any) => ({ ...r, spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec }[];
+    setMotions(list);
+    return list;
+  }
 
   /* ---------- importar arquivos ---------- */
   async function addFiles(files: FileList | null, as: "fala" | "broll" = addAs) {
@@ -103,6 +119,50 @@ export default function Editor() {
     if (end - start < 0.3) { setMsg("Leve o cursor para antes do fim do vídeo."); return; }
     update((pp) => ({ ...pp, overlays: [...(pp.overlays || []), { id: uid(), mediaId: m.id, start, end, in: 0, mode }] }));
   }
+  /* ---------- motion (feito em /audiovisual/motion ou aqui na gaveta) ---------- */
+  function motionOver(m: { id?: string; titulo: string; spec: MotionSpec }) {
+    const start = Math.max(0, Math.min(tRef.current, Math.max(0, total - 0.3)));
+    update((pp) => ({ ...pp, motions: [...(pp.motions || []), { id: uid(), start, spec: m.spec, nome: m.titulo, motionId: m.id, transparente: m.spec.fundo === "transparente" }] }));
+    setMsg(`"${m.titulo}" entrou por cima em ${fmt(start)}${m.spec.fundo === "transparente" ? " (transparente)" : ""}. Ajuste o início na aba Motion.`);
+  }
+  /** motion como clipe: vira um MP4 na hora (no navegador) e entra na timeline, somando tempo */
+  async function motionClip(m: { id?: string; titulo: string; spec: MotionSpec }, where: "inicio" | "fim") {
+    try {
+      cancelRef.current.cancel = false;
+      setBusy({ f: 0, msg: `Gerando o clipe de "${m.titulo}"…` });
+      const { exportMotion } = await import("@/lib/motion/export");
+      const fmtP = (p.format || "9:16") as Format;
+      const blob = await exportMotion({ ...m.spec, fundo: m.spec.fundo === "transparente" ? "gradiente" : m.spec.fundo }, { formato: fmtP, onProgress: (f) => setBusy({ f, msg: `Gerando o clipe de "${m.titulo}"… ${Math.round(f * 100)}%` }), signal: cancelRef.current });
+      const file = new File([blob], `${m.titulo.replace(/[\\/:*?"<>|]+/g, "")}.mp4`, { type: "video/mp4" });
+      const dur = motionDuration(m.spec);
+      const [w, h] = fmtP === "16:9" ? [1920, 1080] : [1080, 1920];
+      const md: Media = { id: uid(), name: file.name, file, url: URL.createObjectURL(file), duration: dur, width: w, height: h, words: [] };
+      setMedia((all) => [...all, md]);
+      const seg = { id: uid(), mediaId: md.id, in: 0, out: dur };
+      update((pp) => {
+        if (where === "fim") return { ...pp, segments: [...pp.segments, seg] };
+        // no começo: tudo que já estava na timeline anda junto
+        const sh = <T extends { start: number }>(x: T) => ({ ...x, start: x.start + dur, ...("end" in x ? { end: (x as any).end + dur } : {}) });
+        return { ...pp, segments: [seg, ...pp.segments], titles: pp.titles.map(sh), zooms: pp.zooms.map(sh), overlays: (pp.overlays || []).map(sh), motions: (pp.motions || []).map(sh) };
+      });
+      setMsg(`"${m.titulo}" entrou como clipe no ${where === "fim" ? "fim" : "começo"} (${dur.toFixed(1)} s).`);
+    } catch (e: any) { setMsg(e.message); }
+    setBusy(null);
+  }
+  const setMo = (id: string, patch: Partial<MotionClip>) => setP((pp) => ({ ...pp, motions: (pp.motions || []).map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+  /** do vídeo para o motion: quadro atual como fundo, texto do momento e cores do kit */
+  function criarMotion() {
+    setPlaying(false);
+    let imagem: string | undefined;
+    try { if (total && canvasRef.current) imagem = canvasRef.current.toDataURL("image/jpeg", 0.82); } catch {}
+    const tt = p.titles.find((x) => tRef.current >= x.start && tRef.current < x.end);
+    const sc = screens.find((x) => tRef.current >= x.start && tRef.current < x.end);
+    const texto = tt?.text || contents.find((c) => c.id === contentId)?.hook || contents.find((c) => c.id === contentId)?.title || sc?.words.map((w) => w.t).join(" ") || "Seu título aqui";
+    const base = specDoModelo("peca", { formato: (p.format || "9:16") as Format, ...coresDoKit(kit), imagem, fundo: imagem ? "imagem" : "gradiente" });
+    base.cenas = [{ ...base.cenas[0], texto, sub: undefined }];
+    setStudio({ titulo: "Motion do vídeo", spec: base, kit_id: kitId || null, content_id: contentId || null, origem: "editor" });
+  }
+
   const setOv = (id: string, patch: Partial<Overlay>) => setP((pp) => ({ ...pp, overlays: (pp.overlays || []).map((o) => (o.id === id ? { ...o, ...patch } : o)) }));
 
   /* ---------- prévia ---------- */
@@ -145,6 +205,7 @@ export default function Editor() {
   }, [p, total, draw]);
 
   useEffect(() => { if (!playRef.current) draw(tRef.current); }, [draw]);
+  useEffect(() => onImageLoad(() => { if (!playRef.current) draw(tRef.current); }), [draw]);
 
   useEffect(() => {
     if (!playing) return;
@@ -390,7 +451,7 @@ export default function Editor() {
     const cuts = (pl.cortes || []).map((c: any) => ({ inicio: +c.inicio, fim: +c.fim }));
     if (cuts.length) {
       const shift = (x: number) => x - cuts.filter((c: any) => c.fim <= x).reduce((a: number, c: any) => a + (c.fim - c.inicio), 0);
-      next = { ...next, segments: applyCuts(next, cuts), titles: next.titles.map((x) => ({ ...x, start: shift(x.start), end: shift(x.end) })), zooms: next.zooms.map((z) => ({ ...z, start: shift(z.start), end: shift(z.end) })), overlays: (next.overlays || []).map((o) => ({ ...o, start: shift(o.start), end: shift(o.end) })) };
+      next = { ...next, segments: applyCuts(next, cuts), titles: next.titles.map((x) => ({ ...x, start: shift(x.start), end: shift(x.end) })), zooms: next.zooms.map((z) => ({ ...z, start: shift(z.start), end: shift(z.end) })), overlays: (next.overlays || []).map((o) => ({ ...o, start: shift(o.start), end: shift(o.end) })), motions: (next.motions || []).map((m) => ({ ...m, start: shift(m.start) })) };
     }
     update(() => next);
     seek(0);
@@ -451,8 +512,8 @@ export default function Editor() {
         {/* ---------- esquerda ---------- */}
         <aside className="card p-3 min-w-0 order-2 lg:order-1">
           <div className="flex flex-wrap gap-1 mb-3">
-            {(["clipes", "legenda", "textos", "estilo"] as const).map((k) => (
-              <button key={k} onClick={() => setTab(k)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${tab === k ? "border-mint-dim text-mint" : "border-line text-fog"}`}>{{ clipes: "Clipes", legenda: "Legenda", textos: "Lettering e motion", estilo: "Visual da legenda" }[k]}</button>
+            {(["clipes", "legenda", "textos", "motion", "estilo"] as const).map((k) => (
+              <button key={k} onClick={() => setTab(k)} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${tab === k ? "border-mint-dim text-mint" : "border-line text-fog"}`}>{{ clipes: "Clipes", legenda: "Legenda", textos: "Lettering e motion", motion: "Motion", estilo: "Visual da legenda" }[k]}</button>
             ))}
           </div>
 
@@ -526,6 +587,44 @@ export default function Editor() {
                   </div>
                 ))}
                 {!screens.length && <p className="text-xs text-fog">A legenda aparece aqui para você corrigir palavra por palavra. Apague o texto de uma palavra para tirar ela.</p>}
+              </div>
+            </div>
+          )}
+
+          {tab === "motion" && (
+            <div className="space-y-3">
+              <button onClick={criarMotion} className="w-full px-3 py-2 rounded-xl bg-mint text-ink text-sm font-semibold inline-flex items-center justify-center gap-2"><I.spark className="w-4 h-4" />Criar motion a partir do vídeo</button>
+              <p className="text-xs text-fog">Usa o quadro do cursor como fundo, o texto do momento e as cores do kit. Também dá para criar e pedir ao Claude em <Link href="/audiovisual/motion" className="text-mint">Motion</Link>.</p>
+              {(p.motions || []).length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">No vídeo</p>
+                  {(p.motions || []).map((m) => (
+                    <div key={m.id} className="rounded-xl border border-line p-2 space-y-1.5">
+                      <div className="flex justify-between gap-2 text-xs"><span className="truncate font-semibold">{m.nome}</span><button onClick={() => update((pp) => ({ ...pp, motions: (pp.motions || []).filter((x) => x.id !== m.id) }))} className="text-red-400 shrink-0">Tirar</button></div>
+                      <div className="grid grid-cols-2 gap-1.5 items-end">
+                        <NumIn label="Começa em" value={m.start} onChange={(v) => setMo(m.id, { start: Math.max(0, v) })} />
+                        <span className="text-[11px] text-fog pb-2">{motionDuration(m.spec).toFixed(1)} s</span>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={!m.transparente} onChange={(e) => setMo(m.id, { transparente: !e.target.checked })} />Cobrir o vídeo (com fundo)</label>
+                      <div className="flex gap-1"><button onClick={() => setStudio({ id: m.motionId, titulo: m.nome, spec: m.spec })} className="chip">Editar</button><button onClick={() => seek(m.start + 0.01)} className="chip">Ir até</button></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Meus motions</p>
+              {motions.length === 0 && <p className="text-xs text-fog">Nenhum motion salvo ainda.</p>}
+              <div className="grid grid-cols-2 gap-2">
+                {motions.map((m) => (
+                  <div key={m.id} className="rounded-xl border border-line p-1.5">
+                    <MotionThumb spec={m.spec} />
+                    <p className="text-[11px] font-semibold truncate mt-1">{m.titulo}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <button disabled={!total} onClick={() => motionOver(m)} className="chip !text-[10px] disabled:opacity-40">Por cima</button>
+                      <button disabled={!!busy} onClick={() => motionClip(m, "inicio")} className="chip !text-[10px]">Clipe no início</button>
+                      <button disabled={!!busy} onClick={() => motionClip(m, "fim")} className="chip !text-[10px]">No fim</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -719,6 +818,7 @@ export default function Editor() {
             <Track name="LEGENDA">{p.captionsOn && screens.map((s, i) => <Block key={i} left={pct(s.start)} width={pct(s.end - s.start)} cls="bg-amber-300/80 text-ink">{s.words.map((w) => w.t).join(" ")}</Block>)}</Track>
             <Track name="ZOOM">{p.zooms.map((z) => <Block key={z.id} left={pct(z.start)} width={pct(z.end - z.start)} cls="border border-dashed border-mint text-mint">{CAMERA_MOVES.find((m) => m[0] === (z.tipo || "punch"))?.[1]} {z.scale}%</Block>)}</Track>
             {(p.overlays || []).length > 0 && <Track name="B-ROLL">{(p.overlays || []).map((o) => <Block key={o.id} left={pct(o.start)} width={pct(o.end - o.start)} cls="bg-sky-400/80 text-ink">{OVERLAY_MODES.find(([v]) => v === o.mode)?.[1]} · {media.find((m) => m.id === o.mediaId)?.name}</Block>)}</Track>}
+            {(p.motions || []).length > 0 && <Track name="MOTION">{(p.motions || []).map((m) => <Block key={m.id} left={pct(m.start)} width={pct(Math.min(total, motionEnd(m)) - m.start)} onClick={(e) => { e.stopPropagation(); setTab("motion"); seek(m.start + 0.01); }} cls="bg-pink-400/80 text-ink">{m.nome}</Block>)}</Track>}
             <Track name="CÂMERA">{cam.moves.map((m, i) => <Block key={i} left={pct(m.start)} width={pct(m.end - m.start)} cls={`border ${m.to >= m.from ? "border-sky-400/70 text-sky-300" : "border-orange-400/70 text-orange-300"}`}>{m.to >= m.from ? "zoom in" : "zoom out"} {Math.round(m.to * 100)}%</Block>)}{cam.hits.map((h, i) => <span key={`h${i}`} className="absolute top-2 w-2 h-2 -ml-1 rounded-full bg-sky-300 pointer-events-none" style={{ left: pct(h.t) }} />)}</Track>
             <Track name="VÍDEO">
               {L.map((l, i) => (
@@ -733,6 +833,21 @@ export default function Editor() {
           <p className="text-[11px] text-fog mt-2">Espaço toca e pausa · clique na timeline para ir até o ponto · S divide o trecho no cursor.</p>
         </div>
       </div>
+
+      {studio && (
+        <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm overflow-y-auto p-3 md:p-6" onClick={() => setStudio(null)}>
+          <div className="max-w-5xl mx-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2"><p className="font-display text-lg font-extrabold">Criar motion</p><button onClick={() => setStudio(null)} className="chip">Fechar</button></div>
+            <MotionStudio compact initial={studio} useLabel={total ? "Pôr no vídeo no cursor" : "Salvar e voltar"} onSaved={() => loadMotions()}
+              onUse={(d) => {
+                setStudio(null); loadMotions();
+                const existing = (p.motions || []).find((x) => d.id && x.motionId === d.id);
+                if (existing) { setMo(existing.id, { spec: d.spec, nome: d.titulo }); setMsg(`"${d.titulo}" atualizado no vídeo.`); }
+                else if (total) motionOver({ id: d.id, titulo: d.titulo, spec: d.spec });
+              }} />
+          </div>
+        </div>
+      )}
 
       {/* vídeos escondidos que alimentam a prévia */}
       <div className="hidden">

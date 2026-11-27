@@ -3,6 +3,7 @@
  * Tudo roda no navegador de quem edita; nada vai para servidor.
  */
 
+import { drawMotion as drawMotionSpec, motionDuration, type MotionSpec } from "@/lib/motion/engine";
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
@@ -51,7 +52,13 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   grao?: boolean;
   /** número do estilo do catálogo aplicado (ex.: "03") */
   estilo?: string;
+  /** motion graphics por cima do vídeo (vinheta, nome na tela, número, transição), feitos em /audiovisual/motion */
+  motions?: MotionClip[];
 };
+/** motion por cima: transparente deixa o vídeo aparecer onde o motion não desenha; senão cobre a tela */
+export type MotionClip = { id: string; start: number; spec: MotionSpec; nome: string; motionId?: string; transparente?: boolean };
+export const motionEnd = (m: MotionClip) => m.start + motionDuration(m.spec);
+export const activeMotions = (p: Project, t: number) => (p.motions || []).filter((m) => t >= m.start && t < motionEnd(m));
 /** B-roll por cima da fala: o vídeo/imagem cobre a tela (cheia) ou entra num cartão do lado; o som continua o da fala */
 export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade" | "pagina";
 export const OVERLAY_MODES: [OverlayMode, string][] = [["cheia", "Tela cheia"], ["esquerda", "Cartão à esquerda"], ["direita", "Cartão à direita"], ["polaroid", "Polaroid inclinada"], ["circulo", "Círculo"], ["metade", "Metade de cima"], ["pagina", "Página branca (foto em cartão, fundo claro)"]];
@@ -1080,7 +1087,10 @@ export function drawOverlays(ctx: Ctx, p: Project, screens: ReturnType<typeof ca
   // na página branca a legenda fica escura para continuar legível
   const pagina = (p.overlays || []).some((o) => o.mode === "pagina" && t >= o.start && t < o.end);
   const kitLeg = pagina ? { ...kit, cores: { ...kit.cores, texto: "#141414" } } : kit;
-  if (p.captionsOn && !full) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kitLeg);
+  const mo = activeMotions(p, t);
+  // motion que cobre a tela também tira a legenda
+  if (p.captionsOn && !full && !mo.some((m) => !m.transparente)) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kitLeg);
+  for (const m of mo) drawMotionSpec(ctx, m.spec, t - m.start, W, H, { transparente: m.transparente });
   drawFade(ctx, p, t);
 }
 
