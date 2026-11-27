@@ -7,25 +7,27 @@ const n = (v: any) => (v == null ? "–" : Intl.NumberFormat("pt-BR", { notation
 
 export default async function Overview() {
   const s = await createClient();
-  const [{ data: accounts }, { data: posts }, { data: autos }, { data: ideas }, { count: refs }] = await Promise.all([
+  const [{ data: accounts }, { data: posts }, { data: board }, { data: ideas }, { count: refs }, { count: refProfiles }] = await Promise.all([
     s.from("ig_accounts").select("*").order("created_at"),
     s.from("ig_posts").select("account_id,like_count,comments_count,reach,saved,shares,plays,posted_at,caption,permalink,media_type,thumbnail_url").order("posted_at", { ascending: false }).limit(200),
-    s.from("automations").select("id,active,runs_count"),
+    s.from("content_ideas").select("id,planned_for").is("archived_at", null),
     s.from("content_ideas").select("id,title,status,format,kind,planned_for").order("created_at", { ascending: false }).limit(6),
     s.from("references_lib").select("id", { count: "exact", head: true }),
+    s.from("ref_profiles").select("id", { count: "exact", head: true }),
   ]);
 
   const totalFollowers = (accounts || []).reduce((a, x) => a + (x.followers_count || 0), 0);
   const eng = (p: any) => (p.like_count || 0) + (p.comments_count || 0) + (p.saved || 0) + (p.shares || 0);
   const top = [...(posts || [])].sort((a, b) => eng(b) - eng(a)).slice(0, 4);
-  const activeAutos = (autos || []).filter((a) => a.active).length;
-  const runs = (autos || []).reduce((a, x) => a + (x.runs_count || 0), 0);
+  // o que importa no fluxo: quanto conteúdo está no Quadro e quanto já tem data
+  const onBoard = (board || []).length;
+  const dated = (board || []).filter((x) => x.planned_for).length;
 
   const kpis = [
     ["Perfis", n(accounts?.length || 0)],
     ["Seguidores somados", n(totalFollowers)],
-    ["Automações ativas", n(activeAutos)],
-    ["Disparos de automação", n(runs)],
+    ["Conteúdos no Quadro", n(onBoard)],
+    ["Com data marcada", n(dated)],
   ];
 
   const flow = [
@@ -109,7 +111,7 @@ export default async function Overview() {
               ))}
             </ul>
           )}
-          <p className="text-xs text-fog mt-4">{refs || 0} referências na biblioteca</p>
+          <p className="text-xs text-fog mt-4">{(refs || 0) + (refProfiles || 0)} referências estudadas</p>
         </section>
       </div>
     </>

@@ -8,7 +8,7 @@ import { FORMATS } from "@/lib/formats";
 
 export const maxDuration = 300;
 
-type Snap = { platform: "instagram" | "youtube"; handle: string; url: string; title?: string; avatar?: string; followers?: number | null; bio?: string; items: { title: string; date?: string; type?: string; likes?: number; comments?: number; views?: number; url?: string }[]; source: string };
+type Snap = { platform: "instagram" | "youtube"; handle: string; url: string; title?: string; avatar?: string; followers?: number | null; bio?: string; items: { title: string; date?: string; type?: string; likes?: number; comments?: number; views?: number; url?: string; media?: string; thumb?: string }[]; source: string };
 
 function parse(url: string): { platform: "instagram" | "youtube"; handle: string } | null {
   const u = url.trim();
@@ -29,12 +29,15 @@ async function instagram(supabase: any, handle: string, accountId?: string): Pro
   if (!acc) return null;
   const token = await igToken(supabase, acc.id);
   if (!token) return null;
-  const f = `business_discovery.username(${handle}){username,name,biography,profile_picture_url,followers_count,media_count,media.limit(40){caption,media_type,media_product_type,timestamp,like_count,comments_count,permalink}}`;
-  const j = await gget(acc.ig_user_id, { access_token: token, fields: f });
+  const f = (extra: string) => `business_discovery.username(${handle}){username,name,biography,profile_picture_url,followers_count,media_count,media.limit(40){caption,media_type,media_product_type,timestamp,like_count,comments_count,permalink${extra}}}`;
+  // miniaturas deixam a análise visual; se a Meta recusar o campo, lê sem elas
+  let j: any;
+  try { j = await gget(acc.ig_user_id, { access_token: token, fields: f(",media_url,thumbnail_url") }); }
+  catch { j = await gget(acc.ig_user_id, { access_token: token, fields: f(",media_url") }).catch(() => gget(acc.ig_user_id, { access_token: token, fields: f("") })); }
   const bd = j.business_discovery;
   return {
     platform: "instagram", handle, url: `https://instagram.com/${handle}`, title: bd.name || bd.username, avatar: bd.profile_picture_url, followers: bd.followers_count, bio: bd.biography, source: "api",
-    items: (bd.media?.data || []).map((m: any) => ({ title: (m.caption || "").slice(0, 600), date: m.timestamp?.slice(0, 10), type: m.media_product_type === "REELS" ? "Reels" : m.media_type, likes: m.like_count, comments: m.comments_count, url: m.permalink })),
+    items: (bd.media?.data || []).map((m: any) => ({ title: (m.caption || "").slice(0, 600), date: m.timestamp?.slice(0, 10), type: m.media_product_type === "REELS" ? "Reels" : m.media_type, likes: m.like_count, comments: m.comments_count, url: m.permalink, media: m.media_url, thumb: m.thumbnail_url })),
   };
 }
 
