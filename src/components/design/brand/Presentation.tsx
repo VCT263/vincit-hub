@@ -11,7 +11,7 @@ import { brandPrompt } from "@/lib/brandPrompt";
 import { createPortal } from "react-dom";
 import { useLite, useNear, usePrintAll } from "./lazy";
 import { ArchetypeSlide, ChannelsSlide, ManifestoSlide, PositioningSlide, RewriteSlide, SituationsSlide, ToneSlide, ValuesSlide, VocabSlide, WeAreSlide, type Verbal } from "./VerbalSlides";
-import { ExpressionSlide, FeedGridSlide, FeedWhySlide, PhotoMoodSlide, PhotoRulesSlide, RealAppsSlide, type AppReal, type Feed, type FotoMood } from "./RealSlides";
+import { ExpressionSlide, FeedGridSlide, FeedWhySlide, PhotoMoodSlide, PhotoRulesSlide, RealAppsSlide, type AppReal, type Feed, type FotoMood, FeedCompareSlide, FeedPlanSlide, FeedIdealWhySlide, FeedRefsSlide, type FeedIdeal } from "./RealSlides";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
@@ -38,8 +38,8 @@ export function styleFor(d: any): DeckStyle {
   return "estudio";
 }
 
-type Ctx = { style: DeckStyle; W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
-type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; body: (x: Ctx) => ReactNode; bare?: boolean };
+export type Ctx = { style: DeckStyle; W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
+export type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; body: (x: Ctx) => ReactNode; bare?: boolean };
 
 const arr = (v: any): string[] => (Array.isArray(v) ? v : v ? [v] : []);
 
@@ -65,7 +65,7 @@ const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="ht
 const Label = ({ x, children, style }: { x: Ctx; children: ReactNode; style?: CSSProperties }) => <p style={x.B({ fontSize: 13, letterSpacing: ".28em", textTransform: "uppercase", fontWeight: 600, ...style })}>{children}</p>;
 const Rule = ({ c, style }: { c: string; style?: CSSProperties }) => <div style={{ height: 1, background: c, opacity: .35, ...style }} />;
 
-function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: number; total: number; children: ReactNode }) {
+export function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: number; total: number; children: ReactNode }) {
   const bg = s.tone === "dark" ? x.ink : s.tone === "acc" ? x.acc : x.paper;
   const fg = readableOn(bg) === "#ffffff" ? (s.tone === "dark" ? x.paper : "#ffffff") : x.ink;
   const nn = String(n).padStart(2, "0");
@@ -492,6 +492,13 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   if ((feed.posts || []).length >= 6) {
     S.push({ key: "feed-grid", tone: "light", section: "Aplicações · Instagram", bare: true, body: (x) => <FeedGridSlide x={x} feed={feed} /> });
     S.push({ key: "feed-porque", tone: "light", section: "Aplicações · Instagram · cada post", body: (x) => <FeedWhySlide x={x} feed={feed} /> });
+  }
+  const fi: FeedIdeal = d.feed_ideal || {};
+  if ((fi.posts || []).length >= 6) {
+    S.push({ key: "feed-ideal", tone: "light", section: "Aplicações · Instagram · feed ideal", bare: true, body: (x) => <FeedCompareSlide x={x} atual={feed} ideal={fi} /> });
+    if (fi.manter?.length || fi.melhorar?.length || fi.fazer?.length) S.push({ key: "feed-plano", tone: "light", section: "Aplicações · Instagram · plano", body: (x) => <FeedPlanSlide x={x} ideal={fi} /> });
+    S.push({ key: "feed-ideal-posts", tone: "light", section: "Aplicações · Instagram · feed ideal, post a post", body: (x) => <FeedIdealWhySlide x={x} ideal={fi} atual={feed} /> });
+    if ((fi.referencias || []).filter((r) => r.url).length >= 3) S.push({ key: "feed-refs", tone: "light", section: "Aplicações · Instagram · referências", bare: true, body: (x) => <FeedRefsSlide x={x} ideal={fi} /> });
   }
   S.push({ key: "insta-feed", tone: "light", section: "Aplicações · Instagram", bare: true, body: (x) => <FeedSlide v={voz} W={x.W} H={x.H} /> });
   S.push({ key: "insta-posts", tone: "dark", section: "Aplicações · Instagram", bare: true, body: (x) => <PostsSlide v={voz} W={x.W} H={x.H} /> });
