@@ -6,6 +6,6 @@ import { registrarPedido } from "@/lib/lixeira";
 /* Modal de senha único do HUB: qualquer tela chama apagarComLixeira()/confirmarExclusao() de src/lib/lixeira.ts. */
 export default function ExclusaoHost() {
   const { pedir, modal } = useConfirmarExclusao();
-  useEffect(() => { registrarPedido((oque) => pedir({ oque })); return () => registrarPedido(null); }, [pedir]);
+  useEffect(() => { registrarPedido((oque, definitivo) => pedir({ oque, definitivo })); return () => registrarPedido(null); }, [pedir]);
   return modal;
 }

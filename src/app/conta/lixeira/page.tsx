@@ -5,11 +5,11 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import { I } from "@/components/icons";
-import { LIXEIRA_DIAS, prazoTexto } from "@/lib/lixeira";
+import { LIXEIRA_DIAS, prazoTexto, confirmarExclusao, descartarLote } from "@/lib/lixeira";
 
 /* Lixeira do HUB inteiro: tudo que foi excluído nos últimos 15 dias, de qualquer área, com Recuperar.
    Junta a lixeira geral (lixeira_lotes) com as listas que usam deleted_at/archived_at (briefings, marcas e peças). */
-type Item = { key: string; titulo: string; sub: string; at: string; link?: string | null; recuperar: () => Promise<string | null> };
+type Item = { key: string; titulo: string; sub: string; at: string; link?: string | null; recuperar: () => Promise<string | null>; apagar?: () => Promise<string | null> };
 
 const NOMES: Record<string, string> = {
   ag_tasks: "tarefas", ag_projects: "projetos", ag_events: "eventos", ag_bookings: "reservas", ag_lists: "listas", ag_spaces: "espaços",
@@ -39,6 +39,7 @@ export default function LixeiraPage() {
       ...(lotes.data || []).map((l: any) => ({
         key: "l" + l.id, titulo: l.rotulo, sub: resumoTexto(l.resumo), at: l.apagado_em, link: l.link,
         recuperar: async () => { const { error } = await s.rpc("lixeira_restaurar", { p_lote: l.id }); return error ? error.message : null; },
+        apagar: () => descartarLote(l.id),
       })),
       ...(briefings.data || []).map((b: any) => ({
         key: "b" + b.id, titulo: `Briefing: ${b.title || b.client_name || "sem título"}`, sub: "Design", at: b.deleted_at, link: `/design/briefings/${b.id}`,
@@ -53,6 +54,16 @@ export default function LixeiraPage() {
     setItens(out);
   }
   useEffect(() => { load(); }, []);
+
+  async function apagarJa(x: Item) {
+    if (!x.apagar || !(await confirmarExclusao(`"${x.titulo}"`, true))) return;
+    setBusy(x.key); setMsg(null);
+    const err = await x.apagar();
+    setBusy("");
+    if (err) return setMsg({ t: "Não deu para apagar: " + err.replace(/^.*?ERROR:\s*/, "") });
+    setMsg({ t: `${x.titulo} foi apagado de vez.`, ok: true });
+    load();
+  }
 
   async function recuperar(x: Item) {
     setBusy(x.key); setMsg(null);
@@ -72,7 +83,7 @@ export default function LixeiraPage() {
       <div className="max-w-xl mx-auto px-4 sm:px-5 py-8 space-y-4">
         <div>
           <h1 className="font-display text-3xl font-extrabold">Lixeira <Ajuda tela className="relative -top-1 ml-1" /></h1>
-          <p className="text-sm text-fog mt-1">Tudo o que você exclui no HUB fica aqui por {LIXEIRA_DIAS} dias. Recuperar devolve o item como estava, com o que saiu junto (por exemplo, as tarefas de um projeto). Depois do prazo, é apagado de vez sozinho.</p>
+          <p className="text-sm text-fog mt-1">Tudo o que você exclui no HUB fica aqui por {LIXEIRA_DIAS} dias. Recuperar devolve o item como estava, com o que saiu junto (por exemplo, as tarefas de um projeto). Depois do prazo, é apagado de vez sozinho. Se quiser, dá para apagar de vez antes, pedindo a senha.</p>
         </div>
         {msg && (
           <p className={`text-sm ${msg.ok ? "text-mint" : "text-danger"}`}>
@@ -95,6 +106,7 @@ export default function LixeiraPage() {
                   <p className="text-sm font-semibold truncate">{x.titulo}</p>
                   <p className="text-[11px] text-fog">{x.sub ? `${x.sub} · ` : ""}{prazoTexto(x.at)}</p>
                 </div>
+                {x.apagar && <button onClick={() => apagarJa(x)} disabled={!!busy} className="text-xs text-danger shrink-0">{busy === x.key ? "Apagando…" : "Apagar de vez"}</button>}
                 <button onClick={() => recuperar(x)} disabled={!!busy} className="btn btn-ghost !py-1.5 text-sm shrink-0"><I.refresh className="w-4 h-4" />{busy === x.key ? "Recuperando…" : "Recuperar"}</button>
               </div>
             ))}
