@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { shrink, uid } from "@/lib/design";
 import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
-import { useNear } from "./lazy";
+import { useLite, useNear } from "./lazy";
 import { ARTS, MockupStage, byGroup, groupOf, useMockups, type Mockup } from "./MockupView";
 import type { StepProps } from "./types";
 
@@ -26,7 +26,7 @@ function Fit({ children, w = W, h = H }: { children: ReactNode; w?: number; h?: 
     const ro = new ResizeObserver(() => setK(el.clientWidth / w)); ro.observe(el); setK(el.clientWidth / w);
     return () => ro.disconnect();
   }, [w]);
-  const near = useNear(ref);
+  const near = useNear(ref, useLite() ? "40% 0px" : "100% 0px");
   return (
     <div ref={ref} className="relative w-full overflow-hidden rounded-lg bg-panel2" style={{ height: h * k }}>
       {near && <div style={{ position: "absolute", left: 0, top: 0, width: w, height: h, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>}
