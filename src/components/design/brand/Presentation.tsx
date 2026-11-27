@@ -11,6 +11,7 @@ import { brandPrompt } from "@/lib/brandPrompt";
 import { createPortal } from "react-dom";
 import { useLite, useNear, usePrintAll } from "./lazy";
 import { ArchetypeSlide, ChannelsSlide, ManifestoSlide, PositioningSlide, RewriteSlide, SituationsSlide, ToneSlide, ValuesSlide, VocabSlide, WeAreSlide, type Verbal } from "./VerbalSlides";
+import { ExpressionSlide, FeedGridSlide, FeedWhySlide, PhotoMoodSlide, PhotoRulesSlide, RealAppsSlide, type AppReal, type Feed, type FotoMood } from "./RealSlides";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
@@ -205,6 +206,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   const chapters: string[] = [];
   const chapter = (title: string, sub: string) => { chapters.push(title); S.push(divider(chapters.length, title, sub, x0.style)); };
   const vb: Verbal = d.verbal || {};
+  const hasExpr = !!vb.expressao && Object.values(vb.expressao).some(Boolean);
   const manifesto: string = vb.manifesto || b.manifesto || "";
 
   // capa
@@ -315,7 +317,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
         <Wheel x={x} mix={mix} />
       </div>
     ) });
-    S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => (
+    if (hasExpr) S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => <ExpressionSlide x={x} ex={vb.expressao!} mix={mix} /> });
+    else S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => (
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "grid", gridTemplateColumns: `200px repeat(${mix.length}, 1fr)`, borderBottom: `2px solid ${x.ink}` }}>
           <span />{mix.map((m) => <div key={m.a.k} style={{ padding: "0 0 14px 20px" }}><span style={x.B({ background: x.ink, color: x.paper, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>{m.a.l} {m.pct}%</span></div>)}
@@ -463,8 +466,19 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
     </div>
   ) });
 
+  /* fotografia: moodboard e regras, quando a marca tem direção própria */
+  const fm: FotoMood = d.foto_moodboard || {};
+  if ((fm.imgs || []).filter((i) => i.url).length >= 3) S.push({ key: "foto-mood", tone: "light", section: "Identidade visual · fotografia", bare: true, body: (x) => <PhotoMoodSlide x={x} m={fm} /> });
+  if (fm.luz || fm.faca?.length) S.push({ key: "foto-regras", tone: "light", section: "Identidade visual · fotografia", body: (x) => <PhotoRulesSlide x={x} m={fm} /> });
+
   /* 06 Aplicações */
   chapter("Aplicações", "A marca no mundo real: redes, papelaria, embalagem e ponto de venda.");
+  /* o que a marca já usa vem primeiro: cada coleção numa página, o resto em grupos de 5 */
+  const reais = ((d.aplicacoes_reais || []) as AppReal[]).filter((a) => a.img);
+  const cols = [...new Set(reais.map((a) => a.colecao).filter(Boolean))] as string[];
+  cols.forEach((c) => { const it = reais.filter((a) => a.colecao === c); S.push({ key: `real-col-${c}`, tone: "dark", section: `Aplicações · coleção ${c}`, bare: true, body: (x) => <RealAppsSlide x={x} items={it} title={`Coleção ${c}`} sub="Aplicações reais · lançamento" /> }); });
+  const soltas = reais.filter((a) => !a.colecao);
+  for (let i = 0; i < soltas.length; i += 5) { const it = soltas.slice(i, i + 5); S.push({ key: `real-${i}`, tone: "dark", section: "Aplicações · em uso", bare: true, body: (x) => <RealAppsSlide x={x} items={it} title="A marca em uso" /> }); }
   /* mockups fotográficos (PSD do mockups-design.com): um por página, sangrando, como nos cases do Behance */
   const chosen: string[] | undefined = Array.isArray(d.mockups) ? d.mockups : undefined;
   const arts: Record<string, string[]> = d.mockup_arts || {};
@@ -474,6 +488,11 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   S.push({ key: "site-hero", tone: "dark", section: "Aplicações · site", bare: true, body: (x) => <SiteDesktopSlide v={voz} W={x.W} H={x.H} label="Site · primeira dobra" /> });
   S.push({ key: "site-meio", tone: "dark", section: "Aplicações · site", bare: true, body: (x) => <SiteDesktopSlide v={voz} W={x.W} H={x.H} offset={1660} label="Site · o que a marca oferece e como trabalha" /> });
   S.push({ key: "site-inteiro", tone: "dark", section: "Aplicações · site", bare: true, body: (x) => <SiteFullSlide v={voz} W={x.W} H={x.H} /> });
+  const feed: Feed = d.feed || {};
+  if ((feed.posts || []).length >= 6) {
+    S.push({ key: "feed-grid", tone: "light", section: "Aplicações · Instagram", bare: true, body: (x) => <FeedGridSlide x={x} feed={feed} /> });
+    S.push({ key: "feed-porque", tone: "light", section: "Aplicações · Instagram · cada post", body: (x) => <FeedWhySlide x={x} feed={feed} /> });
+  }
   S.push({ key: "insta-feed", tone: "light", section: "Aplicações · Instagram", bare: true, body: (x) => <FeedSlide v={voz} W={x.W} H={x.H} /> });
   S.push({ key: "insta-posts", tone: "dark", section: "Aplicações · Instagram", bare: true, body: (x) => <PostsSlide v={voz} W={x.W} H={x.H} /> });
   S.push({ key: "mockups", tone: "light", section: "Aplicações · redes e peças", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });

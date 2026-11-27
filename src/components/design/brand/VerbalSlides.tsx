@@ -22,6 +22,7 @@ export type Verbal = {
   reescritas?: { generico: string; marca: string }[];
   valores?: { valor: string; vive: string; comunica: string; influencia: string }[];
   arquetipos?: Record<string, string>;
+  expressao?: import("./RealSlides").Expressao;
 };
 
 type X = { W: number; H: number; ink: string; paper: string; acc: string; name: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean };
