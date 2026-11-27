@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { processPsd } from "@/lib/mockupPsd";
 import { layerPixels, maskPixels, prepareLayer, readPsd } from "@/lib/psdRead";
-import { CATS, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
+import { CATS, byGroup, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
 
 /* Biblioteca de mockups fotográficos. Importar: cola o link de um mockup grátis do mockups-design.com;
    o Supabase baixa o .zip (função mockup-fetch), o navegador lê cada PSD, separa foto e mapa de luz da área
@@ -101,8 +101,15 @@ export default function MockupsPage() {
         {!!log.length && <div className="font-mono text-[11px] text-fog space-y-0.5">{log.map((l, i) => <p key={i}>{l}</p>)}</div>}
       </div>
       {rows === null ? <div className="card h-40 animate-pulse" /> : (
+        <div className="space-y-8">
+        {byGroup(rows).map(({ g, items }) => (
+        <section key={g.k} className="space-y-3">
+          <div className="flex items-baseline gap-3 border-b border-line pb-2">
+            <h2 className="font-semibold">{g.l}</h2>
+            <p className="text-xs text-fog">{g.d} · {items.length} {items.length === 1 ? "mockup" : "mockups"}</p>
+          </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {rows.map((m) => (
+          {items.map((m) => (
             <div key={m.id} className={`card overflow-hidden ${m.active ? "" : "opacity-50"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" />
@@ -116,6 +123,9 @@ export default function MockupsPage() {
               </div>
             </div>
           ))}
+        </div>
+        </section>
+        ))}
         </div>
       )}
     </>
