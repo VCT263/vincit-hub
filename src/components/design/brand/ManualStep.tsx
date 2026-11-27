@@ -11,6 +11,7 @@ import type { StepProps } from "./types";
 import LinkApresentacao from "../briefing/LinkApresentacao";
 import BrandAIPanel from "./BrandAIPanel";
 import { printAll } from "./lazy";
+import { VideoControls } from "./Motion";
 
 /* processo de entrega (Design Academy): escopo, apresentação e aprovação, entrega dos arquivos */
 const ENTREGAVEIS = ["Logo principal (SVG e PNG)", "Versões e assinaturas", "Monograma e favicon", "Paleta com HEX, RGB e CMYK", "Fontes e onde baixar", "Grafismo", "Apresentação em PDF", "Logo animado (vídeo)"];
@@ -60,6 +61,7 @@ export default function ManualStep({ d, id, set }: StepProps) {
         <div className="flex gap-1.5 mr-2">{(Object.keys(STYLES) as DeckStyle[]).map((k) => <button key={k} onClick={() => set({ deck_style: k })} className={`chip !px-3 !py-1.5 ${styleFor(d) === k ? "chip-mint" : ""}`} title={STYLES[k].d}>{STYLES[k].l}</button>)}</div>
         <button onClick={() => setShow(0)} className="btn btn-mint btn-sm"><I.play className="w-3.5 h-3.5" />Apresentar</button>
         <button onClick={printAll} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Salvar PDF</button>
+        <VideoControls x={x} slides={slides} name={name} />
         {logo && <button onClick={() => logoFile("svg")} className="btn btn-ghost btn-sm">Logo SVG</button>}
         {logo && <button onClick={() => logoFile("png")} className="btn btn-ghost btn-sm">Logo PNG</button>}
         <button onClick={copyKit} className="btn btn-ghost btn-sm"><I.copy className="w-3.5 h-3.5" />Copiar cores e fontes</button>
