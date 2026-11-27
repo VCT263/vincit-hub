@@ -411,6 +411,38 @@ function buildSlides(d: any, x0: Ctx, t: any): SlideDef[] {
     </div>
   ) });
 
+  /* a marca em uma página: guia em bento para mandar no WhatsApp ou fixar na parede */
+  if (sys) S.push({ key: "bento", tone: "light", section: "A marca em uma página", bare: true, body: (x) => {
+    const cell = (bg: string, extra: CSSProperties = {}): CSSProperties => ({ background: bg, color: readableOn(bg) === "#ffffff" ? "#ffffff" : x.ink, borderRadius: 14, position: "relative", overflow: "hidden", ...extra });
+    const cap = (l: string, c?: string) => <span style={x.B({ position: "absolute", left: 18, bottom: 14, fontSize: 11, letterSpacing: ".16em", textTransform: "uppercase", fontWeight: 600, opacity: .75, color: c })}>{l}</span>;
+    const mark = d.symbol_id || d.logo_id ? lockupSvg("simbolo", d, readableOn(x.acc) === "#ffffff" ? "#ffffff" : x.ink) : d.monogram ? lockupSvg("monograma", d, readableOn(x.acc) === "#ffffff" ? "#ffffff" : x.ink) : "";
+    const frase = b.slogan || arr(b.fala)[0] || b.proposito || "";
+    return (
+      <div style={{ position: "absolute", inset: 0, padding: 28, display: "grid", gap: 14, gridTemplateColumns: "1.25fr 1fr .9fr 1fr", gridTemplateRows: "1fr 1fr .9fr" }}>
+        <div style={cell(x.ink, { gridColumn: "1 / 3", gridRow: "1 / 3", display: "grid", placeItems: "center" })}><Logo svg={primaryLogo(d, x.paper)} x={x} color={x.paper} style={{ width: "64%", height: "40%" }} />{cap("Logo principal")}</div>
+        <div style={cell(x.acc, { display: "grid", placeItems: "center" })}>{mark ? <div style={{ width: "52%", height: "52%" }}><SvgView svg={mark} className="w-full h-full" /></div> : null}{cap(d.symbol_id || d.logo_id ? "Símbolo" : "Monograma")}</div>
+        <div style={cell("#ffffff", { gridRow: "1 / 3", padding: 22, display: "flex", flexDirection: "column", border: `1px solid ${x.ink}14` })}>
+          <span style={x.T({ fontSize: x.H * .2, lineHeight: .9, color: x.ink })}>Aa</span>
+          <p style={x.B({ fontSize: 12, lineHeight: 1.6, marginTop: 14, opacity: .7, wordBreak: "break-all" })}>ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</p>
+          <div style={{ marginTop: "auto" }}>
+            <p style={x.T({ fontSize: 22 })}>{t.title}</p><p style={x.B({ fontSize: 13, opacity: .65, marginTop: 4 })}>títulos</p>
+            <p style={x.B({ fontSize: 20, fontWeight: 600, marginTop: 14 })}>{t.body}</p><p style={x.B({ fontSize: 13, opacity: .65, marginTop: 4 })}>texto</p>
+            {x.hasG && <><p style={x.G({ fontSize: 30, marginTop: 12 })}>{t.accent}</p><p style={x.B({ fontSize: 13, opacity: .65, marginTop: 2 })}>gesto, usado pouco</p></>}
+          </div>
+        </div>
+        <div style={cell(x.paper, { border: `1px solid ${x.ink}18`, padding: 16 })}><div style={{ position: "absolute", inset: "12px 12px 34px" }}><SvgView svg={construction(sys, cons, "#0f9e6e", "#e03131")} className="w-full h-full" /></div>{cap("Área de proteção")}</div>
+        <div style={cell(pat.bg, { gridColumn: "1 / 2" })}>{hasPat ? <SvgView svg={patternSvg(d, pat, 520, 300)} className="w-full h-full" /> : null}</div>
+        <div style={cell(x.paper, { gridColumn: "2 / 4", border: `1px solid ${x.ink}18`, padding: "24px 26px", display: "flex", flexDirection: "column", justifyContent: "space-between" })}>
+          <Label x={x} style={{ fontSize: 11, opacity: .6 }}>{x.name} · identidade de marca · {x.year}</Label>
+          {frase && <p style={x.T({ fontSize: 34, lineHeight: 1.05, maxWidth: "92%" })}>{x.hasG ? <span style={x.G({ fontSize: 44, color: x.acc })}>“</span> : "“"}{frase}”</p>}
+        </div>
+        <div style={{ display: "grid", gridTemplateRows: `repeat(${pal.length}, 1fr)`, borderRadius: 14, overflow: "hidden", border: `1px solid ${x.ink}14` }}>
+          {pal.map((s) => <div key={s.role} style={x.B({ background: s.hex, color: readableOn(s.hex), display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 16px", fontSize: 12, fontWeight: 600 })}><span>{s.name || s.role}</span><span>{s.hex.toUpperCase()}</span></div>)}
+        </div>
+      </div>
+    );
+  } });
+
   // encerramento
   S.push({ key: "fim", tone: "dark", section: "", bare: true, body: (x) => (
     <div style={{ position: "absolute", inset: 0, padding: "56px 72px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
