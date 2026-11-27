@@ -1,8 +1,10 @@
 /** Briefing estratégico de cada perfil do CREATOR */
+import { MANIFESTO_FIELDS } from "./manifesto";
 export type BField = { k: string; l: string; type?: "text" | "textarea" | "chips" | "multi" | "select"; options?: string[]; ph?: string; help?: string };
 export type BSection = { k: string; l: string; d: string; fields: BField[] };
 
 export const BRIEFING: BSection[] = [
+  { k: "manifesto", l: "Manifesto & direção", d: "O documento mestre: quem a marca é, o que defende, como fala e o que nunca faz. Tudo o mais parte daqui.", fields: MANIFESTO_FIELDS },
   { k: "negocio", l: "Negócio & objetivo", d: "O que o perfil vende e o que precisa acontecer para valer a pena.", fields: [
     { k: "oferta", l: "O que você vende / oferece", type: "textarea", ph: "Ex.: vídeos institucionais e conteúdo mensal para empresas de saúde e educação." },
     { k: "diferencial", l: "Diferencial (por que escolher você)", type: "textarea", ph: "Ex.: roteiro estratégico incluso, entrega em 5 dias, equipe que já gravou 300+ aulas." },

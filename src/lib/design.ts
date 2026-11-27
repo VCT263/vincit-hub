@@ -22,6 +22,7 @@ export const STEPS: { k: Step; l: string; fase: string; d: string; dica: string 
 export const stepOf = (k?: string): Step => (k === "logo" ? "simbolo" : (STEPS.some((s) => s.k === k) ? k : "estrategia") as Step);
 
 /* ───────────── Briefing de marca ───────────── */
+import { MANIFESTO_FIELDS } from "./manifesto";
 export type BF = { k: string; l: string; type?: "text" | "textarea" | "chips" | "multi"; options?: string[]; ph?: string };
 export const BRIEF: { k: string; l: string; fields: BF[] }[] = [
   { k: "essencia", l: "Essência", fields: [
@@ -41,11 +42,16 @@ export const BRIEF: { k: string; l: string; fields: BF[] }[] = [
     { k: "concorrentes", l: "Concorrentes", type: "chips", ph: "Nome ou @perfil" },
     { k: "diferencial", l: "Diferencial", type: "textarea", ph: "O que só ela tem ou faz." },
   ] },
+  { k: "manifesto", l: "Manifesto e voz", fields: [
+    ...MANIFESTO_FIELDS.filter((f) => ["frase_mae", "manifesto", "arquetipo", "territorio", "nao_e", "matriz_tom", "proibido", "regras_ouro"].includes(f.k)),
+  ] },
   { k: "visual", l: "Direção visual", fields: [
     { k: "palavras", l: "3 a 5 palavras que a marca precisa transmitir", type: "chips", ph: "Ex.: leve, confiante, feminina" },
     { k: "estilo", l: "Tipo de logo que imagina", type: "multi", options: ["Só o nome (logotipo)", "Símbolo + nome", "Monograma (iniciais)", "Emblema / selo", "Mascote", "Aberto a sugestões"] },
     { k: "cores_gosta", l: "Cores que gosta ou já usa", type: "chips", ph: "Ex.: verde-oliva, off-white" },
     { k: "cores_evita", l: "Cores e elementos a evitar", type: "chips", ph: "Ex.: vermelho, clip-art, gradiente" },
+    { k: "regras_visuais", l: "Regras visuais", type: "chips", ph: "Ex.: máximo 4 linhas por arte, 1 destaque de cor" },
+    { k: "proporcao", l: "Proporção das cores", ph: "Ex.: preto 70%, branco 25%, verde 5% (só destaque)" },
     { k: "aplicacoes", l: "Onde a marca vai aparecer", type: "multi", options: ["Instagram", "Site / loja online", "Embalagem / sacola", "Etiqueta", "Fachada", "Cartão de visita", "Uniforme", "Vídeo"] },
   ] },
   { k: "verbal", l: "Identidade verbal", fields: [

@@ -117,7 +117,7 @@ export default function BriefingPanel() {
                 <div className="flex items-center justify-between gap-3"><span className="text-sm"><span className="font-mono text-[10px] text-fog mr-2">{String(i + 1).padStart(2, "0")}</span>{s.l}</span><span className={`text-[10px] font-mono ${secPct(s.k) === 100 ? "text-mint" : "text-fog"}`}>{secPct(s.k)}%</span></div>
               </button>
             ))}
-            <button onClick={() => setSec("voz")} className={`text-left rounded-lg px-3 py-2.5 whitespace-nowrap text-sm ${sec === "voz" ? "bg-mint/10 text-mint" : "hover:bg-panel2"}`}><span className="font-mono text-[10px] text-fog mr-2">06</span>Voz da marca</button>
+            <button onClick={() => setSec("voz")} className={`text-left rounded-lg px-3 py-2.5 whitespace-nowrap text-sm ${sec === "voz" ? "bg-mint/10 text-mint" : "hover:bg-panel2"}`}><span className="font-mono text-[10px] text-fog mr-2">{String(BRIEFING.length + 1).padStart(2, "0")}</span>Voz da marca</button>
           </nav>
 
           <section className="card p-5 md:p-6" key={sec}>
