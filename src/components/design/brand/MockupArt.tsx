@@ -641,7 +641,7 @@ export function autoLayout(m: { title: string; category: string; slots: { name: 
       return { kind: r < 1 ? "timbrado" : "cartao", n: 0 };
     case "cartao": return { kind: num % 2 ? "cartao_verso" : "cartao", n: 0 };
     case "tela":
-      if (r < .8) return { kind: num % 2 ? (v.biz === "video" ? "camera" : v.biz === "moda" ? "loja" : "post") : "story", n: 0 };
+      if (r < .8) { const j = m.slots.length > 1 ? i % 3 : num % 2; return { kind: j === 1 ? (v.biz === "video" ? "camera" : v.biz === "moda" ? "loja" : "post") : j === 2 ? "post" : "story", n: 0 }; }
       return { kind: "site", n: 0 };
     case "caneca": return { kind: "caneca", n: 0 };
     case "sacola": return { kind: "sacola", n: num };
