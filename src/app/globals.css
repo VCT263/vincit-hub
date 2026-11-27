@@ -86,3 +86,11 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   --color-surface-primary-container: color-mix(in srgb, var(--color-mint) 22%, #1c1c1f);
   --color-on-primary-container: var(--color-mint);
 }
+
+/* Manual de marca do Design: uma página A4 deitada por lâmina ao salvar em PDF */
+@media print {
+  html, body { background: #fff !important; }
+  .grain::before { display: none !important; }
+  .manual-page { break-after: page; border-radius: 0 !important; width: 100vw !important; height: 100vh !important; aspect-ratio: auto !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@page { size: A4 landscape; margin: 0; }
