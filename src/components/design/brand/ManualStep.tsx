@@ -1,15 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CANVA_BRAND_KIT, download, loadImg, primaryLogo, svgUrl, svgWithFonts, type Logo, type Swatch } from "@/lib/design";
-import { FORMATS, Presenter, ScaledSlide, useDeck, type Format } from "./Presentation";
+import { FORMATS, Presenter, PrintDeck, ScaledSlide, useDeck, type Format } from "./Presentation";
 import LogoMotion from "./LogoMotion";
 import { useMockups } from "./MockupView";
 import { I } from "@/components/icons";
 import type { StepProps } from "./types";
 import LinkApresentacao from "../briefing/LinkApresentacao";
 import BrandAIPanel from "./BrandAIPanel";
+import { printAll } from "./lazy";
 
 /* processo de entrega (Design Academy): escopo, apresentação e aprovação, entrega dos arquivos */
 const ENTREGAVEIS = ["Logo principal (SVG e PNG)", "Versões e assinaturas", "Monograma e favicon", "Paleta com HEX, RGB e CMYK", "Fontes e onde baixar", "Grafismo", "Apresentação em PDF", "Logo animado (vídeo)"];
@@ -33,13 +34,6 @@ export default function ManualStep({ d, id, set }: StepProps) {
   const [show, setShow] = useState<number | null>(null);
   const ent = d.entrega || {};
   const setEnt = (patch: any) => set({ entrega: { ...ent, ...patch } });
-  useEffect(() => {
-    // cada slide vira uma página do PDF no tamanho do formato escolhido
-    const st = document.createElement("style");
-    st.textContent = `@media print { @page { size: ${x.W}px ${x.H}px; margin: 0; } .deck-wrap { height: auto !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; break-after: page; } .deck-scale { transform: none !important; } .deck-slide { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .deck-list { gap: 0 !important; } }`;
-    document.head.appendChild(st); return () => st.remove();
-  }, [x.W, x.H]);
-
   async function logoFile(kind: "svg" | "png") {
     if (!logo) return;
     if (logo.img) { download(logo.img, `${name}-logo.${logo.img.startsWith("data:image/png") ? "png" : "jpg"}`); return; }
@@ -64,7 +58,7 @@ export default function ManualStep({ d, id, set }: StepProps) {
       <div className="card p-4 flex flex-wrap gap-2 items-center print:hidden">
         <div className="flex gap-1.5 mr-2">{(Object.keys(FORMATS) as Format[]).map((k) => <button key={k} onClick={() => { setFormat(k); set({ deck_format: k }); }} className={`chip !px-3 !py-1.5 ${format === k ? "chip-mint" : ""}`} title={FORMATS[k].l}>{k}</button>)}</div>
         <button onClick={() => setShow(0)} className="btn btn-mint btn-sm"><I.play className="w-3.5 h-3.5" />Apresentar</button>
-        <button onClick={() => window.print()} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Salvar PDF</button>
+        <button onClick={printAll} className="btn btn-ghost btn-sm"><I.download className="w-3.5 h-3.5" />Salvar PDF</button>
         {logo && <button onClick={() => logoFile("svg")} className="btn btn-ghost btn-sm">Logo SVG</button>}
         {logo && <button onClick={() => logoFile("png")} className="btn btn-ghost btn-sm">Logo PNG</button>}
         <button onClick={copyKit} className="btn btn-ghost btn-sm"><I.copy className="w-3.5 h-3.5" />Copiar cores e fontes</button>
@@ -97,6 +91,7 @@ export default function ManualStep({ d, id, set }: StepProps) {
       <div className="deck-list space-y-6">
         {slides.map((s, i) => <div key={s.key} onClick={() => setShow(i)} className="cursor-zoom-in"><ScaledSlide x={x} s={s} n={i + 1} total={slides.length} /></div>)}
       </div>
+      <PrintDeck x={x} slides={slides} />
       {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} />}
     </div>
   );
