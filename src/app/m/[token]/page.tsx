@@ -52,7 +52,7 @@ function Deck({ token, p }: { token: string; p: any }) {
         <div className="flex flex-wrap gap-2 mt-6">
           <button onClick={() => setShow(0)} className="btn btn-mint">▶ Apresentar em tela cheia</button>
           <button onClick={printAll} className="btn btn-ghost">Baixar PDF</button>
-          <div className="w-full flex flex-wrap items-center gap-2"><VideoControls x={x} slides={slides} name={nome} /></div>
+          <div className="w-full flex flex-wrap items-center gap-2"><VideoControls x={x} slides={slides} name={nome} d={d} /></div>
           <a href="#retorno" className="btn btn-ghost">{aprovado ? "Aprovada" : "Aprovar ou pedir ajuste"}</a>
         </div>
         <p className="text-[11px] text-fog mt-3">{slides.length} páginas · no PDF, escolha “Salvar como PDF” e ative “Gráficos de fundo”.</p>
