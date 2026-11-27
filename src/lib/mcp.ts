@@ -3,6 +3,7 @@ import { can, hubAllowed, type Access } from "@/lib/access";
 import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
 import { igTokenForOwner } from "@/lib/tokens";
 import { contaInsights } from "@/lib/igInsights";
+import { porMes } from "@/lib/igHistorico";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -74,7 +75,7 @@ export const TOOLS: Tool[] = [
   {
     name: "ler_desempenho",
     title: "Ler desempenho do perfil",
-    description: "Traz o desempenho de um perfil: os posts dos últimos N dias (alcance, curtidas, comentários, salvamentos, compartilhamentos, views, tempo médio assistido dos Reels, pilar do Quadro), as taxas por alcance, médias por formato e por pilar, os destaques e os resultados da conta no Business Suite (visualizações, alcance, interações, visitas ao perfil, novos seguidores e cliques no link contra o período anterior; alcance de seguidores × não seguidores; horários com mais seguidores online; público). Use os números reais; não invente métricas. Analise primeiro compartilhamentos e salvamentos por alcance, tempo assistido e views: são os sinais que o Instagram mais pesa; curtidas e seguidores pesam menos.",
+    description: "Traz o desempenho de um perfil: os posts dos últimos N dias (alcance, curtidas, comentários, salvamentos, compartilhamentos, views, tempo médio assistido dos Reels, pilar do Quadro), as taxas por alcance, médias por formato e por pilar, os destaques e os resultados da conta no Business Suite (visualizações, alcance, interações, visitas ao perfil, novos seguidores e cliques no link contra o período anterior; alcance de seguidores × não seguidores; horários com mais seguidores online; público; histórico mês a mês guardado no HUB). Use os números reais; não invente métricas. Analise primeiro compartilhamentos e salvamentos por alcance, tempo assistido e views: são os sinais que o Instagram mais pesa; curtidas e seguidores pesam menos.",
     inputSchema: { type: "object", properties: { perfil_id: { type: "string", description: "id do perfil (de listar_perfis)" }, dias: { type: "integer", minimum: 1, maximum: 365, default: 30 } }, required: ["perfil_id"] },
     readOnly: true,
     needs: "creator",
@@ -120,6 +121,10 @@ export const TOOLS: Tool[] = [
             alcance_nao_seguidores_pct: r.follow?.reach ? pctOf(r.follow.reach.nao, r.follow.reach.nao + r.follow.reach.seguidores) : null,
             views_nao_seguidores_pct: r.follow?.views ? pctOf(r.follow.views.nao, r.follow.views.nao + r.follow.views.seguidores) : null,
             horarios_mais_online: horas.slice(0, 5),
+            historico_mensal: await (async () => {
+              const { data: h } = await ctx.sb.from("ig_account_daily").select("day,views,total_interactions,profile_views,follows,profile_links_taps").eq("account_id", a.perfil_id).order("day");
+              return porMes(h || []);
+            })(),
             publico: {
               genero_pct: Object.fromEntries(g.map((x: any) => [x.k[0] === "F" ? "mulheres" : "homens", pctOf(x.v, gt)])),
               faixas_etarias: (r.audience?.age || []).map((x: any) => ({ faixa: x.k[0], seguidores: x.v })),

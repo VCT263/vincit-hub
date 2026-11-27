@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { runFrom, log, publishStep } from "@/lib/flows";
 import { gget, mediaRow, MEDIA_FIELDS } from "@/lib/meta";
 import { pushPending } from "@/lib/push";
+import { fotoDiaria } from "@/lib/igHistorico";
 
 export const maxDuration = 300;
 
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
   const db = createServiceClient();
   const { data, error } = await db.rpc("wh_due", { p_secret: secret });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const out = { contacts: 0, posts: 0, analyzed: 0, pushed: 0 };
+  const out = { contacts: 0, posts: 0, analyzed: 0, pushed: 0, historico: 0 };
 
   for (const c of data?.contacts || []) {
     try {
@@ -47,6 +48,21 @@ export async function POST(req: Request) {
         if (!e) out.analyzed++;
       } catch {} // post apagado ou token expirado: tenta de novo na próxima hora
     }
+  }
+  // foto diária do Instagram (depois das 06h de Brasília, uma vez por dia por perfil): guarda o histórico além dos 30 dias
+  if (new Date().getUTCHours() >= 9 && new Date().getUTCMinutes() % 15 === 0) {
+    try {
+      const ontem = new Date(Date.now() - 3 * 3600e3 - 864e5).toISOString().slice(0, 10);
+      const { data: accs } = await db.from("ig_accounts").select("id, owner_id, ig_user_id, followers_count").not("ig_user_id", "is", null);
+      const { data: feitos } = await db.from("ig_account_daily").select("account_id").eq("day", ontem);
+      const ja = new Set((feitos || []).map((f: any) => f.account_id));
+      for (const acc of (accs || []).filter((a: any) => !ja.has(a.id)).slice(0, 3)) {
+        try {
+          const { data: token } = await db.rpc("ig_token_for", { p_account_id: acc.id, p_owner: acc.owner_id });
+          if (token) out.historico += await fotoDiaria(db, acc as any, token as string);
+        } catch {} // token expirado: tenta no próximo tique
+      }
+    } catch {}
   }
   // avisos novos viram notificação push para quem ativou (erro aqui não trava o resto)
   try { out.pushed = await pushPending(db); } catch {}
