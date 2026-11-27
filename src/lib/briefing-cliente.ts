@@ -12,13 +12,8 @@ export type Etapa = { k: string; t: string; d: string; qs: Q[] };
 export const ETAPAS: Etapa[] = [
   { k: "voce", t: "Para começar", d: "O básico, para a gente saber com quem está falando.", qs: [
     { k: "seu_nome", l: "Qual é o seu nome?", req: true, ph: "Seu nome" },
-<<<<<<< HEAD
     { k: "marca_nome", l: "Como a sua marca se chama?", help: "Escreva exatamente do jeito que você quer ver no logo, com maiúsculas e minúsculas.", req: true, ph: "Ex.: Ateliê Lume" },
     { k: "nome_extra", l: "Existe algum nome que aparece no CNPJ, no contrato ou numa sigla e que NÃO deve entrar no logo?", ph: "Ex.: Lume Comércio de Moda Ltda." },
-=======
-    { k: "marca_nome", l: "Como a sua marca se chama?", help: "Escreva exatamente do jeito que você quer ver no logo, com maiúsculas e minúsculas.", req: true, ph: "Ex.: AG Skin" },
-    { k: "nome_extra", l: "Existe algum nome que aparece no CNPJ, no contrato ou numa sigla e que NÃO deve entrar no logo?", ph: "Ex.: AG Skin Concept Ltda." },
->>>>>>> origin/main
     { k: "instagram", l: "Instagram ou site da marca, se já tiver", ph: "@suamarca" },
     { k: "momento", l: "Em que momento a sua marca está?", type: "single", options: ["Está nascendo agora", "Já existe e quero uma marca nova", "Já existe e quero só renovar"] },
   ] },
