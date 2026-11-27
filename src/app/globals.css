@@ -128,3 +128,11 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   html.print-roteiro section h2 { break-after: avoid; }
 }
 }
+
+/* Relatório do briefing (design/briefings/[id]/relatorio) */
+@media print {
+  html.print-relatorio, html.print-relatorio body { background: #f4f2ee !important; }
+  html.print-relatorio body > *:not(.relatorio-root) { display: none !important; }
+  html.print-relatorio .relatorio-root { position: static !important; inset: auto !important; overflow: visible !important; height: auto !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html.print-relatorio .relatorio-noprint { display: none !important; }
+}
