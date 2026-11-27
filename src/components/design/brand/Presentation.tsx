@@ -5,7 +5,7 @@ import { ARCHETYPES, MAP_AXES, NICHES, SCALES, archetypeMix } from "@/lib/brand-
 import { SvgView } from "../ui";
 import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
-import { MockupCover, type Mockup } from "./MockupView";
+import { MockupCover, byGroup, type Mockup } from "./MockupView";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
    seção e página), divisores de capítulo com número gigante, um acento só, filetes finos.
@@ -376,7 +376,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   /* mockups fotográficos (PSD do mockups-design.com): um por página, sangrando, como nos cases do Behance */
   const chosen: string[] | undefined = Array.isArray(d.mockups) ? d.mockups : undefined;
   const arts: Record<string, string[]> = d.mockup_arts || {};
-  (chosen ? chosen.map((id) => mockups.find((m) => m.id === id)).filter(Boolean) as Mockup[] : mockups.slice(0, 12)).forEach((m) => S.push({ key: `mk-${m.id}`, tone: "dark", section: `Aplicações · ${m.title}`, bare: true, body: (x) => <MockupCover d={d} m={m} arts={arts[m.id]} W={x.W} H={x.H} /> }));
+  byGroup(chosen ? chosen.map((id) => mockups.find((m) => m.id === id)).filter(Boolean) as Mockup[] : mockups.slice(0, 12)).flatMap((x) => x.items).forEach((m) => S.push({ key: `mk-${m.id}`, tone: "dark", section: `Aplicações · ${m.title}`, bare: true, body: (x) => <MockupCover d={d} m={m} arts={arts[m.id]} W={x.W} H={x.H} caption /> }));
   S.push({ key: "mockups", tone: "light", section: "Aplicações · redes e peças", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });
   /* cenas desenhadas (opcionais) e fotos reais com o logo aplicado */
   const kit = sceneKit(d);
