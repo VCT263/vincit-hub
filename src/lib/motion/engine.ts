@@ -11,11 +11,12 @@ export type MotionFormat = "9:16" | "16:9" | "1:1";
 export const MOTION_SIZES: Record<MotionFormat, [number, number]> = { "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080] };
 export const MOTION_FORMAT_LABEL: Record<MotionFormat, string> = { "9:16": "Vertical 9:16", "16:9": "Horizontal 16:9", "1:1": "Quadrado 1:1" };
 
-export type CenaTipo = "vinheta" | "titulo" | "palavras" | "numero" | "lista" | "citacao" | "grafico" | "lower_third" | "cta" | "encerramento" | "transicao";
-export const CENA_TIPOS: CenaTipo[] = ["vinheta", "titulo", "palavras", "numero", "lista", "citacao", "grafico", "lower_third", "cta", "encerramento", "transicao"];
+export type CenaTipo = "vinheta" | "titulo" | "palavras" | "numero" | "lista" | "citacao" | "grafico" | "lower_third" | "cta" | "encerramento" | "transicao" | "editorial";
+export const CENA_TIPOS: CenaTipo[] = ["vinheta", "titulo", "palavras", "numero", "lista", "citacao", "grafico", "lower_third", "cta", "encerramento", "transicao", "editorial"];
 export const CENA_LABEL: Record<CenaTipo, string> = {
   vinheta: "Vinheta (logo ou nome)", titulo: "Título", palavras: "Palavra por palavra", numero: "Número que conta", lista: "Lista que marca",
   citacao: "Citação", grafico: "Gráfico de barras", lower_third: "Nome na tela (lower third)", cta: "Chamada (CTA)", encerramento: "Encerramento", transicao: "Transição",
+  editorial: "Página editorial (papel, serifa e foto em cartão)",
 };
 /** o que cada campo quer dizer em cada cena (a tela mostra só os campos usados) */
 export const CENA_CAMPOS: Record<CenaTipo, { texto?: string; sub?: string; itens?: string; valor?: boolean }> = {
@@ -30,6 +31,7 @@ export const CENA_CAMPOS: Record<CenaTipo, { texto?: string; sub?: string; itens
   cta: { texto: "Chamada", sub: "Botão (ex.: Salve este post)" },
   encerramento: { texto: "Frase final", sub: "@perfil ou site" },
   transicao: {},
+  editorial: { texto: "Título serifado (*palavra* fica na cor de destaque; uma palavra curta vira letra gigante)", sub: "Chamada pequena em cima (ex.: ESSA DECISÃO AJUDOU A)" },
 };
 
 export type Fundo = "solido" | "gradiente" | "imagem" | "transparente";
@@ -38,7 +40,9 @@ export type Transicao = "corte" | "cortina" | "fade" | "zoom" | "deslize";
 export const TRANSICAO_LABEL: Record<Transicao, string> = { corte: "Corte seco", cortina: "Cortina na cor", fade: "Fade", zoom: "Zoom", deslize: "Deslize" };
 export type Ritmo = "calmo" | "normal" | "rapido";
 
-export type Cena = { id: string; tipo: CenaTipo; dur: number; texto?: string; sub?: string; itens?: string[]; valor?: number; prefixo?: string; sufixo?: string; fundo?: Fundo };
+export type Cena = { id: string; tipo: CenaTipo; dur: number; texto?: string; sub?: string; itens?: string[]; valor?: number; prefixo?: string; sufixo?: string; fundo?: Fundo;
+  /** foto da cena (URL ou data URL): na página editorial entra num cartão na cor de destaque */
+  imagem?: string };
 export type MotionSpec = {
   formato: MotionFormat;
   cores: { fundo: string; texto: string; destaque: string; apoio: string };
@@ -83,6 +87,11 @@ export const MODELOS: Modelo[] = [
   { id: "citacao", nome: "Citação", desc: "Frase com aspas, para depoimento ou ideia forte.", cenas: [{ tipo: "citacao", dur: 4, texto: "A roupa certa muda a postura antes de mudar o espelho.", sub: "Isys" }] },
   { id: "grafico", nome: "Gráfico", desc: "Barras que crescem, para comparar números.", cenas: [{ tipo: "grafico", dur: 4, texto: "Vendas por semana", itens: ["Sem 1: 32", "Sem 2: 45", "Sem 3: 61", "Sem 4: 80"] }] },
   { id: "transicao", nome: "Transição", desc: "Faixas na cor da marca para passar de um trecho a outro.", fundo: "transparente", transicao: "corte", cenas: [{ tipo: "transicao", dur: 0.9 }] },
+  { id: "editorial", nome: "Páginas editoriais", desc: "Papel claro, título serifado e foto em cartão, para vídeo explicativo e história da peça.", fundo: "solido", transicao: "corte", cenas: [
+    { tipo: "editorial", dur: 2.8, sub: "Essa decisão ajudou a", texto: "*Revolucionar* o jeans" },
+    { tipo: "editorial", dur: 2.4, texto: "Ag", sub: "tipografia" },
+    { tipo: "editorial", dur: 3, sub: "O tecido", texto: "Algodão com *elastano* que não laceia" },
+  ] },
   { id: "peca", nome: "Peça de conteúdo", desc: "Reel ou post animado: gancho, ideia, número, lista e chamada.", cenas: [
     { tipo: "titulo", dur: 2.6, texto: "Como escolher o jeans certo", sub: "Guia rápido" },
     { tipo: "palavras", dur: 2.8, texto: "Comece pelo *caimento* não pelo tamanho" },
@@ -120,6 +129,7 @@ export function normalizeSpec(x: any): MotionSpec {
     prefixo: k?.prefixo ? String(k.prefixo).slice(0, 6) : undefined,
     sufixo: k?.sufixo ? String(k.sufixo).slice(0, 8) : undefined,
     fundo: k?.fundo ? pick(k.fundo, ["solido", "gradiente", "imagem", "transparente"] as const, d.fundo) : undefined,
+    imagem: typeof k?.imagem === "string" && k.imagem ? k.imagem : undefined,
   }));
   return {
     formato: pick(x?.formato, ["9:16", "16:9", "1:1"] as const, d.formato),
@@ -183,7 +193,7 @@ function img(url?: string): Img | null {
 }
 /** espera as imagens do motion (antes de exportar) */
 export async function preloadMotion(s: MotionSpec) {
-  await Promise.all([s.imagem, s.logo].filter(Boolean).map((u) => { const c = cache.get(u!); return c && c !== "loading" ? null : load(u!); }));
+  await Promise.all([s.imagem, s.logo, ...s.cenas.map((c) => c.imagem)].filter(Boolean).map((u) => { const c = cache.get(u!); return c && c !== "loading" ? null : load(u!); }));
 }
 const iw = (i: Img) => ("naturalWidth" in i ? i.naturalWidth : i.width);
 const ih = (i: Img) => ("naturalHeight" in i ? i.naturalHeight : i.height);
@@ -604,9 +614,113 @@ function cenaTransicao(ctx: Ctx, s: MotionSpec, c: Cena, lt: number, _k: number,
   ctx.restore();
 }
 
+
+/* página editorial (27/11, referência do Vinícius): papel claro, chamada pequena, título serifado com a palavra
+   forte em itálico na cor de destaque e foto num cartão colorido que sobe. Sempre cobre a tela. */
+const PAPEL = "#F3EFE6", TINTA = "#16140F";
+function cenaEditorial(ctx: Ctx, s: MotionSpec, c: Cena, lt: number, k: number, b: Box) {
+  const { W, H, u, pad, wide } = b;
+  const serif = serifOf(s);
+  const acc = lum(s.cores.destaque) > 0.55 ? mix(s.cores.destaque, TINTA, 0.45) : s.cores.destaque;
+  // papel com uma vinheta leve e grão fixo
+  ctx.save();
+  ctx.fillStyle = PAPEL; ctx.fillRect(0, 0, W, H);
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(60,45,20,.10)");
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  // aproximação lenta da página inteira
+  const z = 1 + 0.035 * clamp(lt / Math.max(1, c.dur));
+  ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2);
+  const raw = (c.texto || "").trim();
+  const plain = strip(raw);
+  const foto = img(c.imagem);
+  // uma palavra curta (até 3 letras) vira letra gigante, como um verbete de tipografia
+  if (plain && plain.length <= 3 && !/\s/.test(plain) && !c.imagem) {
+    const v = back(lt / (0.6 * k));
+    ctx.fillStyle = TINTA; ctx.font = fontCss(serif, (wide ? 520 : 600) * u); ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.save(); ctx.globalAlpha = clamp(lt / (0.3 * k)); ctx.translate(W / 2, H * 0.55); ctx.scale(v, v); ctx.fillText(plain, 0, 0); ctx.restore();
+    if (c.sub) {
+      const a = clamp((lt - 0.5 * k) / (0.4 * k));
+      ctx.globalAlpha = a; ctx.fillStyle = acc; ctx.font = fontCss(serif, 84 * u, true);
+      ctx.fillText(c.sub, W / 2, H * 0.55 + (wide ? 190 : 220) * u + (1 - a) * 20 * u);
+    }
+    ctx.restore();
+    return;
+  }
+  const hasFoto = !!c.imagem;
+  // área do texto: em cima no vertical; à esquerda no horizontal quando há foto
+  const tx = pad, tw = wide && hasFoto ? W * 0.48 - pad : W - pad * 2;
+  let y = wide ? H * 0.24 : hasFoto ? H * 0.1 : H * 0.34;
+  if (c.sub) {
+    const a = clamp(lt / (0.35 * k));
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.font = fontCss(s.fontes.texto + " Bold", (wide ? 30 : 36) * u); ctx.fillStyle = TINTA; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    const kick = c.sub.toUpperCase().split("").join(String.fromCharCode(8202));
+    ctx.fillText(kick, tx, y);
+    ctx.fillStyle = acc; ctx.fillRect(tx, y + 18 * u, Math.min(tw, 180 * u) * easeOut(lt / (0.6 * k)), 5 * u);
+    ctx.restore();
+    y += 70 * u;
+  }
+  if (raw) {
+    // palavras com *marcação* ficam em itálico na cor de destaque
+    const toks: { w: string; hot: boolean }[] = [];
+    let inHot = false;
+    for (const t of raw.split(/\s+/).filter(Boolean)) {
+      const open = t.startsWith("*"), close = t.endsWith("*") && (t.length > 1 || !open);
+      if (open) inHot = true;
+      toks.push({ w: t.replace(/\*/g, ""), hot: inHot });
+      if (close) inHot = false;
+    }
+    const maxH = hasFoto && !wide ? H * 0.24 : H * 0.42;
+    const f = fit(ctx, plain, serif, tw * 0.94, maxH, (wide ? 170 : 200) * u, 1.04); // folga para o itálico
+    const px = f.px, lh = px * 1.04;
+    // reparte os tokens pelas linhas do fit
+    let ti = 0;
+    f.lines.forEach((line, li) => {
+      const n = line.split(" ").length;
+      const lineToks = toks.slice(ti, ti + n); ti += n;
+      const ly = y + px * 0.85 + li * lh;
+      const e = easeOut((lt - 0.15 * k - li * 0.12 * k) / (0.5 * k));
+      if (e <= 0) return;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(tx - px, ly - px * 1.05, tw + px * 2, px * 1.4); ctx.clip();
+      let x = tx;
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      for (const tk of lineToks) {
+        ctx.font = fontCss(serif, px, tk.hot); ctx.fillStyle = tk.hot ? acc : TINTA;
+        ctx.fillText(tk.w, x, ly + (1 - e) * px * 1.1);
+        x += ctx.measureText(tk.w + " ").width;
+      }
+      ctx.restore();
+    });
+    y += px * 0.85 + (f.lines.length - 1) * lh;
+  }
+  if (hasFoto) {
+    const v = clamp((lt - 0.35 * k) / (0.7 * k));
+    const e = back(v);
+    const cw = wide ? W * 0.36 : W * 0.78, ch = wide ? H * 0.68 : H * 0.5;
+    const cx = wide ? W * 0.72 : W / 2, cy = wide ? H * 0.52 : Math.min(H - ch / 2 - 90 * u, Math.max(y + 90 * u + ch / 2, H * 0.6));
+    ctx.save();
+    ctx.globalAlpha = clamp(v * 2);
+    ctx.translate(cx, cy + (1 - e) * H * 0.3); ctx.rotate((-2.5 + 2.5 * (1 - e)) * Math.PI / 180);
+    ctx.shadowColor = "rgba(40,30,10,.25)"; ctx.shadowBlur = 40 * u; ctx.shadowOffsetY = 18 * u;
+    ctx.fillStyle = s.cores.destaque; ctx.fillRect(-cw / 2, -ch / 2, cw, ch);
+    ctx.shadowColor = "transparent";
+    if (foto) {
+      const m = 28 * u, fw = cw - m * 2, fh = ch - m * 2;
+      const sc = Math.max(fw / iw(foto), fh / ih(foto)) * (1.06 - 0.06 * clamp(lt / Math.max(1, c.dur)));
+      const w = iw(foto) * sc, h = ih(foto) * sc;
+      ctx.beginPath(); ctx.rect(-fw / 2, -fh / 2, fw, fh); ctx.clip();
+      ctx.drawImage(foto, -w / 2, -h / 2, w, h);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 const DRAW: Record<CenaTipo, (ctx: Ctx, s: MotionSpec, c: Cena, lt: number, k: number, b: Box) => void> = {
   vinheta: cenaVinheta, titulo: cenaTitulo, palavras: cenaPalavras, numero: cenaNumero, lista: cenaLista, citacao: cenaCitacao,
-  grafico: cenaGrafico, lower_third: cenaLower, cta: cenaCta, encerramento: cenaEncerramento, transicao: cenaTransicao,
+  grafico: cenaGrafico, lower_third: cenaLower, cta: cenaCta, encerramento: cenaEncerramento, transicao: cenaTransicao, editorial: cenaEditorial,
 };
 /** cenas que já têm entrada e saída próprias (não levam a transição do motion) */
 const SELF = new Set<CenaTipo>(["lower_third", "transicao", "encerramento"]);

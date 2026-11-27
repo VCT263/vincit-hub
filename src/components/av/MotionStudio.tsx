@@ -249,12 +249,13 @@ export default function MotionStudio({ initial, onSaved, onUse, useLabel = "Usar
                 <Field label="Depois"><input value={c.sufixo || ""} onChange={(e) => setCena(sel, { sufixo: e.target.value })} className="input text-sm" placeholder="%" /></Field>
               </div>
             )}
-            <Field label="Fundo desta cena">
+            {c.tipo === "editorial" && <UploadBtn label={c.imagem ? "Trocar a foto do cartão" : "Foto no cartão (peça, pessoa, print)"} accept="image/*" onFile={async (f) => setCena(sel, { imagem: await fileToDataUrl(f, 1200) })} onClear={c.imagem ? () => setCena(sel, { imagem: undefined }) : undefined} />}
+            {c.tipo !== "editorial" && <Field label="Fundo desta cena">
               <select value={c.fundo || ""} onChange={(e) => setCena(sel, { fundo: (e.target.value || undefined) as Fundo | undefined })} className="input !py-1.5 text-sm">
                 <option value="">Igual ao motion</option>
                 {(Object.keys(FUNDO_LABEL) as Fundo[]).map((f) => <option key={f} value={f}>{FUNDO_LABEL[f]}</option>)}
               </select>
-            </Field>
+            </Field>}
           </div>
         ) : <p className="text-sm text-fog">Escolha um modelo ou adicione uma cena.</p>}
 

@@ -4,7 +4,7 @@
  * então todos os tempos vão no tempo do arquivo original, não no tempo da saída já cortada.
  * Os cortes viram marcadores para conferir; legendas e letterings usam os MOGRTs do kit ou viram marcadores.
  */
-import { MOTION_KINDS, TITLE_LABEL, OVERLAY_MODES, layout, segLen, type Kit, type Media, type Project, type Word } from "./model";
+import { MOTION_KINDS, TITLE_LABEL, OVERLAY_MODES, layout, motionEnd, segLen, type Kit, type Media, type Project, type Word } from "./model";
 
 type Screen = { start: number; end: number; words: { t: string }[] };
 
@@ -58,6 +58,13 @@ export function planoPremiere(p: Project, media: Media[], kit: Kit, screens: Scr
   const marcadores: { inicio: number; fim?: number; texto: string }[] = [];
   const leg = kit.legenda || {};
   marcadores.push({ inicio: 0, texto: `VINCIT · ${estilo ? `Estilo ${estilo.num} ${estilo.nome} · ` : ""}legenda ${leg.estilo || "impacto"}${leg.animacao ? ` (${leg.animacao})` : ""}, ${leg.palavras_por_tela || 3} palavras por tela${leg.caixa_alta ? ", caixa alta" : ""} · fontes ${kit.fontes?.titulo || ""} / ${kit.fontes?.legenda || ""} · destaque ${kit.cores?.destaque || ""}${p.look && p.look !== "natural" ? ` · look ${p.look}` : ""}${p.transicao && p.transicao !== "corte" ? ` · transição ${p.transicao}` : ""}` });
+
+  // cenas e motions por cima (pacote de cenas do roteiro, vinhetas): marcador com o texto, para pôr o MP4 do HUB em V3
+  for (const m of p.motions || []) {
+    const c = m.spec.cenas[0];
+    const txt = m.spec.cenas.length === 1 && c ? [c.sub, c.texto].filter(Boolean).join(" · ").replace(/\*/g, "") : `${m.spec.cenas.length} cenas`;
+    marcadores.push({ inicio: seqT(m.start), fim: seqT(motionEnd(m), true), texto: `MOTION ${m.nome.replace(/^Cena · /, "Cena: ")}${txt ? ` (${txt})` : ""}. Exporte em Audiovisual > Motion e ponha em V3${m.transparente ? " (WebM transparente)" : ""}.` });
+  }
 
   const plan = {
     resumo: `Edição montada no Editor do HUB${estilo ? ` no estilo ${estilo.num} · ${estilo.nome}` : ""}: ${cortes.length} cortes, ${legendas.length} legendas, ${titulos.length} letterings, ${motion.length} motion, ${zooms.length} movimentos de câmera, ${insercoes.length} imagens.`,
