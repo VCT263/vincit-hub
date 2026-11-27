@@ -47,7 +47,7 @@ export default function Briefings() {
       {novo && (
         <form onSubmit={criar} className="card p-5 mb-6 rise grid md:grid-cols-2 gap-4">
           <div><label className="label">Nome do cliente</label><input value={form.client_name} onChange={(e) => setForm({ ...form, client_name: e.target.value })} placeholder="Ex.: Alanis Gomes" className="input" autoFocus /></div>
-          <div><label className="label">Nome do briefing (só você vê)</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex.: Marca AG Skin" className="input" /></div>
+          <div><label className="label">Nome do briefing (só você vê)</label><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Ex.: Marca da Alanis" className="input" /></div>
           {clients.length > 0 && (
             <div><label className="label">Ligar a um cliente do Gestor (opcional)</label>
               <select value={form.client_id} onChange={(e) => { const c = clients.find((x) => x.id === e.target.value); setForm({ ...form, client_id: e.target.value, client_name: form.client_name || c?.name || "" }); }} className="input">
