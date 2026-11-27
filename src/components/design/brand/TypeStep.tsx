@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ALL_FONTS, PAIRS, loadFonts, type Pair } from "@/lib/design";
+import { SCALES } from "@/lib/brand-strategy";
 import type { StepProps } from "./types";
 
 /** sugestão simples pela personalidade do briefing */
@@ -25,7 +26,9 @@ export default function TypeStep({ d, set }: StepProps) {
   const pairs = [...fromClaude, ...PAIRS.filter((p) => sug.includes(p.k)), ...PAIRS.filter((p) => !sug.includes(p.k))];
   useEffect(() => { loadFonts(ALL_FONTS); }, []);
   useEffect(() => { loadFonts([t.title, t.body].filter(Boolean)); }, [t.title, t.body]);
-  const pick = (p: Pair) => set({ type: { title: p.title, body: p.body, tw: p.tw || 700, k: p.k } });
+  const pick = (p: Pair) => set({ type: { ...t, title: p.title, body: p.body, tw: p.tw || 700, k: p.k } });
+  const ratio = t.scale || 1.25, base = t.base || 16;
+  const levels = [["Display", 5], ["H1", 4], ["H2", 3], ["H3", 2], ["Destaque", 1], ["Texto", 0], ["Legenda", -1]] as const;
 
   return (
     <div className="space-y-5">
@@ -47,6 +50,23 @@ export default function TypeStep({ d, set }: StepProps) {
           <div><label className="label">Peso do título</label><select value={t.tw || 700} onChange={(e) => set({ type: { ...t, tw: +e.target.value } })} className="input">{[400, 600, 700, 800].map((w) => <option key={w} value={w}>{w}</option>)}</select></div>
           <div><label className="label">Fonte de texto</label><select value={t.body || ""} onChange={(e) => set({ type: { ...t, body: e.target.value, title: t.title || "Bricolage Grotesque" } })} className="input"><option value="" disabled>Escolha</option>{ALL_FONTS.map((f) => <option key={f}>{f}</option>)}</select></div>
           <p className="text-[11px] text-fog">Todas são do Google Fonts (licença OFL): grátis para uso comercial e já existem no Canva.</p>
+        </div>
+      </section>
+
+      <section className="card p-5 grid lg:grid-cols-[1fr_280px] gap-5">
+        <div className="rounded-xl bg-[#f4f4f2] text-[#141414] p-6 space-y-1 overflow-hidden">
+          {levels.map(([l, n]) => { const px = Math.round(base * ratio ** n); const title = n > 0; return (
+            <div key={l} className="flex items-baseline gap-4">
+              <span className="font-mono text-[10px] text-neutral-500 w-20 shrink-0">{l} · {px}px</span>
+              <span className="truncate" style={{ fontFamily: `"${title ? t.title || "Inter" : t.body || "Inter"}"`, fontWeight: title ? t.tw || 700 : 400, fontSize: Math.min(px, 72), lineHeight: title ? 1.05 : 1.5 }}>{title ? name : "Texto corrido da marca"}</span>
+            </div>
+          ); })}
+        </div>
+        <div className="space-y-3">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-fog">Escala modular</p>
+          <div className="space-y-1.5">{SCALES.map((sc) => <button key={sc.k} onClick={() => set({ type: { ...t, scale: sc.k } })} className={`w-full text-left chip !rounded-lg !px-3 !py-2 ${ratio === sc.k ? "chip-mint" : ""}`}>{sc.l}</button>)}</div>
+          <div><label className="label">Tamanho do texto: {base}px</label><input type="range" min={12} max={20} value={base} onChange={(e) => set({ type: { ...t, base: +e.target.value } })} className="w-full accent-[var(--color-mint)]" /></div>
+          <p className="text-[11px] text-fog">Cada nível é o anterior multiplicado pela razão. Com uma escala só, post, site e embalagem ficam coerentes sem decidir tamanho por tamanho.</p>
         </div>
       </section>
 

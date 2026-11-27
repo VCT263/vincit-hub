@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
-import { STEPS, CANVA_BRAND_KIT, canvaNew, timeAgo } from "@/lib/design";
+import { PHASES, STEPS, CANVA_BRAND_KIT, canvaNew, timeAgo } from "@/lib/design";
 import { BrandCard } from "@/components/design/ui";
 
 type Row = { id: string; kind: string; title: string; step: string; preview: string | null; updated_at: string; data: any };
@@ -53,12 +53,12 @@ export default function DesignHome() {
 
       <section className="card p-5 mb-6 rise">
         <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-4">Como uma marca nasce aqui</p>
-        <ol className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          {STEPS.map((s, i) => (
-            <li key={s.k} className="relative">
+        <ol className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {PHASES.map((f, i) => (
+            <li key={f}>
               <p className="font-mono text-[11px] text-mint">0{i + 1}</p>
-              <p className="font-display font-bold mt-1">{s.l}</p>
-              <p className="text-xs text-fog mt-1">{s.d}</p>
+              <p className="font-display font-bold mt-1">{f}</p>
+              <ul className="text-xs text-fog mt-1.5 space-y-0.5">{STEPS.filter((s) => s.fase === f).map((s) => <li key={s.k}>{s.l}</li>)}</ul>
             </li>
           ))}
         </ol>

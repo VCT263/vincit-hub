@@ -6,10 +6,71 @@ export type Block = { toks: Tok[]; label?: string };
 /** normaliza para comparar com o que o reconhecimento de voz devolve */
 export const norm = (w: string) => w.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
 
+/* ---------- leitura do roteiro em markdown (seções e tabelas do Laboratório) ---------- */
+
+export type Section = { title: string; body: string };
+/** quebra o markdown pelos títulos (#, ##, ###); o texto antes do primeiro título vem com título vazio */
+export function splitSections(md: string): Section[] {
+  const out: Section[] = [{ title: "", body: "" }];
+  for (const line of (md || "").replace(/\r/g, "").split("\n")) {
+    const h = line.match(/^\s*#{1,3}\s+(.+?)\s*#*\s*$/);
+    if (h) out.push({ title: h[1].replace(/\*\*/g, "").trim(), body: "" });
+    else out[out.length - 1].body += line + "\n";
+  }
+  return out.filter((x) => x.title || x.body.trim());
+}
+
+/** seções que não são falas: ideia, opções de gancho, dicas, legenda, hashtags */
+export const NOT_SPOKEN = /ideia|op[cç](?:ão|ao|ões|oes)|alternativ|dica|legenda|hashtag|caption|refer[eê]ncia|observa|checklist|capa|objetivo|p[uú]blico/i;
+export const SPOKEN = /roteiro|script|falas?\b|locu[cç]|narra/i;
+
+export type Table = { head: string[]; rows: string[][] };
+const cells = (l: string) => l.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+/** tabelas em markdown (| a | b |) */
+export function parseTables(md: string): Table[] {
+  const out: Table[] = [];
+  const lines = (md || "").replace(/\r/g, "").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^\s*\|/.test(lines[i]) || !/^\s*\|?\s*:?-{2,}/.test(lines[i + 1] || "")) continue;
+    const t: Table = { head: cells(lines[i]), rows: [] };
+    i += 2;
+    while (i < lines.length && /^\s*\|/.test(lines[i])) { t.rows.push(cells(lines[i])); i++; }
+    out.push(t);
+  }
+  return out;
+}
+/** acha a coluna pelo nome do cabeçalho */
+export const col = (head: string[], re: RegExp, not?: RegExp) => head.findIndex((h) => re.test(h) && !(not && not.test(h)));
+export const FALA_COL = /fala|locu|narra|texto falado|o que (?:diz|falar)|^voz$/i;
+const unquote = (s: string) => (s || "").replace(/<br\s*\/?>/gi, " ").replace(/^["“”']+|["“”']+$/g, "").trim();
+export { unquote };
+
+/**
+ * Texto que o teleprompter lê: quando o roteiro é uma tabela (Tempo · Cena · Fala), só a coluna da fala,
+ * com a cena entre colchetes como dica. Sem tabela, tira as seções que não são faladas (ideia, dicas, legenda).
+ */
+export function prompterSource(md: string): string {
+  const secs = splitSections(md);
+  const table = parseTables(md).find((t) => col(t.head, FALA_COL) >= 0);
+  if (table) {
+    const f = col(table.head, FALA_COL), c = col(table.head, /cena|visual|imagem|a[cç][aã]o/i), t = col(table.head, /tempo|tc\b|time/i);
+    return table.rows.map((r) => {
+      const fala = unquote(r[f] || "");
+      const cue = c >= 0 && r[c] ? ` [${r[c].replace(/[\[\]]/g, "")}]` : "";
+      return fala || cue ? `${t >= 0 && r[t] ? `**${r[t]}:** ` : ""}${fala}${cue}` : "";
+    }).filter(Boolean).join("\n");
+  }
+  if (secs.length < 2) return md || "";
+  const main = secs.filter((s) => s.title && SPOKEN.test(s.title));
+  const keep = main.length ? main : secs.filter((s) => !s.title || !NOT_SPOKEN.test(s.title));
+  if (!keep.length) return md || "";
+  return keep.map((s) => (main.length ? s.body : (s.title ? `## ${s.title}\n` : "") + s.body)).join("\n");
+}
+
 export function parseScript(md: string): { blocks: Block[]; words: string[] } {
   const words: string[] = [];
   const blocks: Block[] = [];
-  const lines = (md || "").replace(/\r/g, "").split("\n");
+  const lines = prompterSource(md || "").replace(/\r/g, "").split("\n");
   for (let raw of lines) {
     raw = raw.trim();
     if (!raw) continue;

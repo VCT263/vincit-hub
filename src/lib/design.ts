@@ -1,16 +1,25 @@
 /** Seção Design: criação de marca (briefing → referências → logo → cores → tipografia → manual) e peças (carrossel e estático). */
 
 export type Kind = "marca" | "carrossel" | "peca";
-export type Step = "briefing" | "referencias" | "logo" | "cores" | "tipografia" | "manual";
+export type Step = "estrategia" | "briefing" | "conceito" | "referencias" | "simbolo" | "logotipo" | "construcao" | "cores" | "tipografia" | "grafismos" | "aplicacoes" | "manual";
 
-export const STEPS: { k: Step; l: string; d: string; dica: string }[] = [
-  { k: "briefing", l: "Briefing", d: "Quem é a marca, para quem fala e como quer ser vista.", dica: "Um bom briefing responde: o que vende, para quem, contra quem, e que sensação a marca deixa. Sem isso, a logo vira gosto pessoal." },
-  { k: "referencias", l: "Referências", d: "Moodboard com o que inspira e o que evitar.", dica: "Os melhores cases do Behance começam pela pesquisa: concorrentes, referências fora do nicho e um moodboard que mostra a direção antes de desenhar." },
-  { k: "logo", l: "Logo", d: "Protótipos de símbolo e logotipo, lado a lado.", dica: "Explore largo antes de refinar: 3 ou mais caminhos diferentes (tipográfico, símbolo, monograma). Teste em tamanho pequeno e em uma cor só." },
-  { k: "cores", l: "Cores", d: "Paleta com papéis: primária, apoio, destaque e fundos.", dica: "Defina papéis, não só cores bonitas. Uma primária forte, uma de apoio, um destaque e dois neutros resolvem quase tudo. Confira o contraste do texto." },
-  { k: "tipografia", l: "Tipografia", d: "Fonte de título e de texto que combinam.", dica: "Duas famílias bastam: uma com personalidade para títulos e uma neutra para leitura. Todas aqui são do Google Fonts, grátis para uso comercial." },
-  { k: "manual", l: "Manual", d: "Tudo junto num manual pronto para PDF e Canva.", dica: "O manual mostra o uso certo e o errado: versões da logo, área de proteção, cores com códigos, hierarquia de texto e aplicações reais." },
+export const PHASES = ["Estratégia", "Conceito", "Construção", "Sistema", "Entrega"];
+export const STEPS: { k: Step; l: string; fase: string; d: string; dica: string }[] = [
+  { k: "estrategia", fase: "Estratégia", l: "Nicho e posição", d: "Em que mercado a marca joga, que arquétipo ela veste e onde fica no mapa contra os concorrentes.", dica: "Os melhores cases do Behance começam pelo sentido, não pela logo: pesquisa de público, mapa de concorrentes e o código visual do nicho, para decidir o que seguir e o que quebrar." },
+  { k: "briefing", fase: "Estratégia", l: "Plataforma", d: "Propósito, missão, pilares, personalidade e identidade verbal.", dica: "Cada elemento (nome, fonte, composição, texto) precisa carregar o mesmo significado. A plataforma é o filtro de todas as decisões de forma." },
+  { k: "conceito", fase: "Conceito", l: "Território criativo", d: "A grande ideia: uma metáfora que vira forma, cor e tipografia.", dica: "Explore 3 territórios bem diferentes antes de desenhar. O escolhido guia símbolo, cores e fontes, e é o que dá intenção ao design." },
+  { k: "referencias", fase: "Conceito", l: "Referências", d: "Moodboard do território: o que inspira e o que evitar.", dica: "Junte marcas do nicho e de fora dele. Anote o porquê de cada uma: é a nota que ensina o Claude e o seu olho." },
+  { k: "simbolo", fase: "Construção", l: "Símbolo e monograma", d: "Exploração do símbolo e das iniciais, com vários caminhos lado a lado.", dica: "Desenhe largo: símbolo abstrato, figurativo, monograma, selo. Funciona pequeno? Funciona em uma cor? Tem uma ideia por trás?" },
+  { k: "logotipo", fase: "Construção", l: "Logotipo e assinaturas", d: "O nome desenhado (peso, espaço, ajuste entre letras) e as versões horizontal, vertical e reduzida.", dica: "Ajuste o espaço entre pares de letras a olho (kerning óptico). Depois combine símbolo e nome em assinaturas para cada uso." },
+  { k: "construcao", fase: "Construção", l: "Construção técnica", d: "Grade, proporções, área de proteção, redução mínima e favicon.", dica: "A grade mostra que a forma tem lógica; a área de proteção e o tamanho mínimo garantem que a marca sobrevive no uso real." },
+  { k: "cores", fase: "Sistema", l: "Cores", d: "Paleta com papéis: primária, apoio, destaque e fundos.", dica: "Defina papéis, não só cores bonitas. Confira o contraste do texto e a proporção de uso." },
+  { k: "tipografia", fase: "Sistema", l: "Tipografia", d: "Famílias de título e texto e a escala de tamanhos.", dica: "Duas famílias e uma escala modular resolvem post, site e embalagem com coerência." },
+  { k: "grafismos", fase: "Sistema", l: "Grafismos", d: "Padrões e supergráficos derivados do símbolo.", dica: "Grafismo bom nasce da própria marca: o símbolo ampliado, repetido ou recortado vira textura de sacola, fundo de post e embalagem." },
+  { k: "aplicacoes", fase: "Sistema", l: "Aplicações", d: "A marca no mundo: post, stories, cartão, sacola, etiqueta, fachada, embalagem.", dica: "É nas aplicações que se vê se o sistema funciona. Ajuste o que quebrar e volte às etapas anteriores." },
+  { k: "manual", fase: "Entrega", l: "Manual", d: "Tudo junto num manual pronto para PDF e Canva.", dica: "O manual registra estratégia, construção e uso certo e errado, para qualquer pessoa aplicar a marca sem você." },
 ];
+/** etapas antigas (v1) → novas */
+export const stepOf = (k?: string): Step => (k === "logo" ? "simbolo" : (STEPS.some((s) => s.k === k) ? k : "estrategia") as Step);
 
 /* ───────────── Briefing de marca ───────────── */
 import { MANIFESTO_FIELDS } from "./manifesto";
@@ -22,6 +31,11 @@ export const BRIEF: { k: string; l: string; fields: BF[] }[] = [
     { k: "oque", l: "O que a marca faz ou vende", type: "textarea", ph: "Ex.: loja de moda feminina com atendimento próximo e peças selecionadas." },
     { k: "proposito", l: "Por que ela existe (além de vender)", type: "textarea", ph: "Ex.: fazer a cliente se sentir bem vestida sem complicação." },
     { k: "valores", l: "Valores", type: "chips", ph: "Digite e aperte Enter" },
+  ] },
+  { k: "plataforma", l: "Plataforma", fields: [
+    { k: "missao", l: "Missão (o que faz, para quem e como)", type: "textarea", ph: "Ex.: vestir mulheres reais com peças escolhidas a dedo e atendimento de amiga." },
+    { k: "pilares", l: "3 pilares ou diferenciais que sustentam a marca", type: "chips", ph: "Ex.: curadoria, proximidade, leveza" },
+    { k: "persona", l: "Retrato psicográfico do cliente (comportamento e valores)", type: "textarea", ph: "Ex.: decide sozinha, valoriza qualidade e não segue tendência às cegas." },
   ] },
   { k: "publico", l: "Público e mercado", fields: [
     { k: "publico", l: "Para quem é", type: "textarea", ph: "Ex.: mulheres de 25 a 45 anos, classe B, que compram pelo Instagram e na loja." },
@@ -39,6 +53,10 @@ export const BRIEF: { k: string; l: string; fields: BF[] }[] = [
     { k: "regras_visuais", l: "Regras visuais", type: "chips", ph: "Ex.: máximo 4 linhas por arte, 1 destaque de cor" },
     { k: "proporcao", l: "Proporção das cores", ph: "Ex.: preto 70%, branco 25%, verde 5% (só destaque)" },
     { k: "aplicacoes", l: "Onde a marca vai aparecer", type: "multi", options: ["Instagram", "Site / loja online", "Embalagem / sacola", "Etiqueta", "Fachada", "Cartão de visita", "Uniforme", "Vídeo"] },
+  ] },
+  { k: "verbal", l: "Identidade verbal", fields: [
+    { k: "fala", l: "Como a marca fala (exemplos de frases)", type: "chips", ph: "Ex.: Escolhida para você." },
+    { k: "nunca", l: "O que a marca nunca diz", type: "chips", ph: "Ex.: Imperdível!!! / Promoção relâmpago" },
   ] },
 ];
 
@@ -194,11 +212,11 @@ export function sanitizeSvg(raw: string) {
   const m = raw.match(/<svg[\s\S]*<\/svg>/i); if (!m) return "";
   const doc = new DOMParser().parseFromString(m[0], "image/svg+xml");
   const svg = doc.documentElement; if (svg.nodeName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return "";
-  doc.querySelectorAll("script,foreignObject,iframe,image,use[href^='http'],a,animate,set").forEach((n) => n.remove());
+  doc.querySelectorAll("script,foreignObject,iframe,use[href^='http'],a,animate,set").forEach((n) => n.remove());
   doc.querySelectorAll("*").forEach((el) => {
     for (const a of Array.from(el.attributes)) {
       const n = a.name.toLowerCase(), v = a.value.trim().toLowerCase();
-      if (n.startsWith("on") || ((n === "href" || n === "xlink:href") && !v.startsWith("#")) || v.startsWith("javascript:")) el.removeAttribute(a.name);
+      if (n.startsWith("on") || ((n === "href" || n === "xlink:href") && !v.startsWith("#") && !v.startsWith("data:image/")) || v.startsWith("javascript:")) el.removeAttribute(a.name);
     }
   });
   if (!svg.getAttribute("xmlns")) svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -240,9 +258,16 @@ export function buildLogo(b: Builder) {
 
 /** troca as cores de um SVG por uma só (versão monocromática) */
 export const monoSvg = (svg: string, color: string) => {
-  // cores muito claras viram vazado (deixam o fundo aparecer); o resto vira a cor única
-  const pick = (v: string) => { const h = v.trim(); if (!/^#[0-9a-f]{3,6}$/i.test(h)) return color; return lum(h) > .75 ? "transparent" : color; };
-  return svg.replace(/(fill|stroke)="(?!none)([^"]*)"/g, (_m, a, v) => `${a}="${pick(v)}"`).replace(/(fill|stroke):\s*(?!none)([^;"]+)/g, (_m, a, v) => `${a}:${pick(v)}`);
+  // cores muito claras viram vazado de verdade (máscara), o resto vira a cor única
+  const tone = (v: string, dark: string, light: string) => { const h = v.trim(); if (!/^#[0-9a-f]{3,6}$/i.test(h)) return dark; return lum(h) > .75 ? light : dark; };
+  const swap = (src: string, dark: string, light: string) => src.replace(/(fill|stroke)="(?!none)([^"]*)"/g, (_m, a, v) => `${a}="${tone(v, dark, light)}"`).replace(/(fill|stroke):\s*(?!none)([^;"]+)/g, (_m, a, v) => `${a}:${tone(v, dark, light)}`);
+  if (/<image\b/.test(svg) || !/^\s*<svg/.test(svg)) return swap(svg, color, "transparent");
+  const open = svg.match(/^\s*<svg[^>]*>/)![0];
+  const vb = (open.match(/viewBox="([^"]+)"/)?.[1] || "0 0 100 100").split(/[\s,]+/).map(Number);
+  const inner = svg.replace(/^\s*<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+  let hsh = 5381; for (const ch of svg + color) hsh = ((hsh * 33) ^ ch.charCodeAt(0)) >>> 0;
+  const id = `m${hsh.toString(36)}`;
+  return `${open}<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}"><g fill="#fff">${swap(inner, "#fff", "#000")}</g></mask></defs><rect x="${vb[0]}" y="${vb[1]}" width="${vb[2]}" height="${vb[3]}" fill="${color}" mask="url(#${id})"/></svg>`;
 };
 
 export const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
@@ -398,3 +423,114 @@ export const timeAgo = (iso: string) => {
   const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (m < 1) return "agora"; if (m < 60) return `há ${m} min`; const h = Math.round(m / 60); if (h < 24) return `há ${h} h`; const d = Math.round(h / 24); return d < 30 ? `há ${d} d` : new Date(iso).toLocaleDateString("pt-BR");
 };
+
+/* ───────────── Construção: logotipo, monograma e assinaturas ───────────── */
+export type Logotype = { text: string; font: string; weight: number; tracking: number; upper: boolean; kern: number[]; color: string; sub?: string; subFont?: string };
+export type Monogram = { letters: string; font: string; weight: number; shape: "nenhum" | "circulo" | "quadrado" | "arco" | "losango" | "selo"; overlap: number; fg: string; bg: string; stack: boolean };
+
+let _cv: HTMLCanvasElement | null = null;
+/** mede um texto com a fonte já carregada (em px) */
+export function measure(text: string, font: string, weight: number, size: number) {
+  if (typeof document === "undefined") return text.length * size * .6;
+  _cv = _cv || document.createElement("canvas");
+  const ctx = _cv.getContext("2d")!; ctx.font = `${weight} ${size}px "${font}"`;
+  return ctx.measureText(text).width;
+}
+
+/** logotipo com espaçamento (tracking) e ajuste entre pares (kerning), letra a letra */
+export function logotypeSvg(lt: Logotype, color?: string) {
+  const fs = 100; const t = lt.upper ? lt.text.toUpperCase() : lt.text;
+  const chars = Array.from(t); let x = 0; const parts: string[] = [];
+  chars.forEach((c, i) => {
+    parts.push(`<text x="${x.toFixed(1)}" y="${fs * .78}" font-family="${lt.font}" font-weight="${lt.weight}" font-size="${fs}" fill="${color || lt.color}">${esc(c)}</text>`);
+    x += measure(c, lt.font, lt.weight, fs) + (lt.tracking * fs) / 1000 + (i < chars.length - 1 ? ((lt.kern[i] || 0) * fs) / 1000 : 0);
+  });
+  const w = Math.max(10, x - (lt.tracking * fs) / 1000); let h = fs;
+  let sub = "";
+  if (lt.sub) {
+    const sf = fs * .2, sw = measure(lt.sub.toUpperCase(), lt.subFont || lt.font, 500, sf) + lt.sub.length * sf * .3;
+    sub = `<text x="${w / 2}" y="${fs + sf * 1.2}" text-anchor="middle" font-family="${lt.subFont || lt.font}" font-weight="500" font-size="${sf}" letter-spacing="${sf * .3}" fill="${color || lt.color}">${esc(lt.sub.toUpperCase())}</text>`;
+    h = fs + sf * 1.6; void sw;
+  }
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">${parts.join("")}${sub}</svg>`, w, h, cap: fs * .78 };
+}
+
+/** monograma: iniciais com sobreposição, empilhadas ou dentro de uma forma */
+export function monogramSvg(m: Monogram, fgOverride?: string, bgOverride?: string) {
+  const S = 200, fg = fgOverride || m.fg, bg = bgOverride || m.bg;
+  const L = Array.from((m.letters || "AB").slice(0, 3));
+  const fs = m.stack ? S * .42 : S * (L.length > 2 ? .38 : .5);
+  const ws = L.map((c) => measure(c, m.font, m.weight, fs));
+  const ov = (m.overlap / 100) * fs;
+  let text = "";
+  if (m.stack) {
+    L.forEach((c, i) => { text += `<text x="${S / 2}" y="${S / 2 + (i - (L.length - 1) / 2) * (fs * .82 - ov * .4) + fs * .32}" text-anchor="middle" font-family="${m.font}" font-weight="${m.weight}" font-size="${fs}" fill="${fg}">${esc(c)}</text>`; });
+  } else {
+    const tot = ws.reduce((a, b) => a + b, 0) - ov * (L.length - 1); let x = S / 2 - tot / 2;
+    L.forEach((c, i) => { text += `<text x="${x.toFixed(1)}" y="${S / 2 + fs * .34}" font-family="${m.font}" font-weight="${m.weight}" font-size="${fs}" fill="${fg}" ${i % 2 ? 'opacity=".85"' : ""}>${esc(c)}</text>`; x += ws[i] - ov; });
+  }
+  const sh = m.shape === "circulo" ? `<circle cx="${S / 2}" cy="${S / 2}" r="${S / 2 - 4}" fill="${bg}"/>`
+    : m.shape === "quadrado" ? `<rect x="4" y="4" width="${S - 8}" height="${S - 8}" rx="${S * .18}" fill="${bg}"/>`
+    : m.shape === "arco" ? `<path d="M4 ${S - 4} V${S / 2} A${S / 2 - 4} ${S / 2 - 4} 0 0 1 ${S - 4} ${S / 2} V${S - 4} Z" fill="${bg}"/>`
+    : m.shape === "losango" ? `<rect x="${S * .17}" y="${S * .17}" width="${S * .66}" height="${S * .66}" fill="${bg}" transform="rotate(45 ${S / 2} ${S / 2})"/>`
+    : m.shape === "selo" ? `<circle cx="${S / 2}" cy="${S / 2}" r="${S / 2 - 6}" fill="none" stroke="${fg}" stroke-width="4"/><circle cx="${S / 2}" cy="${S / 2}" r="${S / 2 - 16}" fill="none" stroke="${fg}" stroke-width="1.5"/>`
+    : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}">${sh}${text}</svg>`;
+}
+
+/** separa viewBox e conteúdo de um SVG para encaixar dentro de outro */
+export function svgParts(svg: string) {
+  const vb = svg.match(/viewBox="([^"]+)"/)?.[1] || "0 0 100 100";
+  const [, , w, h] = vb.split(/[\s,]+/).map(Number);
+  const inner = svg.replace(/^[\s\S]*?<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
+  return { vb, w: w || 100, h: h || 100, inner };
+}
+export const logoAsSvg = (l?: Logo) => (!l ? "" : l.svg || (l.img ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><image href="${l.img}" x="0" y="0" width="400" height="400" preserveAspectRatio="xMidYMid meet"/></svg>` : ""));
+
+export type LockupKind = "horizontal" | "vertical" | "logotipo" | "simbolo" | "monograma";
+export const LOCKUPS: { k: LockupKind; l: string; d: string }[] = [
+  { k: "horizontal", l: "Horizontal", d: "assinatura principal: site, cartão, fachada" },
+  { k: "vertical", l: "Vertical", d: "espaços quadrados e altos: post, embalagem" },
+  { k: "logotipo", l: "Só o nome", d: "quando o símbolo já apareceu ou falta espaço na altura" },
+  { k: "simbolo", l: "Só o símbolo", d: "avatar, selo, detalhe de produto" },
+  { k: "monograma", l: "Monograma", d: "favicon, etiqueta, bordado, carimbo" },
+];
+
+/** monta uma assinatura a partir do símbolo, do logotipo e do monograma */
+export function lockupSvg(kind: LockupKind, d: any, mono?: string) {
+  const lt: Logotype | undefined = d.logotype;
+  const sym = logoAsSvg((d.logos || []).find((l: Logo) => l.id === (d.symbol_id || d.logo_id)));
+  const symS = sym ? (mono ? monoSvg(sym, mono) : sym) : "";
+  const L = lt?.text ? logotypeSvg(lt, mono) : null;
+  const nest = (s: string, x: number, y: number, w: number, h: number) => { const p = svgParts(s); return `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${p.vb}" preserveAspectRatio="xMidYMid meet">${p.inner}</svg>`; };
+  if (kind === "monograma" && d.monogram) return monogramSvg(d.monogram, mono, mono ? "transparent" : undefined).replace(/fill="transparent"/g, 'fill="none"');
+  if (kind === "simbolo" || !L) return symS || (L ? L.svg : "");
+  if (kind === "logotipo" || !symS) return L.svg;
+  const sp = svgParts(symS); const ar = sp.w / sp.h;
+  if (kind === "horizontal") {
+    const sh = L.h * 1.15, sw = sh * ar, gap = L.h * .3;
+    const W = sw + gap + L.w, H = sh;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}">${nest(symS, 0, 0, sw, sh)}${nest(L.svg, sw + gap, (H - L.h) / 2, L.w, L.h)}</svg>`;
+  }
+  const sh = L.h * 1.4, sw = sh * ar, gap = L.h * .35;
+  const W = Math.max(sw, L.w), H = sh + gap + L.h;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W.toFixed(1)} ${H.toFixed(1)}">${nest(symS, (W - sw) / 2, 0, sw, sh)}${nest(L.svg, (W - L.w) / 2, sh + gap, L.w, L.h)}</svg>`;
+}
+
+/** a assinatura principal escolhida (ou a melhor disponível) */
+export function primaryLogo(d: any, mono?: string) {
+  const k: LockupKind = d.principal || (d.logotype?.text && (d.symbol_id || d.logo_id) ? "horizontal" : d.logotype?.text ? "logotipo" : "simbolo");
+  return lockupSvg(k, d, mono);
+}
+
+/* ───────────── Grafismos ───────────── */
+export type Pattern = { source: "simbolo" | "monograma"; scale: number; gap: number; rotate: number; offset: boolean; opacity: number; bg: string; fg: string };
+export function patternSvg(d: any, p: Pattern, W = 1080, H = 1080) {
+  const src = p.source === "monograma" && d.monogram ? monogramSvg(d.monogram, p.fg, "transparent").replace(/fill="transparent"/g, 'fill="none"') : monoSvg(logoAsSvg((d.logos || []).find((l: Logo) => l.id === (d.symbol_id || d.logo_id))) || monogramSvg(d.monogram || { letters: "A", font: "Inter", weight: 800, shape: "nenhum", overlap: 0, fg: p.fg, bg: "none", stack: false }), p.fg);
+  const sp = svgParts(src); const ar = sp.w / sp.h;
+  const h = p.scale, w = h * ar, cw = w + p.gap, ch = h + p.gap;
+  let out = "";
+  for (let r = -1, y = -ch; y < H + ch; r++, y += ch) for (let x = -cw + (p.offset && r % 2 ? cw / 2 : 0); x < W + cw; x += cw)
+    out += `<svg x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" viewBox="${sp.vb}" overflow="visible"><g transform="rotate(${p.rotate} ${sp.w / 2} ${sp.h / 2})">${sp.inner}</g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="${p.bg}"/><g opacity="${p.opacity}">${out}</g></svg>`;
+}

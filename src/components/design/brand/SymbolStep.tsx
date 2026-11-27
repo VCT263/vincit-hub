@@ -1,36 +1,41 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAI } from "@/lib/useAI";
-import { ALL_FONTS, SYMBOLS, briefText, buildLogo, loadFonts, monoSvg, sanitizeSvg, shrink, uid, type Builder, type Logo } from "@/lib/design";
+import { ALL_FONTS, SYMBOLS, briefText, buildLogo, loadFonts, monoSvg, monogramSvg, sanitizeSvg, shrink, uid, type Builder, type Logo, type Monogram } from "@/lib/design";
+import { strategyText } from "@/lib/brand-strategy";
 import { I } from "@/components/icons";
 import { SvgView } from "../ui";
 import type { StepProps } from "./types";
 
 const SYM_L: Record<string, string> = { nenhum: "Sem símbolo", circulo: "Círculo", quadrado: "Quadrado", losango: "Losango", arco: "Arco", folha: "Folha", barra: "Barras" };
 
-export default function LogoStep({ d, set }: StepProps) {
+export default function SymbolStep({ d, set }: StepProps) {
   const logos: Logo[] = d.logos || [];
   const b = d.brief || {};
   const pal: Record<string, string> = Object.fromEntries((d.palette || []).map((s: any) => [s.role, s.hex]));
-  const [tab, setTab] = useState<"claude" | "construtor" | "arquivo">(logos.length ? "construtor" : "claude");
+  const [tab, setTab] = useState<"claude" | "construtor" | "monograma" | "arquivo">(logos.length ? "construtor" : "claude");
   const { run, busy, error } = useAI();
   const [bl, setBl] = useState<Builder>(() => ({ text: b.nome || "Marca", sub: b.slogan || "", font: d.type?.title || "Bricolage Grotesque", weight: 800, spacing: 0, upper: false, symbol: "circulo", layout: "lado", color: pal["Escuro"] || "#111111", accent: pal["Primária"] || "#6eefb6" }));
   const fileRef = useRef<HTMLInputElement>(null);
-  const chosen = logos.find((l) => l.id === d.logo_id) || logos.find((l) => l.fav) || logos[0];
+  const chosen = logos.find((l) => l.id === (d.symbol_id || d.logo_id)) || logos.find((l) => l.fav) || logos[0];
   const preview = useMemo(() => buildLogo(bl), [bl]);
   useEffect(() => { loadFonts([bl.font]); }, [bl.font]);
 
   const save = (next: Logo[], extra: any = {}) => set({ logos: next, ...extra });
-  const add = (l: Logo) => save([l, ...logos], logos.length ? {} : { logo_id: l.id });
+  const add = (l: Logo) => save([l, ...logos], logos.length ? {} : { logo_id: l.id, symbol_id: l.id });
+  const choose = (id: string) => set({ logo_id: id, symbol_id: id });
+  const mono: Monogram = d.monogram || { letters: (b.nome || "AB").replace(/[^A-Za-zÀ-ú]/g, "").slice(0, 2).toUpperCase(), font: d.type?.title || "Playfair Display", weight: 700, shape: "circulo", overlap: 12, fg: pal["Claro"] || "#ffffff", bg: pal["Primária"] || "#111111", stack: false };
+  const M = (patch: Partial<Monogram>) => set({ monogram: { ...mono, ...patch } });
+  useEffect(() => { loadFonts([mono.font]); }, [mono.font]);
 
   async function askClaude() {
     const r: any = await run("brand_concepts", {
-      brief: briefText(b), nome: b.nome || "", fonts: ALL_FONTS,
+      brief: briefText(b), estrategia: strategyText(d), nome: b.nome || "", fonts: ALL_FONTS,
       refs: (d.refs || []).filter((x: any) => x.note).map((x: any) => `${x.tipo === "evitar" ? "Evitar" : "Inspira"}: ${x.note}`).slice(0, 15),
     });
     if (!r?.conceitos) return;
     const novos: Logo[] = r.conceitos.map((c: any) => ({ id: uid(), name: c.nome || "Conceito", note: c.ideia, svg: sanitizeSvg(c.svg || ""), source: "claude" as const })).filter((l: Logo) => l.svg);
-    save([...novos, ...logos], { concepts: r.conceitos.map((c: any) => ({ nome: c.nome, paleta: c.paleta, fontes: c.fontes })), ...(logos.length ? {} : { logo_id: novos[0]?.id }) });
+    save([...novos, ...logos], { concepts: r.conceitos.map((c: any) => ({ nome: c.nome, paleta: c.paleta, fontes: c.fontes })), ...(logos.length ? {} : { logo_id: novos[0]?.id, symbol_id: novos[0]?.id }) });
   }
 
   async function upload(f: File) {
@@ -45,7 +50,7 @@ export default function LogoStep({ d, set }: StepProps) {
   return (
     <div className="space-y-5">
       <div className="flex gap-1 bg-panel border border-line rounded-xl p-1 w-fit">
-        {([["claude", "Ideias do Claude"], ["construtor", "Construtor rápido"], ["arquivo", "Enviar arquivo"]] as const).map(([k, l]) => (
+        {([["claude", "Ideias do Claude"], ["construtor", "Construtor"], ["monograma", "Monograma"], ["arquivo", "Enviar arquivo"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={`px-3 py-1.5 rounded-[9px] text-sm font-semibold ${tab === k ? "bg-mint text-[var(--color-on-mint,#06140e)]" : "text-fog hover:text-paper"}`}>{l}</button>
         ))}
       </div>
@@ -53,12 +58,12 @@ export default function LogoStep({ d, set }: StepProps) {
       {tab === "claude" && (
         <section className="card p-5 rise flex flex-col md:flex-row gap-4 md:items-center">
           <div className="flex-1">
-            <p className="font-display font-bold text-lg">Três caminhos a partir do briefing</p>
-            <p className="text-sm text-fog mt-1">O Claude lê o briefing e as notas do moodboard e desenha três protótipos diferentes (tipográfico, com símbolo e monograma), cada um com paleta e par de fontes. Roda pela sua assinatura: a resposta chega aqui quando o Claude responder a fila.</p>
+            <p className="font-display font-bold text-lg">Explorações a partir do território</p>
+            <p className="text-sm text-fog mt-1">O Claude lê a estratégia, o território escolhido e as notas do moodboard e desenha símbolos em caminhos diferentes (abstrato, figurativo, monograma, selo), explicando a ideia de cada um. Roda pela sua assinatura: a resposta chega aqui quando o Claude responder a fila.</p>{!d.territory_id && <p className="text-xs text-fog mt-2">Dica: escolha um território antes, na etapa Conceito, para os símbolos terem intenção.</p>}
             {!b.nome && <p className="text-xs text-danger mt-2">Preencha ao menos o nome da marca no briefing.</p>}
             {error && <p className="text-xs text-danger mt-2">{error}</p>}
           </div>
-          <button onClick={askClaude} disabled={busy || !b.nome} className="btn btn-mint shrink-0"><I.spark className="w-4 h-4" />{busy ? "Esperando o Claude…" : "Pedir protótipos"}</button>
+          <button onClick={askClaude} disabled={busy || !b.nome} className="btn btn-mint shrink-0"><I.spark className="w-4 h-4" />{busy ? "Esperando o Claude…" : "Pedir símbolos"}</button>
         </section>
       )}
 
@@ -94,6 +99,36 @@ export default function LogoStep({ d, set }: StepProps) {
         </section>
       )}
 
+      {tab === "monograma" && (
+        <section className="card p-5 rise grid lg:grid-cols-[1fr_340px] gap-5">
+          <div className="grid grid-cols-3 gap-3">
+            {[[mono.fg, mono.bg, pal["Claro"] || "#f4f4f2"], [pal["Claro"] || "#fff", pal["Escuro"] || "#111", pal["Escuro"] || "#111"], [pal["Escuro"] || "#111", pal["Destaque"] || mono.bg, "#ffffff"]].map(([fg, bg, back], i) => (
+              <div key={i} className={`rounded-xl grid place-items-center p-6 ${i === 0 ? "col-span-3 min-h-56" : "aspect-square"}`} style={{ background: back }}>
+                <SvgView svg={monogramSvg(mono, fg, bg)} className={i === 0 ? "w-48 h-48" : "w-full h-full"} fonts={[mono.font]} />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="label">Letras</label><input value={mono.letters} maxLength={3} onChange={(e) => M({ letters: e.target.value })} className="input" /></div>
+              <div><label className="label">Peso</label><select value={mono.weight} onChange={(e) => M({ weight: +e.target.value })} className="input">{[400, 600, 700, 800].map((w) => <option key={w}>{w}</option>)}</select></div>
+              <div className="col-span-2"><label className="label">Fonte</label><select value={mono.font} onChange={(e) => M({ font: e.target.value })} className="input">{ALL_FONTS.map((f) => <option key={f}>{f}</option>)}</select></div>
+            </div>
+            <div><label className="label">Encaixe entre as letras</label><input type="range" min={-10} max={45} value={mono.overlap} onChange={(e) => M({ overlap: +e.target.value })} className="w-full accent-[var(--color-mint)]" /></div>
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => M({ stack: !mono.stack })} className={`chip !px-2.5 !py-1 ${mono.stack ? "chip-mint" : ""}`}>Empilhado</button>
+              {(["nenhum", "circulo", "quadrado", "arco", "losango", "selo"] as const).map((x) => <button key={x} onClick={() => M({ shape: x })} className={`chip !px-2.5 !py-1 ${mono.shape === x ? "chip-mint" : ""}`}>{x === "nenhum" ? "Sem forma" : x === "circulo" ? "Círculo" : x === "quadrado" ? "Quadrado" : x === "arco" ? "Arco" : x === "losango" ? "Losango" : "Selo"}</button>)}
+            </div>
+            {(["fg", "bg"] as const).map((k) => (
+              <div key={k}><label className="label">{k === "fg" ? "Cor das letras" : "Cor da forma"}</label>
+                <div className="flex flex-wrap gap-1.5 items-center">{swatches.map((c) => <button key={c} onClick={() => M({ [k]: c } as any)} className={`w-6 h-6 rounded-md border ${mono[k] === c ? "border-paper ring-2 ring-mint" : "border-line"}`} style={{ background: c }} aria-label={c} />)}</div></div>
+            ))}
+            <button onClick={() => add({ id: uid(), name: `Monograma ${mono.letters}`, svg: monogramSvg(mono), source: "construtor" })} className="btn btn-ghost w-full">Guardar também como opção de símbolo</button>
+            <p className="text-[11px] text-fog">O monograma fica salvo sozinho e vira a versão reduzida, o favicon e o grafismo.</p>
+          </div>
+        </section>
+      )}
+
       {tab === "arquivo" && (
         <section onClick={() => fileRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) upload(f); }}
           className="card border-dashed p-8 text-center cursor-pointer hover:border-mint rise">
@@ -106,7 +141,7 @@ export default function LogoStep({ d, set }: StepProps) {
 
       {logos.length > 0 && (
         <>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-fog pt-2">Opções · {logos.length} <span className="normal-case tracking-normal">(a estrela marca a escolhida)</span></p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-fog pt-2">Opções · {logos.length} <span className="normal-case tracking-normal">(a estrela marca o símbolo escolhido)</span></p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {logos.map((l) => (
               <div key={l.id} className={`card overflow-hidden ${chosen?.id === l.id ? "!border-mint" : ""}`}>
@@ -116,7 +151,7 @@ export default function LogoStep({ d, set }: StepProps) {
                 <div className="p-3">
                   <div className="flex items-center gap-2">
                     <input value={l.name} onChange={(e) => save(logos.map((x) => (x.id === l.id ? { ...x, name: e.target.value } : x)))} className="flex-1 bg-transparent font-semibold text-sm outline-none min-w-0" />
-                    <button onClick={() => set({ logo_id: l.id })} className={chosen?.id === l.id ? "text-mint" : "text-fog hover:text-paper"} aria-label="Escolher esta">{chosen?.id === l.id ? "★" : "☆"}</button>
+                    <button onClick={() => choose(l.id)} className={chosen?.id === l.id ? "text-mint" : "text-fog hover:text-paper"} aria-label="Escolher esta">{chosen?.id === l.id ? "★" : "☆"}</button>
                     <button onClick={() => save(logos.filter((x) => x.id !== l.id))} className="text-fog hover:text-danger" aria-label="Tirar"><I.trash className="w-3.5 h-3.5" /></button>
                   </div>
                   {l.note && <p className="text-xs text-fog mt-1 line-clamp-3">{l.note}</p>}
