@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { I } from "@/components/icons";
@@ -26,6 +26,8 @@ function Motion() {
   const [formato, setFormato] = useState<MotionFormat>("9:16");
   const [conta, setConta] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [falhas, setFalhas] = useState<Record<string, string>>({});
+  const tentados = useRef(new Set<string>());
 
   const load = useCallback(async () => {
     const { data } = await createClient().from("av_motions").select("id,titulo,formato,spec,status,pedido,ai_request_id,account_id,kit_id,brand_id,updated_at").order("updated_at", { ascending: false }).limit(60);
@@ -55,6 +57,21 @@ function Motion() {
     }, 15000);
     return () => clearInterval(iv);
   }, [rows, load]);
+
+  // pedido que não chegou à fila (a página fechou ou deu erro antes de ganhar número): manda de novo uma vez
+  const reenviar = useCallback(async (r: Row) => {
+    tentados.current.add(r.id);
+    setFalhas((f) => { const { [r.id]: _, ...rest } = f; return rest; });
+    const res = await fetch("/api/av/motion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ task: "motion", motion_id: r.id, pedido: r.pedido, formato: r.formato, account_id: r.account_id }) }).catch(() => null);
+    const j = res ? await res.json().catch(() => ({})) : {};
+    if (res?.status === 202 && j.request_id) { await createClient().from("av_motions").update({ ai_request_id: j.request_id }).eq("id", r.id); load(); return; }
+    if (res?.ok) { load(); return; }
+    setFalhas((f) => ({ ...f, [r.id]: j.error || "Não chegou ao Claude." }));
+  }, [load]);
+  useEffect(() => {
+    const presos = (rows || []).filter((r) => r.status === "pedido" && !r.ai_request_id && r.pedido && !tentados.current.has(r.id) && Date.now() - new Date(r.updated_at).getTime() > 60000);
+    presos.forEach((r) => { reenviar(r); });
+  }, [rows, reenviar]);
 
   function abrir(r: Row) {
     setOpen({ id: r.id, titulo: r.titulo, spec: normalizeSpec(r.spec), kit_id: r.kit_id, brand_id: r.brand_id, account_id: r.account_id });
@@ -142,7 +159,7 @@ function Motion() {
             return (
               <div key={r.id} className={`rounded-xl border p-2 ${open?.id === r.id ? "border-mint" : "border-line"}`}>
                 {r.status === "pedido" || !spec.cenas.length
-                  ? <div className="aspect-[9/12] grid place-items-center text-center text-xs text-fog p-3 rounded-lg bg-white/5">{r.ai_request_id ? "Esperando o Claude…" : "Enviando o pedido…"}<br />{r.pedido?.slice(0, 80)}</div>
+                  ? <div className="aspect-[9/12] grid place-items-center text-center text-xs text-fog p-3 rounded-lg bg-white/5">{r.ai_request_id ? "Esperando o Claude…" : falhas[r.id] ? <span className="text-red-400">{falhas[r.id]}</span> : "Enviando o pedido…"}<br />{r.pedido?.slice(0, 80)}{falhas[r.id] && <button onClick={() => reenviar(r)} className="chip mt-2">Tentar de novo</button>}</div>
                   : <button onClick={() => abrir(r)} className="block w-full"><MotionThumb spec={spec} /></button>}
                 <p className="text-sm font-semibold truncate mt-2">{r.titulo}</p>
                 <p className="text-[11px] text-fog">{r.formato} · {motionDuration(spec).toFixed(1)} s</p>
