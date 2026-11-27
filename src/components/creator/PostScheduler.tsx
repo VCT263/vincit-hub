@@ -90,7 +90,7 @@ export default function PostScheduler() {
   }
   async function del(p: any) { if (!confirm("Excluir esta publicação?")) return; await createClient().from("scheduled_posts").delete().eq("id", p.id); setF(null); load(); }
 
-  const Thumb = ({ u, className = "w-full h-full" }: { u?: string; className?: string }) => !u ? <div className={`${className} bg-panel2`} /> : isVideo(u) ? <video src={u} className={`${className} object-cover`} muted /> : <img src={u} alt="" className={`${className} object-cover`} />;
+  const Thumb = ({ u, className = "w-full h-full" }: { u?: string; className?: string }) => !u ? <div className={`${className} bg-panel2`} /> : isVideo(u) ? <video src={u} className={`${className} object-cover`} muted /> : <img loading="lazy" decoding="async" src={u} alt="" className={`${className} object-cover`} />;
   const tags = (f?.caption || "").match(/#[\p{L}\d_]+/gu) || [];
   const acc = accounts.find((a) => a.id === f?.account_id);
 
@@ -168,7 +168,7 @@ export default function PostScheduler() {
             <div className="hidden md:block">
               <p className="label">Prévia</p>
               <div className="rounded-2xl border border-line bg-ink overflow-hidden">
-                <div className="flex items-center gap-2 p-2.5"><div className="w-7 h-7 rounded-full bg-panel2 overflow-hidden">{acc?.profile_picture_url && <img src={acc.profile_picture_url} alt="" className="w-full h-full object-cover" />}</div><span className="text-xs font-semibold">{acc?.username || "perfil"}</span></div>
+                <div className="flex items-center gap-2 p-2.5"><div className="w-7 h-7 rounded-full bg-panel2 overflow-hidden">{acc?.profile_picture_url && <img loading="lazy" decoding="async" src={acc.profile_picture_url} alt="" className="w-full h-full object-cover" />}</div><span className="text-xs font-semibold">{acc?.username || "perfil"}</span></div>
                 <div className={`${f.kind === "reels" || f.kind === "story" ? "aspect-[9/16]" : "aspect-[4/5]"} bg-panel2 relative`}><Thumb u={f.media_urls[0]} />{KINDS[f.kind].multi && f.media_urls.length > 1 && <span className="absolute top-2 right-2 text-[10px] bg-black/70 rounded-full px-2">1/{f.media_urls.length}</span>}</div>
                 {f.kind !== "story" && <p className="text-xs p-2.5"><b className="mr-1">{acc?.username || "perfil"}</b>{(f.caption || "").replace(/\n/g, " ").slice(0, 125)}{(f.caption || "").length > 125 && <span className="text-fog">… mais</span>}</p>}
               </div>

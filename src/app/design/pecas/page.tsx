@@ -68,7 +68,7 @@ export default function Pecas() {
           {rows.map((r) => (
             <div key={r.id} className="card overflow-hidden group relative">
               <Link href={`/design/pecas/${r.id}`} className="block">
-                <div className="aspect-[4/5] bg-panel2">{r.preview && <img src={r.preview} alt="" className="w-full h-full object-cover" />}</div>
+                <div className="aspect-[4/5] bg-panel2">{r.preview && <img loading="lazy" decoding="async" src={r.preview} alt="" className="w-full h-full object-cover" />}</div>
                 <div className="p-3"><p className="font-semibold text-sm truncate">{r.title}</p><p className="text-[11px] text-fog">{r.kind === "carrossel" ? `${(r.data?.slides || []).length} páginas` : "estática"} · {timeAgo(r.updated_at)}</p></div>
               </Link>
               <button onClick={() => remove(r.id)} className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-ink/80 text-fog hover:text-danger grid place-items-center opacity-0 group-hover:opacity-100" aria-label="Arquivar"><I.trash className="w-3.5 h-3.5" /></button>

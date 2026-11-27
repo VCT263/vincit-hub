@@ -38,7 +38,7 @@ export function BrandCard({ b }: { b: { id: string; title: string; step: string;
   return (
     <Link href={`/design/marcas/${b.id}`} className="block rounded-xl border border-line overflow-hidden hover:border-mint transition-colors">
       <div className="h-28 grid place-items-center p-4" style={{ background: bg }}>
-        {main ? <SvgView svg={main} className="h-20 w-full" /> : logo?.svg ? <SvgView svg={logo.svg} className="h-20 w-full" /> : logo?.img ? <img src={logo.img} alt="" className="max-h-20 max-w-full" /> : <span className="font-display font-extrabold text-2xl" style={{ color: pal[0] || "var(--color-fog)" }}>{d.brief?.nome || b.title}</span>}
+        {main ? <SvgView svg={main} className="h-20 w-full" /> : logo?.svg ? <SvgView svg={logo.svg} className="h-20 w-full" /> : logo?.img ? <img loading="lazy" decoding="async" src={logo.img} alt="" className="max-h-20 max-w-full" /> : <span className="font-display font-extrabold text-2xl" style={{ color: pal[0] || "var(--color-fog)" }}>{d.brief?.nome || b.title}</span>}
       </div>
       <div className="flex h-2">{pal.map((c) => <span key={c} className="flex-1" style={{ background: c }} />)}</div>
       <div className="p-3">

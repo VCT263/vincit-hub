@@ -285,7 +285,7 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
           {/* cabeçalho */}
           <header className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5 min-w-0">
-              {brand.logo ? <img src={brand.logo} alt="" className="h-8 max-w-[140px] object-contain" /> : (
+              {brand.logo ? <img loading="lazy" decoding="async" src={brand.logo} alt="" className="h-8 max-w-[140px] object-contain" /> : (
                 <span className="w-8 h-8 rounded-[7px] grid place-items-center text-[15px] font-black sheet-ink shrink-0" style={{ ...chip, ...bf }}>{(brand.name || "V").slice(0, 1).toUpperCase()}</span>
               )}
               <span className="text-[15px] font-extrabold tracking-tight truncate" style={bf}>{brand.name}</span>

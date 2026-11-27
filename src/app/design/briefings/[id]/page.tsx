@@ -152,7 +152,7 @@ export default function BriefingDetalhe() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {refs.map((r) => (
                     <figure key={r.id} className={`rounded-xl overflow-hidden border ${r.tipo === "evitar" ? "border-danger/60" : "border-line"}`}>
-                      <img src={r.img} alt="" className="w-full aspect-square object-cover" />
+                      <img loading="lazy" decoding="async" src={r.img} alt="" className="w-full aspect-square object-cover" />
                       <figcaption className="px-2.5 py-2 text-xs"><span className={r.tipo === "evitar" ? "text-danger font-semibold" : "text-mint font-semibold"}>{r.tipo === "evitar" ? "Não gosta" : "Gosta"}</span>{r.note && <span className="text-fog"> · {r.note}</span>}</figcaption>
                     </figure>
                   ))}

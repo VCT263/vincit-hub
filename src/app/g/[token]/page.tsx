@@ -63,7 +63,7 @@ export default function PreProjetoPublico() {
   const Head = (
     <header className="sticky top-0 z-20 bg-[#f4f2ee]/90 backdrop-blur border-b border-[#e2ddd4]">
       <div className="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
-        <img src="/vincit-logo-escuro.svg" alt="VINCIT" className="h-5 w-auto" />
+        <img loading="lazy" decoding="async" src="/vincit-logo-escuro.svg" alt="VINCIT" className="h-5 w-auto" />
         <span className="text-[11px] tracking-[.22em] uppercase text-[#8a847a]">Pré-projeto</span>
       </div>
     </header>

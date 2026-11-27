@@ -58,7 +58,7 @@ function Imagens({ value, onChange }: { value: RefImg[]; onChange: (v: RefImg[])
         {value.map((r) => (
           <div key={r.id} className="bg-white/70 border border-[#d9d4cb] rounded-2xl overflow-hidden">
             <div className="relative bg-[#e9e5de]">
-              <img src={r.img} alt="" className="w-full max-h-64 object-contain" />
+              <img loading="lazy" decoding="async" src={r.img} alt="" className="w-full max-h-64 object-contain" />
               <button type="button" onClick={() => onChange(value.filter((x) => x.id !== r.id))} className="absolute top-2 right-2 w-9 h-9 rounded-full bg-[#151515]/80 text-white text-lg leading-none" aria-label="Tirar imagem">×</button>
             </div>
             <div className="p-3 space-y-2.5">

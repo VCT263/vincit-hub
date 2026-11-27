@@ -23,7 +23,7 @@ export default async function Desempenho() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {accounts.map((a) => (
             <Link key={a.id} href={`/creator/desempenho/${a.id}`} className="card p-5 flex items-center gap-3 hover:border-mint transition-colors">
-              {a.profile_picture_url ? <img src={a.profile_picture_url} alt="" className="w-11 h-11 rounded-full object-cover" /> : <div className="w-11 h-11 rounded-full bg-panel2 grid place-items-center font-display font-bold text-mint">{a.username[0]?.toUpperCase()}</div>}
+              {a.profile_picture_url ? <img loading="lazy" decoding="async" src={a.profile_picture_url} alt="" className="w-11 h-11 rounded-full object-cover" /> : <div className="w-11 h-11 rounded-full bg-panel2 grid place-items-center font-display font-bold text-mint">{a.username[0]?.toUpperCase()}</div>}
               <div className="flex-1 min-w-0"><p className="font-semibold truncate">@{a.username}</p><p className="text-xs text-fog">{a.connected ? "Conectado à Meta" : "Manual"}</p></div>
               <I.arrow className="w-4 h-4 text-fog" />
             </Link>
