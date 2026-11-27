@@ -157,6 +157,7 @@ export default function PieceEditor() {
               <button key={k} onClick={() => (k === "imagem" && !s.img ? fileRef.current?.click() : up({ bg: k }))} className={`chip !px-2.5 !py-1 ${s.bg === k ? "chip-mint" : ""}`}>
                 {k !== "imagem" && <span className="w-3 h-3 rounded-full border border-line" style={{ background: kit.colors[l === "Primária" ? "Primária" : l] }} />}{l}</button>
             ))}</div></div>
+            {kit.pattern && s.bg !== "imagem" && <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" className="accent-[var(--color-mint)]" checked={s.grafismo ?? (s.layout === "capa" || s.layout === "cta")} onChange={(e) => up({ grafismo: e.target.checked })} />Grafismo da marca no fundo</label>}
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) up({ img: await shrink(f, 1350, .85), bg: "imagem" }); e.target.value = ""; }} />
             {s.bg === "imagem" && <button onClick={() => fileRef.current?.click()} className="btn btn-ghost btn-sm w-full">{s.img ? "Trocar foto" : "Escolher foto"}</button>}
             <div><label className="label">Chamada pequena</label><input value={s.kicker || ""} onChange={(e) => up({ kicker: e.target.value })} className="input" placeholder="Ex.: GUIA RÁPIDO" /></div>

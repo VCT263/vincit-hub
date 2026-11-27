@@ -47,7 +47,7 @@ function Deck({ token, p }: { token: string; p: any }) {
       <header className="max-w-6xl mx-auto px-4 md:px-8 pt-6 md:pt-10 print:hidden">
         <div className="flex items-center justify-between"><Logo className="h-6" vincitOnly /><span className="font-mono text-[11px] text-fog tracking-widest uppercase">Identidade de marca</span></div>
         <h1 className="font-display text-4xl md:text-6xl font-extrabold tracking-tight mt-10 leading-[1.02]">{nome}</h1>
-        <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma, de preferência em tela grande; no celular, vire na horizontal ao apresentar.</p>
+        <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma. No celular, toque num slide para abrir em tela cheia e deslize para passar.</p>
         <div className="flex flex-wrap gap-2 mt-6">
           <button onClick={() => setShow(0)} className="btn btn-mint">▶ Apresentar em tela cheia</button>
           <button onClick={printAll} className="btn btn-ghost">Baixar PDF</button>
