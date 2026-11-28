@@ -23,7 +23,7 @@ const corpoPendente = (r: Row) => {
   return { task: etapa === "brief" ? "motion_brief" : "motion_html", etapa, motion_id: r.id, pedido: r.pedido, formato: r.formato, account_id: r.account_id, ajuste: r.spec?.pendente?.ajuste || undefined, base: etapa === "html" ? { brief: r.spec?.brief } : undefined };
 };
 
-type Row = { id: string; titulo: string; formato: MotionFormat; spec: any; status: "pedido" | "pronto"; pedido?: string; ai_request_id?: string | null; account_id?: string | null; kit_id?: string | null; brand_id?: string | null; pasta?: string | null; updated_at: string };
+type Row = { id: string; titulo: string; formato: MotionFormat; spec: any; status: "pedido" | "pronto"; pedido?: string; ai_request_id?: string | null; account_id?: string | null; kit_id?: string | null; brand_id?: string | null; pasta?: string | null; ec_action_id?: string | null; updated_at: string };
 
 export default function MotionPage() {
   return <Suspense><Motion /></Suspense>;
@@ -44,11 +44,15 @@ function Motion() {
   const [falhas, setFalhas] = useState<Record<string, string>>({});
   const tentados = useRef(new Set<string>());
   // pastas (28/11): agrupam os motions por campanha, coleção ou ação. "" = todas, SEM = sem pasta
-  const [pasta, setPasta] = useState<string>(() => { try { return localStorage.getItem("motion-pasta") || ""; } catch { return ""; } });
+  const [pasta, setPasta] = useState<string>(() => { const u = q.get("pasta"); if (u) return u.slice(0, 60); try { return localStorage.getItem("motion-pasta") || ""; } catch { return ""; } });
+  // pasta ligada a uma campanha do E-commerce (vem de ?campanha=&pasta= ou dos motions que já estão nela)
+  const [campanhaUrl] = useState<{ id: string; pasta: string } | null>(() => { const id = q.get("campanha"), n = q.get("pasta"); return id && n ? { id, pasta: n.slice(0, 60) } : null; });
   const [pastasNovas, setPastasNovas] = useState<string[]>([]);
   useEffect(() => { try { localStorage.setItem("motion-pasta", pasta); } catch {} }, [pasta]);
-  const pastas = Array.from(new Set([...((rows || []).map((r) => r.pasta).filter(Boolean) as string[]), ...pastasNovas])).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const pastas = Array.from(new Set([...((rows || []).map((r) => r.pasta).filter(Boolean) as string[]), ...pastasNovas, ...(campanhaUrl ? [campanhaUrl.pasta] : [])])).sort((a, b) => a.localeCompare(b, "pt-BR"));
   const pastaAtual = pasta && pasta !== SEM ? pasta : null;
+  const campanhaDa = (n: string | null) => (!n ? null : campanhaUrl?.pasta === n ? campanhaUrl.id : (rows || []).find((r) => r.pasta === n && r.ec_action_id)?.ec_action_id || null);
+  const campanhaAtual = campanhaDa(pastaAtual);
   function novaPasta(): string | null {
     const nome = window.prompt("Nome da pasta (ex.: Natal ISYS, Coleção Jeanswear)")?.trim().slice(0, 60);
     if (!nome) return null;
@@ -58,13 +62,14 @@ function Motion() {
   async function mover(r: Row, destino: string) {
     let nome: string | null = destino === SEM ? null : destino;
     if (destino === NOVA) { nome = novaPasta(); if (!nome) return; }
-    setRows((rs) => (rs || []).map((x) => (x.id === r.id ? { ...x, pasta: nome } : x)));
-    const { error } = await createClient().from("av_motions").update({ pasta: nome }).eq("id", r.id);
+    const ec_action_id = campanhaDa(nome);
+    setRows((rs) => (rs || []).map((x) => (x.id === r.id ? { ...x, pasta: nome, ec_action_id } : x)));
+    const { error } = await createClient().from("av_motions").update({ pasta: nome, ec_action_id }).eq("id", r.id);
     if (error) { setMsg(error.message); load(); }
   }
 
   const load = useCallback(async () => {
-    const { data } = await createClient().from("av_motions").select("id,titulo,formato,spec,status,pedido,ai_request_id,account_id,kit_id,brand_id,pasta,updated_at").order("updated_at", { ascending: false }).limit(200);
+    const { data } = await createClient().from("av_motions").select("id,titulo,formato,spec,status,pedido,ai_request_id,account_id,kit_id,brand_id,pasta,ec_action_id,updated_at").order("updated_at", { ascending: false }).limit(200);
     setRows((data as any) || []);
     return (data as Row[]) || [];
   }, []);
@@ -138,7 +143,7 @@ function Motion() {
     const { data: kit } = await s.from("av_style_kits").select("id").order("updated_at", { ascending: false }).limit(1).maybeSingle();
     const texto = pedido.trim();
     const spec = { motor: "html", etapa: "brief", formato, pendente: { etapa: "brief" } };
-    const { data, error } = await s.from("av_motions").insert({ titulo: "Pedido: " + texto.slice(0, 50), formato, spec, status: "pedido", pedido: texto, origem: "pedido", pasta: pastaAtual, account_id: conta || null, kit_id: kit?.id || null }).select("id").single();
+    const { data, error } = await s.from("av_motions").insert({ titulo: "Pedido: " + texto.slice(0, 50), formato, spec, status: "pedido", pedido: texto, origem: "pedido", pasta: pastaAtual, ec_action_id: campanhaAtual, account_id: conta || null, kit_id: kit?.id || null }).select("id").single();
     if (error) { setMsg(error.message); return; }
     setPedido(""); load();
     await etapa(data.id, { task: "motion_brief", etapa: "brief", motion_id: data.id, pedido: texto, formato, account_id: conta || null }, "Pedido enviado. Primeiro o Claude refina o pedido num brief para você aprovar.");
@@ -159,7 +164,7 @@ function Motion() {
   }
   async function usarModelo(id: string) {
     const m = [...MODELOS_HTML, ...ESTILOS_TEXTO].find((x) => x.id === id); if (!m) return;
-    const { data, error } = await createClient().from("av_motions").insert({ titulo: `${m.nome} · ${m.marca}`, formato: "9:16", spec: { motor: "html", etapa: "pronto", html: m.html, valores: {}, modelo: m.id }, status: "pronto", origem: "hub", pasta: pastaAtual }).select("id").single();
+    const { data, error } = await createClient().from("av_motions").insert({ titulo: `${m.nome} · ${m.marca}`, formato: "9:16", spec: { motor: "html", etapa: "pronto", html: m.html, valores: {}, modelo: m.id }, status: "pronto", origem: "hub", pasta: pastaAtual, ec_action_id: campanhaAtual }).select("id").single();
     if (error) { setMsg(error.message); return; }
     const list = await load();
     const r = list.find((x) => x.id === data.id);
@@ -252,7 +257,7 @@ function Motion() {
           {(rows || []).some((r) => !r.pasta) && pastas.length > 0 && <button onClick={() => setPasta(SEM)} className={`chip ${pasta === SEM ? "!border-mint text-mint" : ""}`}>Sem pasta ({(rows || []).filter((r) => !r.pasta).length})</button>}
           <button onClick={() => { const n = novaPasta(); if (n) setPasta(n); }} className="chip"><I.plus className="w-3 h-3 inline -mt-0.5" /> Nova pasta</button>
         </div>
-        {pastaAtual && <p className="text-xs text-fog -mt-2 mb-3">Os motions que você criar agora (pedido ao Claude ou modelo) entram na pasta &quot;{pastaAtual}&quot;. No Editor, a aba Motion também filtra por pasta.</p>}
+        {pastaAtual && <p className="text-xs text-fog -mt-2 mb-3">Os motions que você criar agora (pedido ao Claude ou modelo) entram na pasta &quot;{pastaAtual}&quot;.{campanhaAtual ? <> A pasta é da <Link href={`/ecommerce/acoes/campanha?id=${campanhaAtual}`} className="text-mint">campanha no E-commerce</Link>: o Claude lê o conceito dela no pedido, e o Editor abre esta pasta quando o vídeo é de um card da campanha.</> : " No Editor, a aba Motion também filtra por pasta."}</p>}
         {(pasta === "" && pastas.length ? [...pastas, SEM] : [pasta || SEM]).map((grupo) => {
           const lista = (rows || []).filter((r) => (pasta === "" && !pastas.length) ? true : grupo === SEM ? !r.pasta : r.pasta === grupo);
           if (!lista.length) return pasta === "" ? null : <p key={grupo} className="text-sm text-fog py-6 text-center">Pasta vazia. Crie um motion com a pasta aberta ou mova um para cá pelo seletor do card.</p>;
