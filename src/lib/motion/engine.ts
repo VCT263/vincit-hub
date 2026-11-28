@@ -6,6 +6,7 @@
  * motion por cima do vídeo ou o insere como clipe. As cores e letras vêm do kit de estilo ou da marca do Design.
  * Sem custo: tudo roda no navegador.
  */
+import { ehEstiloSom, type EstiloSom } from "@/lib/editor/som";
 
 export type MotionFormat = "9:16" | "16:9" | "1:1";
 export const MOTION_SIZES: Record<MotionFormat, [number, number]> = { "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080] };
@@ -58,6 +59,8 @@ export type MotionSpec = {
   /** logo (URL, data URL de SVG ou PNG) para vinheta e encerramento */
   logo?: string;
   handle?: string;
+  /** estilo de som (public/sons): o MP4 sai com os efeitos do estilo; vazio = mudo */
+  som?: EstiloSom;
   cenas: Cena[];
 };
 
@@ -143,14 +146,16 @@ export function normalizeSpec(x: any): MotionSpec {
     imagem: typeof x?.imagem === "string" ? x.imagem : undefined,
     logo: typeof x?.logo === "string" ? x.logo : undefined,
     handle: x?.handle ? String(x.handle).slice(0, 40) : undefined,
+    som: ehEstiloSom(x?.som) ? x.som : undefined,
     cenas,
   };
 }
 
 /** cores e letras do kit de estilo do Editor (mesmo formato de av_style_kits.data) */
-export function coresDoKit(kit: any): Pick<MotionSpec, "cores" | "fontes"> {
+export function coresDoKit(kit: any): Pick<MotionSpec, "cores" | "fontes" | "som"> {
   const fundo = hex(kit?.cores?.fundo, DEFAULT_SPEC.cores.fundo), texto = hex(kit?.cores?.texto, DEFAULT_SPEC.cores.texto);
   return {
+    ...(ehEstiloSom(kit?.regras?.som_estilo) ? { som: kit.regras.som_estilo } : {}),
     cores: { fundo, texto, destaque: hex(kit?.cores?.destaque, DEFAULT_SPEC.cores.destaque), apoio: mix(fundo, texto, 0.14) },
     fontes: { titulo: kit?.fontes?.titulo || DEFAULT_SPEC.fontes.titulo, texto: (kit?.fontes?.legenda || DEFAULT_SPEC.fontes.texto).replace(/\s+(Black|ExtraBold|Bold)$/i, "") },
   };

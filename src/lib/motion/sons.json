@@ -1,0 +1,42 @@
+{
+  "delicado": {
+    "abertura": 0.68,
+    "entrada": 0.06,
+    "itens": 0.0,
+    "destaque": 0.05,
+    "transicao": 0.06,
+    "marca": 0.06
+  },
+  "tatil": {
+    "abertura": 0.06,
+    "entrada": 0.06,
+    "itens": 0.06,
+    "destaque": 0.06,
+    "transicao": 0.04,
+    "marca": 0.03
+  },
+  "minimal": {
+    "abertura": 0.02,
+    "entrada": 0.02,
+    "itens": 0.02,
+    "destaque": 0.06,
+    "transicao": 0.03,
+    "marca": 0.06
+  },
+  "cinematico": {
+    "abertura": 1.34,
+    "entrada": 0.06,
+    "itens": 0.0,
+    "destaque": 0.06,
+    "transicao": 1.41,
+    "marca": 0.06
+  },
+  "agressivo": {
+    "abertura": 0.06,
+    "entrada": 0.02,
+    "itens": 0.05,
+    "destaque": 0.02,
+    "transicao": 0.06,
+    "marca": 0.06
+  }
+}

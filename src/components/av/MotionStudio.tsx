@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { kitsComMarca } from "@/lib/kitMarca";
 import { I } from "@/components/icons";
+import { EstiloSomSelect } from "@/components/av/EstiloSom";
 import { createClient } from "@/lib/supabase/client";
 import { FONTS } from "@/lib/editor/model";
 import { kitFrom, loadFonts } from "@/lib/design";
@@ -287,6 +288,7 @@ export default function MotionStudio({ initial, onSaved, onUse, useLabel = "Usar
             <Field label="Fundo"><select value={spec.fundo} onChange={(e) => set({ fundo: e.target.value as Fundo })} className="input !py-1.5 text-sm">{(Object.keys(FUNDO_LABEL) as Fundo[]).map((f) => <option key={f} value={f}>{FUNDO_LABEL[f]}</option>)}</select></Field>
             <Field label="Transição"><select value={spec.transicao} onChange={(e) => set({ transicao: e.target.value as Transicao })} className="input !py-1.5 text-sm">{(Object.keys(TRANSICAO_LABEL) as Transicao[]).map((f) => <option key={f} value={f}>{TRANSICAO_LABEL[f]}</option>)}</select></Field>
             <Field label="Ritmo"><select value={spec.ritmo} onChange={(e) => set({ ritmo: e.target.value as Ritmo })} className="input !py-1.5 text-sm"><option value="calmo">Calmo</option><option value="normal">Normal</option><option value="rapido">Rápido</option></select></Field>
+            <Field label="Som"><EstiloSomSelect compacto value={spec.som} onChange={(v) => set({ som: v })} /></Field>
             <Field label="@ ou site"><input value={spec.handle || ""} onChange={(e) => set({ handle: e.target.value || undefined })} className="input !py-1.5 text-sm" placeholder="@perfil" /></Field>
           </div>
           <div className="flex flex-wrap gap-3 text-xs">

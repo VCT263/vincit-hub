@@ -85,7 +85,7 @@ export type Kit = {
     corte_max_s?: number; silencio_ms?: number; trilha_db?: number;
     folga_ms?: number; batida_ms?: number; vicios?: string[]; tomada?: "ultima" | "melhor";
     plano_medio_s?: number; primeiro_corte_s?: number; max_sem_rosto_s?: number;
-    lufs?: number; pico_dbtp?: number; sfx?: "acao" | "nenhum"; som_estilo?: "delicado" | "cinematico" | "agressivo";
+    lufs?: number; pico_dbtp?: number; sfx?: "acao" | "nenhum"; som_estilo?: import("./som").EstiloSom;
   };
   /** grafia certa de marcas e nomes que a transcrição erra: uma troca por linha, "errado = certo" */
   vocabulario?: string;
