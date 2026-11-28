@@ -27,8 +27,6 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
   const casa = (!ehEquipe && (perfil?.company?.trim() || perfil?.brand_name?.trim())) || "VINCIT";
   const hasAgency = hubAllowed(acc.tools, "agency");
   const hasCreator = hubAllowed(acc.tools, "creator");
-  const h = parseInt(new Date().toLocaleString("pt-BR", { hour: "numeric", hour12: false, timeZone: "America/Sao_Paulo" }));
-  const greet = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 
   const today = todayBR();
   const start = monday(today), end = addDays(start, 6);
@@ -125,7 +123,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
     <>
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 rise">
         <div>
-          <p className="font-mono text-[11px] text-mint tracking-widest uppercase">{greet} · {dateLabel}</p>
+          <p className="font-mono text-[11px] text-mint tracking-widest uppercase">{dateLabel}</p>
           <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight mt-2">Seu dia na {casa} <Ajuda tela className="relative -top-1.5 ml-1" /></h1>
           <p className="mt-3 text-[15px] md:text-base">
             {agora.length ? agora.map((a, i) => <span key={i}>{i > 0 && <span className="text-fog"> · </span>}<span className={a.red ? "text-danger" : ""}>{a.t}</span></span>) : <span className="text-fog">Nada pedindo atenção agora. Bom momento para planejar.</span>}
@@ -167,7 +165,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
                   {w.nt > 0 && <p>{w.nt} tarefa{w.nt > 1 ? "s" : ""}</p>}
                   {w.grav > 0 && <p>{w.grav} gravaç{w.grav > 1 ? "ões" : "ão"}</p>}
                   {w.reun > 0 && <p>{w.reun} compromisso{w.reun > 1 ? "s" : ""}</p>}
-                  {w.pub > 0 && <p className="text-[#c084fc]">{w.pub} publicaç{w.pub > 1 ? "ões" : "ão"}</p>}
+                  {w.pub > 0 && <p className="text-paper">{w.pub} publicaç{w.pub > 1 ? "ões" : "ão"}</p>}
                   {w.rec > 0 && <p className="text-mint">{brlShort(w.rec)} a receber</p>}
                 </div>
               </Link>
@@ -181,7 +179,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
           <div className="card p-5 rise">
             <div className="flex items-center justify-between mb-3"><p className={kicker}>Conteúdo</p><Link href={statusList ? "/creator/producao" : "/creator/pauta"} className="text-xs text-fog hover:text-mint">Quadro de produção</Link></div>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-              {contentCols.map((c) => <div key={c.l}><p className="text-xs text-fog truncate">{c.l}</p><p className="font-display text-2xl font-bold tabular-nums">{c.n}</p></div>)}
+              {contentCols.map((c) => <div key={c.l}><p className="text-xs text-fog leading-tight">{c.l}</p><p className="font-display text-2xl font-bold tabular-nums">{c.n}</p></div>)}
             </div>
             {lateContent.length > 0 && <p className="text-xs text-danger mt-2">{lateContent.length} atrasado{lateContent.length > 1 ? "s" : ""}</p>}
           </div>

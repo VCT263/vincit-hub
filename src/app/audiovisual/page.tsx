@@ -64,8 +64,8 @@ export default async function Overview() {
                   <p className="text-xs text-fog truncate">{[cl.get(i.client_id), i.format, i.st?.name].filter(Boolean).join(" · ")}</p>
                 </div>
                 {i.body ? (
-                  <Link href={`/audiovisual/teleprompter?c=${i.id}`} className="chip chip-mint shrink-0 hover:opacity-80">roteiro pronto</Link>
-                ) : <span className="chip shrink-0" style={{ color: "var(--color-amber, #f5c84c)" }}>sem roteiro</span>}
+                  <Link href={`/audiovisual/teleprompter?c=${i.id}`} className="text-xs text-mint shrink-0 hover:underline whitespace-nowrap">roteiro pronto</Link>
+                ) : <span className="text-xs shrink-0 whitespace-nowrap" style={{ color: "var(--color-amber, #f5c84c)" }}>sem roteiro</span>}
               </div>
             ))}
           </div>
@@ -74,7 +74,6 @@ export default async function Overview() {
         <section className="card p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="font-mono text-[10px] uppercase tracking-widest text-fog">Ilha de edição</p>
-            <span className="text-[11px] text-fog">Revisão de cortes chega na Fase 3</span>
           </div>
           {edit.length === 0 && <p className="text-sm text-fog py-6 text-center">Nada em edição agora.</p>}
           <div className="divide-y divide-line">
@@ -85,7 +84,7 @@ export default async function Overview() {
                   <p className="font-semibold text-sm truncate">{i.title}</p>
                   <p className="text-xs text-fog truncate">{[cl.get(i.client_id), `revisão ${i.revisions || 0} de 3`].filter(Boolean).join(" · ")}</p>
                 </div>
-                <span className="chip shrink-0">{i.st?.name}</span>
+                <span className="text-xs text-fog shrink-0 whitespace-nowrap">{i.st?.name}</span>
               </div>
             ))}
           </div>

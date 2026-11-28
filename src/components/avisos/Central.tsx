@@ -170,8 +170,8 @@ export default function Central({ modo, limite, aoNavegar }: { modo: Modo; limit
         <div className="flex items-center justify-between mb-2 gap-3">
           <p className={`${kicker} text-fog`}>Avisos · {abertos.length} não lido{abertos.length === 1 ? "" : "s"}{urgentes ? <span className="text-danger"> · {urgentes} urgente{urgentes === 1 ? "" : "s"}</span> : null}</p>
           <div className="flex items-center gap-3">
-            {abertos.length > 0 && <button onClick={() => lidas(abertos.map((x) => x.id))} className="text-xs text-fog hover:text-mint">Marcar tudo como lido</button>}
-            <Link href="/avisos" className="text-xs text-fog hover:text-mint">Ver todos</Link>
+            {abertos.length > 0 && <button onClick={() => lidas(abertos.map((x) => x.id))} className="text-xs text-fog hover:text-mint whitespace-nowrap">Marcar lidos</button>}
+            <Link href="/avisos" className="text-xs text-fog hover:text-mint whitespace-nowrap">Ver todos</Link>
           </div>
         </div>
         {lista}

@@ -7,7 +7,7 @@ export const WD3 = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 export const wd = (d: string) => WD3[new Date(d + "T12:00:00Z").getUTCDay()];
 
 const TAGS: Record<string, [string, string]> = {
-  projeto: ["PROJETO", "#7aa7ff"], conteudo: ["CONTEÚDO", "#c084fc"], rotina: ["ROTINA", "#f5c84c"], gestor: ["GESTOR", "#7aa7ff"],
+  projeto: ["Projeto", "#7aa7ff"], conteudo: ["Conteúdo", "#c084fc"], rotina: ["Rotina", "#f5c84c"], gestor: ["Gestor", "#7aa7ff"],
 };
 /** de onde a tarefa veio: projeto, conteúdo, rotina ou o nome do espaço */
 export function originOf(t: any, space?: any): [string, string] {
@@ -15,10 +15,11 @@ export function originOf(t: any, space?: any): [string, string] {
   if (t.content_id) return TAGS.conteudo;
   if (space && (space.kind === "rotina" || space.name === "Rotina")) return TAGS.rotina;
   if (space && (space.kind === "conteudo" || space.name === "Conteúdo")) return TAGS.conteudo;
-  return [String(space?.name || "Tarefa").toUpperCase(), space?.color || "#8a8f94"];
+  return [String(space?.name || "Tarefa"), space?.color || "#8a8f94"];
 }
 export const tagOf = (k: keyof typeof TAGS) => TAGS[k];
 
 export function OriginTag({ tag }: { tag: [string, string] }) {
-  return <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 rounded whitespace-nowrap" style={{ background: tag[1] + "22", color: tag[1] }}>{tag[0]}</span>;
+  // ponto de cor + nome em texto calmo (no celular só o ponto, para o título da tarefa caber inteiro)
+  return <span title={tag[0]} className="inline-flex items-center gap-1.5 text-xs text-fog whitespace-nowrap shrink-0"><span className="w-1.5 h-1.5 rounded-full" style={{ background: tag[1] }} /><span className="hidden sm:inline">{tag[0]}</span></span>;
 }
