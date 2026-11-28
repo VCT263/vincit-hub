@@ -27,6 +27,9 @@ export const TEMAS = [
 /** só os campos que a entrevista costuma preencher (o resto do briefing fica como está) */
 export const CAMPOS_ENTREVISTA = ["visao", "persona", "arquetipo", "personalidade", "nao_e", "proibido", "evitar", "gosta", "oferta", "diferencial", "metas", "datas", "rosto", "postura", "matriz_tom", "transformacao", "dores", "desejos", "objecoes"];
 
+/** campos que o Dossiê do perfil (prompt do conector) pode propor, além dos da entrevista: saem dos posts reais */
+export const CAMPOS_DOSSIE = ["linguagem", "pilares", "formatos", "provas", "historias", "padrao", "oportunidades"];
+
 const camposBriefing = () => BRIEFING.flatMap((s) => s.fields);
 
 export function contextoPerfil(acc: any) {
@@ -103,7 +106,7 @@ ${esquemaBriefing()}
 /** limpa a proposta: só chaves conhecidas, tipos certos */
 export function limparProposta(p: any) {
   const campos: Record<string, any> = {};
-  const fs = camposBriefing().filter((x) => CAMPOS_ENTREVISTA.includes(x.k));
+  const fs = camposBriefing().filter((x) => CAMPOS_ENTREVISTA.includes(x.k) || CAMPOS_DOSSIE.includes(x.k));
   for (const f of fs) {
     const v = p?.campos?.[f.k];
     if (f.type === "chips" || f.type === "multi") { const a = Array.isArray(v) ? v.map(String).map((s) => s.trim()).filter(Boolean).slice(0, 20) : []; if (a.length) campos[f.k] = a; }

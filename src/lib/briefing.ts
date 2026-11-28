@@ -35,6 +35,7 @@ export const BRIEFING: BSection[] = [
     { k: "estetica", l: "Estética visual", type: "textarea", ph: "Ex.: preto e grafite com verde menta, luz contrastada, cortes rápidos, tipografia bold." },
     { k: "gosta", l: "Referências que admira (contas, filmes, marcas)", type: "chips", ph: "Ex.: @perfil, Apple, A24" },
     { k: "evitar", l: "O que NÃO combina com a marca", type: "chips", ph: "Ex.: dancinha, clickbait, palavrão" },
+    { k: "aprendizados", l: "Aprendizados (regras das correções)", type: "chips", ph: "Ex.: não reescrever gancho já aprovado", help: "Cada correção sua vira regra. O Claude acrescenta pelo conector e toda IA do HUB segue." },
     { k: "rosto", l: "Quem aparece nos conteúdos", type: "select", options: ["Fundador(a) aparece sempre", "Equipe e clientes", "Às vezes aparece alguém", "Ninguém aparece (só produto/bastidor)"] },
   ] },
   { k: "conteudo", l: "Conteúdo & produção", d: "O que você tem em mãos para criar.", fields: [
@@ -47,7 +48,8 @@ export const BRIEFING: BSection[] = [
   ] },
 ];
 
-const ALL = BRIEFING.flatMap((s) => s.fields);
+/* aprendizados crescem com o uso: não contam no % de briefing pronto */
+const ALL = BRIEFING.flatMap((s) => s.fields).filter((f) => f.k !== "aprendizados");
 const filled = (v: any) => (Array.isArray(v) ? v.length > 0 : !!(v && String(v).trim()));
 export const briefingProgress = (b: any) => Math.round((ALL.filter((f) => filled(b?.[f.k])).length / ALL.length) * 100);
 
