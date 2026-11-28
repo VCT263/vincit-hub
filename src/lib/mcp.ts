@@ -347,7 +347,7 @@ export const TOOLS: Tool[] = [
       const title = clip(a.titulo, 150) || `Análise @${acc?.username} · ${new Date().toLocaleDateString("pt-BR", { timeZone: TZ })}`;
       const { data, error } = await ctx.sb.from("content_ideas").insert({ account_id: a.perfil_id, kind: "diagnostico", title, body: `${a.texto}\n\n_${ORIGIN}_` }).select("id").single();
       if (error) fail(error.message);
-      return { ok: true, id: data?.id, onde: "CREATOR › Desempenho & insights" };
+      return { ok: true, id: data?.id, onde: "CREATOR › Perfis & marca (desempenho do perfil)" };
     },
   },
   {

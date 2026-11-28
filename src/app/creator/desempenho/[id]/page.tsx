@@ -169,7 +169,7 @@ export default function Perfil() {
         <div className="flex items-center gap-4 min-w-0">
           {acc.profile_picture_url ? <img loading="lazy" decoding="async" src={acc.profile_picture_url} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-mint/40" /> : <div className="w-16 h-16 rounded-full bg-panel2 grid place-items-center font-display text-2xl font-bold text-mint">{acc.username[0]?.toUpperCase()}</div>}
           <div className="min-w-0">
-            <p className="font-mono text-[11px] text-mint tracking-widest uppercase">Creator · Desempenho & insights</p>
+            <p className="font-mono text-[11px] text-mint tracking-widest uppercase">Creator · Perfis & marca</p>
             <h1 className="font-display text-3xl font-extrabold tracking-tight truncate">@{acc.username}</h1>
             <p className="text-fog text-sm">{fmt(acc.followers_count)} seguidores{acc.media_count ? ` · ${fmt(acc.media_count)} posts` : ""}{acc.last_synced_at && ` · sincronizado ${new Date(acc.last_synced_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`}</p>
           </div>
