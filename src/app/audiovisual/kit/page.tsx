@@ -257,12 +257,31 @@ export default function KitPage() {
                     <FontPick label="Legenda" value={d.fontes?.legenda || "Inter Black"} onChange={(v) => set(["fontes", "legenda"], v)} />
                   </div>
                 </Group>
-                <Group title="Ritmo de corte">
-                  <div className="grid grid-cols-3 gap-3">
-                    <Field label="Corte máx. (s)"><input type="number" className="input" value={d.regras?.corte_max_s ?? 4} onChange={(e) => set(["regras", "corte_max_s"], +e.target.value)} /></Field>
+                <Group title="Corte e ritmo">
+                  <p className="text-xs text-fog mb-2">Cortar entre frases, nunca no meio. Vício só sai com silêncio dos dois lados. Na tomada repetida fica a última limpa. Valem para o Editor, o plugin do Premiere e o plano do Claude.</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <Field label="Silêncio que corta (ms)"><input type="number" step={50} className="input" value={d.regras?.silencio_ms ?? 350} onChange={(e) => set(["regras", "silencio_ms"], +e.target.value)} /></Field>
-                    <Field label="Trilha (dB)"><input type="number" className="input" value={d.regras?.trilha_db ?? -18} onChange={(e) => set(["regras", "trilha_db"], +e.target.value)} /></Field>
+                    <Field label="Folga na fala (ms)"><input type="number" step={10} className="input" value={d.regras?.folga_ms ?? 100} onChange={(e) => set(["regras", "folga_ms"], +e.target.value)} /></Field>
+                    <Field label="Pausa natural que fica (ms)"><input type="number" step={50} className="input" value={d.regras?.batida_ms ?? 300} onChange={(e) => set(["regras", "batida_ms"], +e.target.value)} /></Field>
+                    <Field label="Plano médio (s)"><input type="number" step={0.1} className="input" value={d.regras?.plano_medio_s ?? 1.3} onChange={(e) => set(["regras", "plano_medio_s"], +e.target.value)} /></Field>
+                    <Field label="Primeiro corte até (s)"><input type="number" step={0.1} className="input" value={d.regras?.primeiro_corte_s ?? 0.8} onChange={(e) => set(["regras", "primeiro_corte_s"], +e.target.value)} /></Field>
+                    <Field label="Corte máx. (s)"><input type="number" className="input" value={d.regras?.corte_max_s ?? 4} onChange={(e) => set(["regras", "corte_max_s"], +e.target.value)} /></Field>
                   </div>
+                  <div className="mt-3">
+                    <Field label="Vícios de fala (separe por vírgula)"><input className="input" value={(d.regras?.vicios || []).join(", ")} onChange={(e) => set(["regras", "vicios"], e.target.value.split(",").map((x) => x.trim()).filter(Boolean))} /></Field>
+                  </div>
+                </Group>
+                <Group title="Som">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <Field label="Trilha (dB)"><input type="number" className="input" value={d.regras?.trilha_db ?? -18} onChange={(e) => set(["regras", "trilha_db"], +e.target.value)} /></Field>
+                    <Field label="Volume final (LUFS)"><input type="number" step={0.5} className="input" value={d.regras?.lufs ?? -14} onChange={(e) => set(["regras", "lufs"], +e.target.value)} /></Field>
+                    <Field label="Pico máx. (dBTP)"><input type="number" step={0.5} className="input" value={d.regras?.pico_dbtp ?? -1.5} onChange={(e) => set(["regras", "pico_dbtp"], +e.target.value)} /></Field>
+                    <Field label="Efeitos sonoros"><select className="input" value={d.regras?.sfx || "acao"} onChange={(e) => set(["regras", "sfx"], e.target.value)}><option value="acao">Só em ação visível</option><option value="nenhum">Nenhum</option></select></Field>
+                  </div>
+                </Group>
+                <Group title="Vocabulário da marca">
+                  <p className="text-xs text-fog mb-2">Nomes que a transcrição erra. Uma troca por linha, no formato errado = certo. O Editor corrige a legenda sozinho.</p>
+                  <textarea className="input min-h-[84px] font-mono text-xs" placeholder={"isis = ISYS\nvinsthub = VINCIT HUB"} value={d.vocabulario || ""} onChange={(e) => set(["vocabulario"], e.target.value)} />
                 </Group>
               </>)}
 

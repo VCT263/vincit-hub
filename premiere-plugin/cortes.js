@@ -69,9 +69,68 @@
     return out;
   }
 
+  /* ---------- tropeços: gaguejo, vício e tomada repetida (ideia do cut-mistakes do herk-edit-kit, MIT) ---------- */
+  const norm = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
+  const VICIOS = ["e", "ee", "eh", "ah", "ha", "ahn", "hum", "hmm", "uhm", "tipo", "ne"];
+
+  /** frases: blocos de fala separados por pausa de pelo menos `gap` segundos ou por ponto final */
+  function frases(ws, gap) {
+    const out = [];
+    let cur = [];
+    ws.forEach((w, i) => {
+      if (cur.length && (w.s - ws[i - 1].e >= gap)) { out.push(cur); cur = []; }
+      cur.push(w);
+      if (/[.!?]$/.test(w.t)) { out.push(cur); cur = []; }
+    });
+    if (cur.length) out.push(cur);
+    return out.map((f) => ({ s: f[0].s, e: f[f.length - 1].e, ws: f, set: new Set(f.map((w) => norm(w.t)).filter(Boolean)), txt: f.map((w) => w.t.trim()).join(" ") }));
+  }
+  const jaccard = (a, b) => { let n = 0; a.forEach((x) => { if (b.has(x)) n++; }); return n / Math.max(1, a.size + b.size - n); };
+  const curto = (t, n) => { const p = String(t).split(/\s+/); return p.slice(0, n).join(" ") + (p.length > n ? "…" : ""); };
+
+  /**
+   * Acha tropeços na fala. Tudo vira sugestão: a pessoa desmarca o que é ênfase de propósito ("nunca, nunca").
+   * vicios: lista do kit; silMin: silêncio mínimo dos dois lados para tirar um vício.
+   */
+  function acharTropecos(words, vicios, silMin) {
+    const ws = (words || []).filter((w) => w && w.texto && w.inicio != null)
+      .map((w) => ({ s: +w.inicio, e: w.fim != null ? +w.fim : +w.inicio + 0.3, t: String(w.texto) })).sort((a, b) => a.s - b.s);
+    const out = [];
+    const sil = silMin != null ? silMin : 0.15;
+    const vs = new Set((vicios && vicios.length ? vicios : VICIOS).map(norm));
+    // gaguejo: a mesma palavra duas vezes seguidas, colada
+    for (let i = 0; i + 1 < ws.length; i++) {
+      const a = norm(ws[i].t), b = norm(ws[i + 1].t);
+      if (a && a === b && a.length <= 12 && ws[i + 1].s - ws[i].e < 0.6) out.push({ inicio: r2(ws[i].s), fim: r2(ws[i + 1].s), motivo: `Gaguejo: "${ws[i].t.trim()} ${ws[i + 1].t.trim()}"`, tipo: "gaguejo" });
+    }
+    // vício: só com silêncio dos dois lados, para não cortar palavra no meio da frase
+    ws.forEach((w, i) => {
+      if (!vs.has(norm(w.t))) return;
+      const antes = i ? w.s - ws[i - 1].e : 1, depois = i + 1 < ws.length ? ws[i + 1].s - w.e : 1;
+      if (antes >= sil && depois >= sil) out.push({ inicio: r2(w.s), fim: r2(w.e), motivo: `Vício: "${w.t.trim()}"`, tipo: "vicio" });
+    });
+    // tomada repetida e falso começo: frase que volta a ser dita logo depois; fica a última
+    const fs = frases(ws, 0.45);
+    let ate = -1;
+    for (let i = 0; i < fs.length; i++) {
+      if (i <= ate) continue;
+      for (let j = i + 1; j <= Math.min(fs.length - 1, i + 3); j++) {
+        const a = fs[i], b = fs[j];
+        const sim = jaccard(a.set, b.set);
+        const falso = a.ws.length <= 4 && b.ws.length > a.ws.length && norm(a.ws[0].t) === norm(b.ws[0].t);
+        if ((a.ws.length >= 3 && sim >= 0.55) || falso) {
+          out.push({ inicio: r2(a.s), fim: r2(b.s), motivo: `${falso ? "Falso começo" : "Tomada repetida"}: "${curto(a.txt, 6)}"`, tipo: falso ? "falso" : "tomada" });
+          ate = j - 1;
+          break;
+        }
+      }
+    }
+    return out.sort((a, b) => a.inicio - b.inicio);
+  }
+
   const total = (cortes) => juntar(cortes).reduce((s, c) => s + (c.fim - c.inicio), 0);
 
-  const api = { acharPausas, juntar, trechosQueFicam, pedacos, total };
+  const api = { acharPausas, acharTropecos, juntar, trechosQueFicam, pedacos, total };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.CORTES = api;
 })(typeof window !== "undefined" ? window : this);

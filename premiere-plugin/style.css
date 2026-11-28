@@ -139,3 +139,5 @@ input:focus, textarea:focus { border-color: #6EEFB6; }
 .msg.ok { color: #6EEFB6; }
 .msg.err { color: #FF9B91; }
 .foot { display: flex; justify-content: space-between; align-items: center; padding: 4px 2px 8px; }
+
+.tropecos-row { margin-top: 10px; }

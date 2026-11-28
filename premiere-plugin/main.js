@@ -72,7 +72,7 @@
       const on = cuts.filter((c) => c.on);
       if (current && current.status === "plano_pronto" && current.plan) return { label: "Aplicar o plano no Premiere", run: apply };
       if (on.length) return { label: `Cortar numa sequência nova (${on.length})`, run: cutNow };
-      return { label: "Achar pausas", run: find };
+      return { label: "Achar pausas e tropeços", run: find };
     }
     return { label: "Atualizar o histórico", run: loadHistory };
   }
@@ -155,8 +155,9 @@
   /** a pausa mínima padrão vem do kit escolhido (regras.silencio_ms) */
   function kitPausa() {
     const k = kits.find((x) => x.id === kitId);
-    const ms = k && k.data && k.data.regras && +k.data.regras.silencio_ms;
-    if (ms) $("pausaMin").value = String(Math.round(ms) / 1000);
+    const rg = (k && k.data && k.data.regras) || {};
+    if (+rg.silencio_ms) $("pausaMin").value = String(Math.round(+rg.silencio_ms) / 1000);
+    if (rg.folga_ms != null && !isNaN(+rg.folga_ms)) $("folga").value = String(Math.round(+rg.folga_ms) / 1000);
   }
 
   /* ---------- cortes para aprovar ---------- */
@@ -371,8 +372,13 @@
       if (!words.length) throw new Error("A sequência não tem transcrição. Transcreva em Editar e espere o Premiere terminar.");
       const pausa = Math.max(0.1, parseFloat($("pausaMin").value) || 0.35);
       const folga = Math.max(0, parseFloat($("folga").value) || 0);
-      loadCuts(CORTES.acharPausas(words, tl.duration, pausa, folga));
-      say(cuts.length ? "Confira a lista: clique para tirar um corte." : "Nenhuma pausa desse tamanho.", cuts.length ? "" : "ok");
+      const k = kits.find((x) => x.id === kitId);
+      const vicios = k && k.data && k.data.regras && k.data.regras.vicios;
+      const pausas = CORTES.acharPausas(words, tl.duration, pausa, folga);
+      const tropecos = $("tropecos").classList.contains("on") ? CORTES.acharTropecos(words, vicios, 0.15) : [];
+      loadCuts(pausas.concat(tropecos));
+      const nT = tropecos.length;
+      say(cuts.length ? `${pausas.length} pausa(s) e ${nT} tropeço(s). Confira: ênfase de propósito ("nunca, nunca") também aparece, desmarque o que deve ficar.` : "Nenhuma pausa nem tropeço desse tamanho.", cuts.length ? "" : "ok");
     } catch (e) { say(e.message, "err"); }
     busy("btnMain", false);
   }
@@ -419,6 +425,7 @@
     busy("btnTranscribe", false);
   });
 
+  $("tropecos").addEventListener("click", () => $("tropecos").classList.toggle("on"));
   $("btnFind").addEventListener("click", () => { if (!isBusy("btnMain")) find(); });
   $("cutAll").addEventListener("click", () => { const any = cuts.some((c) => c.on); cuts.forEach((c) => { c.on = !any; }); renderCuts(); });
   $("btnPlanCuts").addEventListener("click", () => {

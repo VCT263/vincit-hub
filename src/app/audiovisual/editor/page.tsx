@@ -14,7 +14,7 @@ import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from
 import MotionStudio, { MotionThumb, fileToDataUrl, type MotionDoc } from "@/components/av/MotionStudio";
 import { aiFetch } from "@/lib/aiFetch";
 import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type Cena, type MotionSpec } from "@/lib/motion/engine";
-import { motionEnd, type MotionClip } from "@/lib/editor/model";
+import { aplicarVocabulario, motionEnd, type MotionClip } from "@/lib/editor/model";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -308,7 +308,7 @@ export default function Editor() {
     const { transcribe } = await import("@/lib/editor/transcribe");
     try {
       for (const [i, m] of pending.entries()) {
-        const words = await transcribe(m.file, (f, msgx) => setBusy({ f, msg: `${msgx} (${i + 1}/${pending.length})` }));
+        const words = aplicarVocabulario(await transcribe(m.file, (f, msgx) => setBusy({ f, msg: `${msgx} (${i + 1}/${pending.length})` })), kit.vocabulario);
         setMedia((all) => all.map((x) => (x.id === m.id ? { ...x, words } : x)));
       }
       setMsg("Legenda pronta. Confira o texto na aba Legenda.");
