@@ -5,6 +5,7 @@ import { brandPrompt } from "@/lib/brandPrompt";
 import { CENA_CAMPOS, CENA_LABEL, CENA_TIPOS, normalizeSpec } from "@/lib/motion/engine";
 import { normalizeBrief, promptRefinarMotion } from "@/lib/briefs";
 import { conferirHtml, extrairHtml, promptProduzirHtml } from "@/lib/motion/html";
+import { kitsComMarca } from "@/lib/kitMarca";
 
 export const maxDuration = 60;
 
@@ -40,7 +41,8 @@ async function handle(req: Request) {
     {
       const kitId = (row as any).kit_id;
       if (kitId) {
-        const { data: kit } = await sb.from("av_style_kits").select("name,data").eq("id", kitId).maybeSingle();
+        const { data: kit0 } = await sb.from("av_style_kits").select("id,name,data").eq("id", kitId).maybeSingle();
+        const kit = kit0 ? (await kitsComMarca(sb, [kit0]))[0] : null;
         if (kit?.data) ctx += `\nKit de estilo "${kit.name || ""}": cores ${JSON.stringify(kit.data.cores || {})}, fontes ${JSON.stringify(kit.data.fontes || {})}.\n`;
       }
     }

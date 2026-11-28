@@ -9,6 +9,7 @@ import { porMes } from "@/lib/igHistorico";
 import { NOVIDADES, VERSAO_IA, novidadesDesde } from "@/lib/novidades";
 import { briefingProgress } from "@/lib/briefing";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
+import { kitsComMarca } from "./kitMarca";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -408,7 +409,7 @@ export const TOOLS: Tool[] = [
         const [{ data: ci }, { data: shots }, { data: kit }] = await Promise.all([
           s.content_id ? ctx.sb.from("content_ideas").select("title, hook, body, format").eq("id", s.content_id).maybeSingle() : Promise.resolve({ data: null }),
           s.content_id ? ctx.sb.from("av_shots").select("position, description, framing, audio").eq("content_id", s.content_id).order("position") : Promise.resolve({ data: [] }),
-          s.kit_id ? ctx.sb.from("av_style_kits").select("name, data").eq("id", s.kit_id).maybeSingle() : Promise.resolve({ data: null }),
+          s.kit_id ? ctx.sb.from("av_style_kits").select("id, name, data").eq("id", s.kit_id).maybeSingle().then(async (r: any) => ({ data: r.data ? (await kitsComMarca(ctx.sb, [r.data]))[0] : null })) : Promise.resolve({ data: null }),
         ]);
         out.push({
           id: s.id, status: s.status, projeto: s.project_name, sequencia: s.sequence_name, fps: s.fps, duracao_s: s.duration_sec,

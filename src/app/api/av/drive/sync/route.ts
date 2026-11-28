@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { googleToken } from "@/lib/google";
 import { FOLDER, driveRow, inferKind, listChildren, noScope } from "@/lib/drive";
+import { clientePelaPasta } from "@/lib/driveEscrita";
 
 export const maxDuration = 60;
 const MAX_FOLDERS = 300, MAX_FILES = 8000;
@@ -39,7 +40,9 @@ export async function POST() {
   const { data: existing } = await s.from("av_media").select("drive_id");
   const have = new Set((existing || []).map((x: any) => x.drive_id));
   const now = new Date().toISOString();
-  const fresh = files.filter((x) => !have.has(x.f.id)).map(({ f, folder }) => ({ owner_id: user.id, ...driveRow(f, folder), kind: inferKind(f.name, f.mimeType || "", folder, Number(f.size || 0)), updated_at: now }));
+  // arquivo novo numa pasta de perfil já entra ligado ao cliente do perfil (Perfis & marca mostra a mídia dele)
+  const { data: contas } = await s.from("ig_accounts").select("name,username,client_id").not("client_id", "is", null);
+  const fresh = files.filter((x) => !have.has(x.f.id)).map(({ f, folder }) => ({ owner_id: user.id, ...driveRow(f, folder), kind: inferKind(f.name, f.mimeType || "", folder, Number(f.size || 0)), client_id: clientePelaPasta(folder, (contas as any) || []), updated_at: now }));
   const old = files.filter((x) => have.has(x.f.id)).map(({ f, folder }) => ({ owner_id: user.id, ...driveRow(f, folder), updated_at: now }));
   for (let i = 0; i < fresh.length; i += 500) {
     const { error } = await s.from("av_media").insert(fresh.slice(i, i + 500));

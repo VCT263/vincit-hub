@@ -91,6 +91,7 @@ export default function MidiaPage() {
     (async () => {
       const qs = new URLSearchParams(window.location.search);
       if (qs.get("google_erro")) setMsg({ t: qs.get("google_erro")! });
+      if (qs.get("cliente")) setClient(qs.get("cliente")!); // vindo de Perfis & marca
       if (qs.get("google") || qs.get("google_erro")) window.history.replaceState(null, "", window.location.pathname);
       const s: St = await fetch("/api/av/drive/status").then((x) => x.json()).catch(() => ({ configured: false, google: false, drive: false }));
       setSt(s);

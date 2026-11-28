@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { kitsComMarca } from "@/lib/kitMarca";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { FONTS } from "@/lib/editor/model";
@@ -62,7 +63,7 @@ export default function MotionStudio({ initial, onSaved, onUse, useLabel = "Usar
 
   useEffect(() => {
     const s = createClient();
-    s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
+    s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(async ({ data }) => setKits((await kitsComMarca(s, (data as any) || [])) as any));
     s.from("design_projects").select("id,title,data").eq("kind", "marca").is("archived_at", null).order("updated_at", { ascending: false }).then(({ data }) => setBrands(((data as any) || []).map((b: any) => ({ id: b.id, name: b.data?.brief?.nome || b.title, data: b }))));
   }, []);
   useEffect(() => { loadFonts([spec.fontes.titulo, spec.fontes.texto, "Instrument Serif"].map((f) => f.replace(/\s+(Black|ExtraBold|Bold|SemiBold|Medium|Regular|Italic)$/i, ""))).then(() => draw(tRef.current)); }, [spec.fontes.titulo, spec.fontes.texto]); // eslint-disable-line react-hooks/exhaustive-deps
