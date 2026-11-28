@@ -2,7 +2,7 @@
 import { briefEmTexto, normalizeBrief } from "@/lib/briefs";
 import { salvarNoDrive } from "@/lib/drive";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CAMERAS as LUT_CAMERAS, ESTILOS as LUT_ESTILOS } from "@/lib/luts/catalog";
+import { LOGS as LUT_LOGS, TODAS as LUT_TODAS } from "@/lib/luts/catalog";
 import Ajuda from "@/components/ajuda/Ajuda";
 import Link from "next/link";
 import { I } from "@/components/icons";
@@ -886,13 +886,13 @@ export default function Editor() {
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <label className="text-[11px] text-fog">Gravado em log
-                <select value={p.logCamera || ""} onChange={(e) => update((pp) => ({ ...pp, logCamera: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Não (vídeo normal)</option>{LUT_CAMERAS.filter((c) => c.id).map((c) => <option key={c.id} value={c.id}>{c.marca} · {c.perfil.split(" · ")[0]}</option>)}</select>
+                <select value={p.logCamera || ""} onChange={(e) => update((pp) => ({ ...pp, logCamera: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Não (vídeo normal)</option>{LUT_LOGS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}</select>
               </label>
               <label className="text-[11px] text-fog">LUT da biblioteca
-                <select value={p.lut || ""} onChange={(e) => update((pp) => ({ ...pp, lut: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Nenhuma</option>{LUT_ESTILOS.filter((x) => x.grupo === "VINCIT").map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}</select>
+                <select value={p.lut || ""} onChange={(e) => update((pp) => ({ ...pp, lut: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Nenhuma</option>{LUT_TODAS.filter((x) => x.look).map((x) => <option key={x.id} value={x.look}>{x.marca} · {x.nome}</option>)}</select>
               </label>
             </div>
-            <a href="/audiovisual/luts" className="text-[11px] text-fog underline mt-1 inline-block">Ver as LUTs com prévia e baixar para o Premiere</a>
+            <a href="/audiovisual/luts" className="text-[11px] text-fog underline mt-1 inline-block">Ver as LUTs com prévia e onde baixar</a>
             <label className="flex items-center gap-1.5 text-xs mt-1.5"><input type="checkbox" checked={!!p.grao} onChange={(e) => update((pp) => ({ ...pp, grao: e.target.checked }))} />Grão de filme</label>
             {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
           </div>

@@ -1,7 +1,7 @@
 /* Motor das LUTs do Audiovisual.
  * Tudo é calculado aqui, no navegador: a conversão de cada log (curvas e gamuts publicados pelos fabricantes),
- * os estilos criativos da VINCIT e os looks do Editor. O mesmo cálculo gera a prévia, o arquivo .cube que vai
- * para o Premiere e a cor aplicada no Editor do HUB. Por isso não há arquivo de LUT guardado no repositório. */
+ * os estilos e as aproximações das LUTs de cada marca. O mesmo cálculo gera a prévia da Biblioteca de LUTs e a cor
+ * aplicada no Editor do HUB. O HUB não hospeda nem gera arquivo .cube: a LUT original é baixada no site de quem fez. */
 
 export type RGB = [number, number, number];
 type M3 = number[]; // 3x3, linha a linha
@@ -270,6 +270,42 @@ export const LOOK_FNS: Record<string, LookFn> = {
     c = hueShift(c, 30, 35, 6, 0.8);
     return sat(contrast(c, 0.3), 0.75);
   },
+  // aproximações das LUTs de marca (prévia; o arquivo original é baixado no site de cada uma)
+  "bmd-extended": (c) => levels(contrast(c, -0.14, 0.45), 0.02, 0.97),
+  "canon-709": (c) => { c = hueShift(c, 15, 30, -4, 1.06); return sat(contrast(c, 0.12), 1.08); },
+  "sony-s709": (c) => { c = gain(c, 1.015, 1, 0.985); return levels(sat(contrast(c, -0.04), 0.96), 0.015, 0.985); },
+  "sony-709-800": (c) => sat(contrast(c, 0.22), 1.1),
+  "sony-warm": (c) => { c = gain(c, 1.05, 1.0, 0.9); c = split(c, [0.52, 0.48, 0.45], 0.2, [0.62, 0.55, 0.42], 0.25); return sat(contrast(c, 0.08), 1.02); },
+  "sony-cool": (c) => { c = gain(c, 0.94, 0.99, 1.06); c = split(c, [0.44, 0.5, 0.58], 0.3, [0.5, 0.52, 0.55], 0.15); return sat(contrast(c, 0.1), 0.95); },
+  "sony-vintage": (c) => { c = split(c, [0.5, 0.52, 0.42], 0.35, [0.62, 0.56, 0.44], 0.3); return levels(sat(contrast(c, 0.05), 0.8), 0.06, 0.95); },
+  "sony-teal": (c) => { c = hueShift(c, 30, 40, -3, 1.08); c = split(c, [0.38, 0.55, 0.6], 0.45, [0.64, 0.53, 0.42], 0.28); return contrast(c, 0.18); },
+  "kodak-2383": (c) => {
+    c = hueShift(c, 120, 60, 18, 0.85);
+    c = split(c, [0.4, 0.53, 0.55], 0.45, [0.62, 0.54, 0.44], 0.3);
+    return levels(sat(contrast(c, 0.38, 0.42), 0.92), 0.01, 0.96);
+  },
+  "kodak-portra": (c) => {
+    c = hueShift(c, 25, 35, -3, 1.05);
+    c = hueShift(c, 110, 60, -10, 0.75);
+    c = gain(c, 1.03, 1.0, 0.95);
+    return levels(sat(contrast(c, -0.06), 0.9), 0.04, 0.98);
+  },
+  "kodak-ektar": (c) => { c = hueShift(c, 0, 30, 0, 1.25); c = hueShift(c, 220, 50, -6, 1.15); return sat(contrast(c, 0.25), 1.18); },
+  "kodak-gold": (c) => { c = gain(c, 1.05, 1.02, 0.86); c = split(c, [0.5, 0.48, 0.42], 0.2, [0.64, 0.57, 0.4], 0.3); return levels(sat(contrast(c, 0.1), 1.04), 0.04, 0.97); },
+  "kodak-vision3": (c) => { c = gain(c, 1.02, 1, 0.97); return levels(sat(contrast(c, -0.1), 0.92), 0.05, 0.96); },
+  "fuji-eterna": (c) => {
+    c = hueShift(c, 110, 60, 12, 0.85);
+    c = split(c, [0.42, 0.52, 0.56], 0.35, [0.53, 0.51, 0.49], 0.1);
+    return levels(sat(contrast(c, -0.08), 0.78), 0.03, 0.97);
+  },
+  "fuji-3513": (c) => { c = hueShift(c, 110, 60, 14, 0.9); c = split(c, [0.42, 0.54, 0.52], 0.35, [0.56, 0.53, 0.48], 0.15); return sat(contrast(c, 0.32, 0.42), 0.95); },
+  "fuji-velvia": (c) => { c = hueShift(c, 110, 60, 6, 1.25); c = hueShift(c, 220, 50, 0, 1.2); return sat(contrast(c, 0.3), 1.3); },
+  "fuji-chrome": (c) => {
+    c = hueShift(c, 0, 35, 6, 0.75);
+    c = hueShift(c, 210, 50, -8, 0.85);
+    c = split(c, [0.44, 0.5, 0.52], 0.25, [0.53, 0.51, 0.48], 0.1);
+    return sat(contrast(c, 0.3, 0.42), 0.72);
+  },
 };
 
 /* ---------- montar a LUT ---------- */
@@ -295,13 +331,6 @@ export function buildLut(s: LutSpec, n = 33): Float32Array {
   }
   lutCache.set(key, t);
   return t;
-}
-/** arquivo .cube (Adobe/Resolve), 33 pontos */
-export function toCube(s: LutSpec, title: string, n = 33): string {
-  const t = buildLut(s, n);
-  const lines = [`TITLE "${title.replace(/"/g, "")}"`, "# VINCIT HUB · Biblioteca de LUTs", `LUT_3D_SIZE ${n}`, "DOMAIN_MIN 0.0 0.0 0.0", "DOMAIN_MAX 1.0 1.0 1.0"];
-  for (let i = 0; i < t.length; i += 3) lines.push(`${t[i].toFixed(6)} ${t[i + 1].toFixed(6)} ${t[i + 2].toFixed(6)}`);
-  return lines.join("\n") + "\n";
 }
 /** lê um .cube 3D qualquer (para testar uma LUT baixada de fora na prévia) */
 export function parseCube(text: string): { n: number; data: Float32Array } | null {
