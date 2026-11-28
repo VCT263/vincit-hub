@@ -141,7 +141,7 @@ export function briefEmTexto(b: Brief) {
 export const CAMPOS_EDICAO: Record<string, string> = {
   gancho: "o que a pessoa diz e vê no primeiro 1,5 s; primeiro corte entre 0,6 e 1 s",
   ritmo: "duração média dos planos (kit: plano_medio_s), algo novo na tela a cada 1 a 2 s, nada parado mais de 3 s; onde acelera ou respira",
-  planos: "o plano de cada cena, por nome: 'rosto inteiro' (gancho, opinião, chamada), 'tela dividida' (objeto em cima, rosto embaixo, quando a frase aponta para algo) ou 'motion em tela cheia' (o objeto importa mais que o rosto); troca sempre em corte seco",
+  planos: "o plano de cada cena, por nome: 'rosto inteiro' (gancho, opinião, chamada), 'tela dividida' (objeto em cima, rosto embaixo, quando a frase aponta para algo; no Motion é o estilo \"Tela dividida\") ou 'motion em tela cheia' (o objeto importa mais que o rosto); troca sempre em corte seco",
   cortes: "silêncio a tirar (silencio_ms), respiro (folga_ms), pausas naturais mantidas (batida_ms), vícios a tirar só com silêncio dos dois lados, tomada repetida: fica a última",
   legenda: "estilo do kit, palavras por tela, palavra em destaque; nunca cobrir a boca; zona segura",
   broll: "onde entra B-roll ou cartão e por quê; a pessoa não fica fora da tela mais que max_sem_rosto_s",
