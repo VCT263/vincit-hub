@@ -125,10 +125,10 @@ tl.to('#m',{y:-30,opacity:0,duration:.2,ease:'power3.in'},D-.22);`,
 const seta = doc({
   titulo: "Seta com nota", dur: 2.8,
   variaveis: [{ id: "texto", type: "string", label: "Nota", default: "olha isso" }, POS, { id: "lado", type: "select", label: "A seta aponta para", default: "esquerda", options: ["esquerda", "direita"] }, { id: "tinta", type: "color", label: "Cor", default: "#FFFFFF" }],
-  css: `#s{position:relative;width:760px;height:360px}#s svg{position:absolute;left:180px;top:40px;width:420px;height:300px;overflow:visible}
-#n{position:absolute;left:610px;top:-20px;font-family:Caveat,cursive;font-weight:700;font-size:92px;white-space:nowrap}`,
+  css: `#s{position:relative;width:1080px;height:360px}#s svg{position:absolute;left:250px;top:40px;width:420px;height:300px;overflow:visible}
+#n{position:absolute;right:70px;bottom:300px;max-width:560px;text-align:right;font-family:Caveat,cursive;font-weight:700;font-size:92px;line-height:.95}`,
   corpo: `<div id="pos"><div id="s"><svg viewBox="0 0 420 300"><path id="p" d="M400,30 C300,20 180,60 120,170 C100,205 90,235 70,270" fill="none" stroke="var(--tinta)" stroke-width="9" stroke-linecap="round"/><path id="h" d="M40,225 L70,272 L118,248" fill="none" stroke="var(--tinta)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg><div id="n" class="sh"></div></div></div>`,
-  script: `txt('#n','texto','olha isso');if(v('lado','esquerda')==='direita'){document.querySelector('#s svg').style.transform='scaleX(-1)';var n=document.getElementById('n');n.style.left='auto';n.style.right='610px'}
+  script: `txt('#n','texto','olha isso');var n=document.getElementById('n');if(String(n.textContent).length>16)n.style.fontSize='76px';if(v('lado','esquerda')==='direita'){var sv=document.querySelector('#s svg');sv.style.transform='scaleX(-1)';sv.style.left='410px';n.style.right='auto';n.style.left='70px';n.style.textAlign='left'}
 var p=document.getElementById('p'),h=document.getElementById('h');[p,h].forEach(function(e){var l=e.getTotalLength();e.style.strokeDasharray=l;e.style.strokeDashoffset=l});
 tl.fromTo('#n',{y:30,opacity:0,rotation:-6},{y:0,opacity:1,rotation:-3,duration:.35,ease:'back.out(2.2)'},0);
 tl.to(p,{strokeDashoffset:0,duration:.5,ease:'power2.inOut'},.2);
