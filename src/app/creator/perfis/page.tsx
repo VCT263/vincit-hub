@@ -35,7 +35,7 @@ export default function Perfis() {
 
   return (
     <>
-      <PageHead kicker="CREATOR · BASE" title="Perfis & briefing" desc="A base de tudo: conecte os perfis e preencha o briefing de cada um para a IA analisar, criar e planejar com intenção.">
+      <PageHead kicker="CREATOR · BASE" title="Perfis e marcas" desc="A base de tudo: conecte os perfis e preencha o briefing de cada um para a IA analisar, criar e planejar com intenção.">
         {tab === "perfis" && <><button className="btn btn-ghost" onClick={() => setShow(!show)}><I.plus className="w-4 h-4" />Manual</button>
         <a href="/api/meta/connect" className="btn btn-mint"><I.camera className="w-4 h-4" />Conectar via Meta</a></>}
       </PageHead>
