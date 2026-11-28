@@ -37,6 +37,18 @@ async function handle(req: Request) {
       }
     }
 
+    /* aprovadas e descartadas no Motion (28/11): o que a pessoa já disse que gosta ou não gosta */
+    {
+      let q = sb.from("av_motions").select("titulo,spec").neq("id", motion_id).not("spec->>avaliacao", "is", null).order("updated_at", { ascending: false }).limit(12);
+      if (account_id) q = q.eq("account_id", account_id);
+      const { data: av } = await q;
+      const linha = (m: any) => `- ${m.titulo}: ${String(m.spec?.brief?.ideia || "").slice(0, 160)}${m.spec?.brief?.cenas?.length ? ` (cenas: ${m.spec.brief.cenas.map((c: any) => c.estilo || c.tipo || "").filter(Boolean).slice(0, 4).join(", ")})` : ""}`;
+      const ap = (av || []).filter((m: any) => m.spec?.avaliacao === "aprovado").slice(0, 6);
+      const de = (av || []).filter((m: any) => m.spec?.avaliacao === "descartado").slice(0, 6);
+      if (ap.length) ctx += `\nPeças que a pessoa APROVOU (siga a linha delas):\n${ap.map(linha).join("\n")}\n`;
+      if (de.length) ctx += `\nPeças que a pessoa DESCARTOU (evite o que elas tinham):\n${de.map(linha).join("\n")}\n`;
+    }
+
     if (etapa === "brief") {
       const text = await callClaude({ maxTokens: 5000, prompt: promptRefinarMotion({ pedido: String(pedido), formato, contexto: ctx, ajuste, briefAnterior: row.spec?.brief }) });
       const brief = normalizeBrief(extractJson(text), "motion");

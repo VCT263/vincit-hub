@@ -13,6 +13,7 @@ import { useAccounts } from "@/lib/useAccounts";
 import { I } from "@/components/icons";
 import { kitParaEstilo, mesclarKit, normalizeEdicao, type Edicao } from "@/lib/referenciaEdicao";
 import { apagarComLixeira } from "@/lib/lixeira";
+import { salvarNoDrive } from "@/lib/drive";
 
 const URL_API = "/api/creator/referencia-edicao";
 
@@ -138,6 +139,12 @@ function limparLinks(txt: string) {
 }
 const novoTitulo = (u: string) => { const m = u.match(/\/(?:reel|reels|p|video)\/([\w-]+)/); return `Edição · ${m ? m[1].slice(0, 11) : new Date().toLocaleDateString("pt-BR")}`; };
 
+/** a folha em texto, para ficar no Drive (Técnico/Referências/<estilo>) e o Claude achar sem perguntar de novo */
+function folhaEmTexto(nome: string, f: Edicao, refs: any[]) {
+  const l = (t: string, xs?: string[]) => (xs?.length ? `\n## ${t}\n${xs.map((x) => `- ${x}`).join("\n")}\n` : "");
+  return `# Estilo de referência: ${nome}\n\n${f.resumo}\n\nAtualizado em ${new Date().toLocaleString("pt-BR")} com ${refs.length} vídeo(s).\n${l("Vídeos", refs.map((r) => `${r.handle || r.title}: ${r.url}`))}${f.legenda ? `\n## Legenda\n${f.legenda}\n` : ""}${l("Letterings", f.letterings)}${l("Motion", f.motion)}${l("Vale trazer", f.copiar)}${l("Não copiar", f.nao_copiar)}${l("Planos-modelo", f.planos.map((p) => `${p.tipo}: ${p.o_que}${p.camera ? ` (câmera: ${p.camera})` : ""}`))}\n## Kit (JSON)\n\n\`\`\`json\n${JSON.stringify(kitParaEstilo(f.kit), null, 2)}\n\`\`\`\n`;
+}
+
 /** pede a folha do estilo e guarda o id do pedido no estilo, para retomar depois */
 async function pedirFolha(estiloId: string, reqId?: string) {
   const s = createClient();
@@ -154,7 +161,7 @@ export function RefEdicaoArea({ refs, onChange, onOpen }: { refs: any[]; onChang
   const { accounts } = useAccounts();
   const [estilos, setEstilos] = useState<any[]>([]);
   const [txt, setTxt] = useState("");
-  const [destino, setDestino] = useState("novo");
+  const [destino, setDestino] = useState("sem");
   const [nome, setNome] = useState("");
   const [conta, setConta] = useState("");
   const [desc, setDesc] = useState("");
@@ -162,8 +169,9 @@ export function RefEdicaoArea({ refs, onChange, onOpen }: { refs: any[]; onChang
   const [busy, setBusy] = useState(false);
   const [aberto, setAberto] = useState<string | null>(null);
 
-  const loadEstilos = async () => { const { data } = await createClient().from("ref_estilos").select("*").order("updated_at", { ascending: false }); setEstilos(data || []); return data || []; };
-  useEffect(() => { loadEstilos().then((l) => { if (l.length) { setDestino(l[0].id); setAberto(l[0].id); } }); }, []);
+  const [semTabela, setSemTabela] = useState(false);
+  const loadEstilos = async () => { const { data, error } = await createClient().from("ref_estilos").select("*").order("updated_at", { ascending: false }); setSemTabela(!!error); setEstilos(data || []); return data || []; };
+  useEffect(() => { loadEstilos().then((l) => { if (l.length) { setDestino(l[0].id); setAberto(l[0].id); } }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const recarregar = () => { loadEstilos(); onChange(); };
 
   async function enviar(ev: React.FormEvent) {
@@ -174,6 +182,7 @@ export function RefEdicaoArea({ refs, onChange, onOpen }: { refs: any[]; onChang
     setBusy(true); setMsg(null);
     let estiloId: string | null = destino && destino !== "sem" && destino !== "novo" ? destino : null;
     if (destino === "novo") {
+      if (semTabela) { setBusy(false); setMsg("Os Estilos de referência entram assim que o banco for atualizado. Por enquanto, escolha \"Sem estilo\"."); return; }
       if (!nome.trim()) { setBusy(false); setMsg("Dê um nome ao estilo (ex.: Reels de produto com motion)."); return; }
       const { data, error } = await s.from("ref_estilos").insert({ name: nome.trim().slice(0, 120), account_id: conta || null, descricao: desc.trim() || null }).select("id").single();
       if (error) { setBusy(false); setMsg(error.message); return; }
@@ -181,7 +190,7 @@ export function RefEdicaoArea({ refs, onChange, onOpen }: { refs: any[]; onChang
     }
     const ja = new Set(refs.filter((r) => r.estilo_id === estiloId).map((r) => r.url));
     const novos = links.filter((u) => !ja.has(u));
-    const { data: linhas, error } = await s.from("references_lib").insert(novos.map((u) => ({ title: novoTitulo(u), url: u, format: "Reels", tags: ["edição"], estilo_id: estiloId }))).select("id");
+    const { data: linhas, error } = await s.from("references_lib").insert(novos.map((u) => ({ title: novoTitulo(u), url: u, format: "Reels", tags: ["edição"], ...(estiloId ? { estilo_id: estiloId } : {}) }))).select("id");
     if (error) { setBusy(false); setMsg(error.message); return; }
     setTxt(""); recarregar();
     if (!estiloId && linhas?.[0]) onOpen(linhas[0].id);
@@ -267,13 +276,21 @@ function EstiloCard({ est, refs, soltas, aberto, onToggle, onChange, contas }: {
       const { data: atual } = await s.from("av_style_kits").select("data").eq("id", est.kit_id).maybeSingle();
       if (atual) {
         const { error } = await s.from("av_style_kits").update({ data: { ...mesclarKit(atual.data, novo), origem: novo.origem }, updated_at: new Date().toISOString() }).eq("id", est.kit_id);
-        setMsg(error ? error.message : `Kit "${est.name}" atualizado com a folha nova. O que você ajustou à mão no Kit foi mantido.`); return;
+        setMsg(error ? error.message : `Kit "${est.name}" atualizado com a folha nova. O que você ajustou à mão no Kit foi mantido.`); if (!error) noDrive(); return;
       }
     }
     const { data, error } = await s.from("av_style_kits").insert({ name: est.name, account_id: est.account_id || null, data: novo }).select("id").single();
     if (error) { setMsg(error.message); return; }
     await s.from("ref_estilos").update({ kit_id: data.id }).eq("id", est.id);
     setMsg(`Kit "${est.name}" criado. Ele aparece no Editor, no Motion e no Premiere.`); onChange();
+    noDrive();
+  }
+  /** guarda a folha no Banco de mídia (Drive), em Técnico/Referências/<estilo> */
+  async function noDrive() {
+    if (!folha) return;
+    const blob = new Blob([folhaEmTexto(est.name, folha, refs.filter((r) => usadas.includes(r.id)))], { type: "text/markdown" });
+    const r = await salvarNoDrive({ kind: "referencia", sub: est.name, nome: "folha-do-estilo.md", blob, accountId: est.account_id });
+    setMsg((m) => `${m || ""} ${r.ok ? `A folha também ficou no Drive, em ${r.caminho || "Técnico/Referências"}.` : r.needsScope ? "Para guardar a folha no Drive, libere a organização do Drive em Audiovisual › Banco de mídia." : `Não guardou no Drive: ${r.error}`}`.trim());
   }
   async function tirar(id: string) { await createClient().from("references_lib").update({ estilo_id: null }).eq("id", id); onChange(); }
   async function incluir(id: string) {
