@@ -83,6 +83,13 @@ function Motion() {
       if (r && r.status === "pronto") abrir(r);
     });
     createClient().from("ig_accounts").select("id,username").order("username").then(({ data }) => setAccounts((data as any) || []));
+    // veio do card do Quadro (?c=): o pedido do Motion escrito no card já entra no campo
+    const c = q.get("c");
+    if (c) createClient().from("content_ideas").select("title,motion_brief,account_id").eq("id", c).maybeSingle().then(({ data }) => {
+      if (!data) return;
+      if (data.motion_brief) setPedido((p) => p || `${data.motion_brief}\n\n(Card do Quadro: ${data.title})`);
+      if (data.account_id) setConta((x) => x || data.account_id);
+    });
   }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // pedidos que ficaram esperando (a pessoa fechou a página): volta a perguntar à fila

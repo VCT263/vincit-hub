@@ -19,7 +19,14 @@ const WD = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const pad = (n: number) => String(n).padStart(2, "0");
 const localDate = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600e3).toISOString();
 const isVideo = (u: string) => /\.(mp4|mov|m4v)(\?|$)/i.test(u);
-const captionOf = (i: any) => i?.caption || (i?.body || "").match(/## Legenda[^\n]*\n([\s\S]*?)(\n## |$)/)?.[1]?.trim() || i?.title || "";
+const captionBase = (i: any) => i?.caption || (i?.body || "").match(/## Legenda[^\n]*\n([\s\S]*?)(\n## |$)/)?.[1]?.trim() || i?.title || "";
+/** legenda do card com as hashtags do campo próprio no fim (sem repetir as que já estão na legenda) */
+const captionOf = (i: any) => {
+  const base = captionBase(i);
+  const tem = new Set((base.match(/#[\p{L}\d_]+/gu) || []).map((t: string) => t.toLowerCase()));
+  const extra = ((i?.hashtags || "").match(/#[\p{L}\d_]+/gu) || []).filter((t: string) => !tem.has(t.toLowerCase()));
+  return extra.length ? `${base}\n\n${extra.join(" ")}` : base;
+};
 const kindOf = (format?: string) => /reel|v[ií]deo/i.test(format || "") ? "reels" : /carross/i.test(format || "") ? "carousel" : /stor/i.test(format || "") ? "story" : "image";
 /** hora com mais seguidores online no dia da semana da data (grade em horário de Brasília) */
 const peakHour = (grid: number[][] | null | undefined, date: string) => {
@@ -45,7 +52,7 @@ export default function PostScheduler() {
     const s = createClient();
     const [{ data: p }, { data: i }] = await Promise.all([
       s.from("scheduled_posts").select("*, ig_accounts(username)").order("scheduled_at", { ascending: true, nullsFirst: true }),
-      s.from("content_ideas").select("id,title,body,caption,format,status,planned_for,account_id").neq("status", "publicado").is("archived_at", null).order("created_at", { ascending: false }).limit(40),
+      s.from("content_ideas").select("id,title,body,caption,format,status,planned_for,account_id,publish_time,hashtags,is_ad").neq("status", "publicado").is("archived_at", null).order("created_at", { ascending: false }).limit(40),
     ]);
     setPosts(p || []); setIdeas(i || []);
   }, []);
@@ -71,7 +78,7 @@ export default function PostScheduler() {
     const acc = (doCard && !doCard.connected && accounts.find((a) => a.connected && a.username === doCard.username)) || doCard || accounts.find((a) => a.connected) || accounts[0];
     const d = date || (idea?.planned_for && idea.planned_for.slice(0, 10) >= today ? idea.planned_for.slice(0, 10) : today);
     const peak = peakHour(grids[acc?.id || ""], d);
-    setF({ account_id: acc?.id || "", kind: idea ? kindOf(idea.format) : "image", media_urls: [], caption: idea ? captionOf(idea) : "", idea_id: idea?.id || "", date: d, time: peak != null ? `${pad(peak)}:00` : "18:00", cover_url: "" });
+    setF({ account_id: acc?.id || "", kind: idea ? kindOf(idea.format) : "image", media_urls: [], caption: idea ? captionOf(idea) : "", idea_id: idea?.id || "", date: d, time: idea?.publish_time ? String(idea.publish_time).slice(0, 5) : peak != null ? `${pad(peak)}:00` : "18:00", cover_url: "" });
   }
   // veio do card do Quadro (?c=): abre a publicação já com o conteúdo, uma vez
   useEffect(() => {
