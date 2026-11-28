@@ -76,7 +76,7 @@ export const AI_LABELS: Record<string, string> = {
   motion: "Motion sob demanda (Audiovisual)", cenas_roteiro: "Cenas do roteiro (Editor)",
   entrevista_turno: "Entrevista de marca (próxima pergunta)", entrevista_briefing: "Entrevista de marca (briefing)",
   motion_brief: "Refinar pedido de motion (brief)", motion_html: "Produzir motion (HyperFrames)",
-  foto_estilo: "Ajustar foto (editor de fotos)",
+  foto_estilo: "Ajustar foto (editor de fotos)", drive_organizar: "Organizar a Entrada do Drive",
 };
 
 async function viaClaudeQueue(opts: { prompt: string; webSearch?: boolean; maxTokens?: number }) {

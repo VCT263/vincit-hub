@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { googleConfigured, googleToken } from "@/lib/google";
 import { gdrive, noScope } from "@/lib/drive";
+import { podeEscrever } from "@/lib/driveEscrita";
 
 /** situação da conexão com o Drive e da pasta escolhida */
 export async function GET() {
@@ -11,5 +12,5 @@ export async function GET() {
   const auth = await googleToken(s);
   if (!auth) return NextResponse.json({ configured: true, google: false, drive: false, cfg });
   const r = await gdrive(auth.token, "/about", { fields: "user(emailAddress)" });
-  return NextResponse.json({ configured: true, google: true, drive: r.ok, needsScope: noScope(r), email: r.data?.user?.emailAddress || auth.cfg.email, cfg });
+  return NextResponse.json({ configured: true, google: true, drive: r.ok, escrita: r.ok ? await podeEscrever(auth.token) : false, needsScope: noScope(r), email: r.data?.user?.emailAddress || auth.cfg.email, cfg });
 }

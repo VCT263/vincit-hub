@@ -5,6 +5,7 @@ import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { aiFetch } from "@/lib/aiFetch";
 import { apagarComLixeira } from "@/lib/lixeira";
+import { salvarNoDrive } from "@/lib/drive";
 import {
   CONTROLES, ESTILOS, ZERO, analisar, aplicar, autoCorrecao, combinar, estiloDaReferencia, gerarCube, lerImagem,
   type Ajustes, type Analise, type Estilo,
@@ -62,6 +63,7 @@ function Fotos() {
   const [pedido, setPedido] = useState("");
   const [nomeEstilo, setNomeEstilo] = useState("");
   const [refEstilo, setRefEstilo] = useState<Estilo | null>(null);
+  const [drive, setDrive] = useState<{ escrita: boolean; pasta?: string } | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const inputFotos = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +79,7 @@ function Fotos() {
   useEffect(() => {
     load().then((l) => { const id = q.get("id"); const r = id && l.find((x) => x.id === id); if (r) abrirSalva(r); });
     createClient().from("ig_accounts").select("id,username").order("username").then(({ data }) => setAccounts((data as any) || []));
+    fetch("/api/av/drive/status").then((x) => x.json()).then((st) => setDrive({ escrita: !!(st.drive && st.escrita), pasta: st.cfg?.drive_folder_name })).catch(() => setDrive({ escrita: false }));
   }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const salvos: Estilo[] = useMemo(() => (linhas || []).filter((l) => l.tipo === "estilo").map((l) => ({ id: l.id, nome: l.titulo, desc: "Estilo salvo", ajustes: l.spec?.ajustes || {}, mexeCor: !l.spec?.manterCor })), [linhas]);
@@ -168,14 +171,22 @@ function Fotos() {
   }
   async function salvar(fs: Foto[]) {
     setOcupado(fs.length > 1 ? `Salvando ${fs.length} fotos…` : "Salvando…");
+    let avisoDrive = "", erroDrive = "";
     try {
       for (const f0 of fs) {
         const f = await garantirSalva(f0);
-        const url = await subir(await renderSaida(f), "editada");
-        await createClient().from("av_fotos").update({ resultado_url: url, spec: { estado: f.estado, sugestao: f.sugestao || null }, updated_at: new Date().toISOString() }).eq("id", f.dbId!);
+        const blob = await renderSaida(f);
+        const url = await subir(blob, "editada");
+        let driveInfo: any = null;
+        if (drive?.escrita) {
+          const d = await salvarNoDrive({ kind: "foto", nome: `${f.nome || "foto"}-editada.jpg`, blob, accountId: conta || null });
+          if (d.ok) { driveInfo = { caminho: d.caminho, link: d.link }; avisoDrive = d.caminho; } else erroDrive = d.error;
+        }
+        await createClient().from("av_fotos").update({ resultado_url: url, spec: { estado: f.estado, sugestao: f.sugestao || null, drive: driveInfo }, updated_at: new Date().toISOString() }).eq("id", f.dbId!);
         setFotos((xs) => xs.map((x) => (x.key === f.key ? { ...x, resultadoUrl: url } : x)));
       }
-      setMsg(fs.length > 1 ? `${fs.length} fotos salvas em "Minhas fotos".` : "Foto salva em \"Minhas fotos\".");
+      const onde = fs.length > 1 ? `${fs.length} fotos salvas em "Minhas fotos"` : "Foto salva em \"Minhas fotos\"";
+      setMsg(`${onde}${avisoDrive ? ` e no Drive (${avisoDrive})` : ""}.${erroDrive ? ` Drive: ${erroDrive}` : ""}`);
       load();
     } catch (e: any) { setMsg(`Não salvou: ${e.message}`); }
     setOcupado(null);
@@ -203,6 +214,12 @@ function Fotos() {
     const { error } = await createClient().from("av_fotos").insert({ tipo: "estilo", titulo: nome.slice(0, 60), spec: { ajustes: lookAtual(), manterCor: estado.manterCor }, resultado_url: foto?.resultadoUrl || null });
     if (error) { setMsg(error.message); return; }
     setNomeEstilo(""); setMsg(`Estilo "${nome}" entrou no catálogo.`); load();
+  }
+  async function lutNoDrive() {
+    const a = combinar(null, estiloDe(estado.estilo).ajustes, estado.intensidade, estado.finos);
+    const nome = estiloDe(estado.estilo).nome;
+    const d = await salvarNoDrive({ kind: "lut", nome: `${nome}.cube`, blob: new Blob([gerarCube(a, nome)], { type: "application/octet-stream" }) });
+    setMsg(d.ok ? `LUT salvo no Drive (${d.caminho}).` : `Drive: ${d.error}`);
   }
   function baixarLut() {
     const a = combinar(null, estiloDe(estado.estilo).ajustes, estado.intensidade, estado.finos);
@@ -293,7 +310,7 @@ function Fotos() {
                 </div>
               )}
               <div className="flex flex-wrap gap-2 mt-3">
-                <button onClick={() => salvar([foto])} disabled={!!ocupado} className="btn btn-mint btn-sm">Salvar no HUB</button>
+                <button onClick={() => salvar([foto])} disabled={!!ocupado} className="btn btn-mint btn-sm">{drive?.escrita ? "Salvar no HUB e no Drive" : "Salvar no HUB"}</button>
                 <button onClick={() => baixarFotos([foto])} disabled={!!ocupado} className="btn btn-ghost btn-sm"><I.download className="w-4 h-4" />Baixar JPG</button>
                 {fotos.length > 1 && <>
                   <button onClick={aplicarATodas} className="btn btn-ghost btn-sm">Mesma edição em todas</button>
@@ -301,6 +318,7 @@ function Fotos() {
                   <button onClick={() => baixarFotos(fotos)} disabled={!!ocupado} className="btn btn-ghost btn-sm">Baixar as {fotos.length}</button>
                 </>}
                 <button onClick={baixarLut} className="btn btn-ghost btn-sm" title="O mesmo look em LUT para Lightroom, Photoshop e Premiere">LUT .cube</button>
+                {drive?.escrita && <button onClick={lutNoDrive} className="btn btn-ghost btn-sm">LUT no Drive</button>}
                 <button onClick={() => { setFotos((fs) => fs.filter((_, i) => i !== atual)); setAtual(0); }} className="btn btn-ghost btn-sm text-red-400">Fechar foto</button>
               </div>
             </div>
