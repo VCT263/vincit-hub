@@ -74,6 +74,7 @@ export const AI_LABELS: Record<string, string> = {
   proposal_text: "Texto da proposta", ecommerce_campaign: "Campanha do e-commerce", shot_list: "Decupagem (planos)", ecommerce_closing: "Fechamento do e-commerce",
   brand_concepts: "Símbolos da marca (Design)", brand_territories: "Territórios criativos (Design)", brand_verbal: "Expressão verbal da marca (Design)", carousel_copy: "Texto de carrossel (Design)",
   motion: "Motion sob demanda (Audiovisual)", cenas_roteiro: "Cenas do roteiro (Editor)",
+  motion_brief: "Refinar pedido de motion (brief)", motion_html: "Produzir motion (HyperFrames)",
 };
 
 async function viaClaudeQueue(opts: { prompt: string; webSearch?: boolean; maxTokens?: number }) {
