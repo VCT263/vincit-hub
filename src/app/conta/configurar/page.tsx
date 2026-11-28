@@ -68,10 +68,10 @@ export default function Configurar() {
         { id: "perfis", nivel: "obrigatorio", titulo: "Perfis de trabalho com briefing", serve: "Sua marca, Vinst e ISYS. Sem briefing a IA cria no escuro.",
           estado: !perfis.length ? "falta" : comBriefing < perfis.length ? "parcial" : "ok",
           detalhe: perfis.length ? `${perfis.length} perfil(is), ${comBriefing} com briefing.` : "Nenhum perfil cadastrado.",
-          passos: ["Abra Creator › Perfis & briefing.", "Cadastre cada perfil e preencha nicho, objetivos, voz da marca e briefing."], acao: { href: "/creator/perfis", label: "Abrir perfis" } },
+          passos: ["Abra Creator › Perfis e marcas.", "Cadastre cada perfil e preencha nicho, objetivos, voz da marca e briefing."], acao: { href: "/creator/perfis", label: "Abrir perfis" } },
         { id: "instagram", nivel: "obrigatorio", titulo: "Instagram (Meta)", serve: "Puxa métricas e posts reais para Desempenho, Raio-X e a análise de 7 dias.",
           estado: ig ? "ok" : "falta", detalhe: ig ? `${ig} conta(s) conectada(s).` : "Nenhuma conta do Instagram conectada.",
-          passos: ["Em Creator › Perfis & briefing, clique em Conectar via Meta.", "Entre na conta do Facebook dona da Página ligada ao Instagram e marque só as Páginas certas.", "Conta de outra pessoa (ex.: a loja) precisa ser testadora do app antes de conectar."],
+          passos: ["Em Creator › Perfis e marcas, clique em Conectar via Meta.", "Entre na conta do Facebook dona da Página ligada ao Instagram e marque só as Páginas certas.", "Conta de outra pessoa (ex.: a loja) precisa ser testadora do app antes de conectar."],
           acao: { href: "/creator/perfis", label: "Conectar Instagram" } },
       );
       lista.push({ id: "google", nivel: "recomendado", titulo: "Google Agenda e Drive", serve: "Compromissos e tarefas com prazo vão para a sua Agenda; o Drive vira o Banco de mídia.",
