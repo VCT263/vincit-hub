@@ -23,6 +23,9 @@ const corpoPendente = (r: Row) => {
   return { task: etapa === "brief" ? "motion_brief" : "motion_html", etapa, motion_id: r.id, pedido: r.pedido, formato: r.formato, account_id: r.account_id, ajuste: r.spec?.pendente?.ajuste || undefined, variacao: r.spec?.pendente?.variacao || undefined, base: etapa === "html" ? { brief: r.spec?.brief } : undefined };
 };
 
+/** pedido parado há mais de 20 min sem resposta: libera o Refazer */
+const travado = (r: { status: string; updated_at: string }) => r.status === "pedido" && Date.now() - new Date(r.updated_at).getTime() > 20 * 60000;
+
 /** biblioteca de animações (ideia do @gabeberaldo, 28/11): direções de movimento para as versões de uma peça */
 const DIRECOES = [
   { nome: "Rápida", texto: "entrada forte e rápida: cortes secos, texto entra com escala e desfoque de movimento, ritmo acelerado, nada parado mais de 1 s." },
@@ -116,7 +119,14 @@ function Motion() {
       let changed = false;
       for (const r of pend) {
         const res = await fetch("/api/av/motion", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...corpoPendente(r), _ai_request: r.ai_request_id }) }).catch(() => null);
-        if (res && res.status !== 202) changed = true;
+        if (res && res.status !== 202) {
+          changed = true;
+          // a resposta do Claude não serviu (cortada, sem cenas…): para de perguntar e mostra o erro com "Refazer"
+          if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            await createClient().from("av_motions").update({ ai_request_id: null, spec: { ...(r.spec || {}), pendente: { ...(r.spec?.pendente || {}), erro: String(j.error || "O Claude não conseguiu terminar esta peça.").slice(0, 300) } } }).eq("id", r.id);
+          }
+        }
       }
       if (changed) { const list = await load(); setOpenHtml((o) => (o ? (list.find((x) => x.id === o.id) as any) || o : o)); }
     }, 15000);
@@ -133,8 +143,17 @@ function Motion() {
     if (res?.ok) { load(); return; }
     setFalhas((f) => ({ ...f, [r.id]: j.error || "Não chegou ao Claude." }));
   }, [load]);
+  /** Refazer (28/11): manda de novo a etapa que falhou ou travou, com um pedido novo à fila */
+  async function refazer(r: Row) {
+    const { erro: _e, ...pend } = r.spec?.pendente || {};
+    const etapaP = pend.etapa || (r.spec?.brief ? "html" : "brief");
+    const spec = { ...(r.spec || {}), pendente: { ...pend, etapa: etapaP } };
+    await createClient().from("av_motions").update({ spec, ai_request_id: null, status: "pedido", updated_at: new Date().toISOString() }).eq("id", r.id);
+    setMsg(`"${r.titulo}" foi de novo para o Claude.`);
+    await reenviar({ ...r, spec, ai_request_id: null, status: "pedido" });
+  }
   useEffect(() => {
-    const presos = (rows || []).filter((r) => r.status === "pedido" && !r.ai_request_id && r.pedido && !tentados.current.has(r.id) && Date.now() - new Date(r.updated_at).getTime() > 60000);
+    const presos = (rows || []).filter((r) => r.status === "pedido" && !r.ai_request_id && r.pedido && !r.spec?.pendente?.erro && !tentados.current.has(r.id) && Date.now() - new Date(r.updated_at).getTime() > 60000);
     presos.forEach((r) => { reenviar(r); });
   }, [rows, reenviar]);
 
@@ -356,7 +375,7 @@ function Motion() {
               const h = r.spec?.html as string | undefined;
               const inf = h ? infoComposicao(h) : null;
               const esperando = r.status === "pedido";
-              const fase = esperando ? (r.spec?.pendente?.etapa === "html" ? "Claude escrevendo a peça…" : "Claude refinando o pedido…") : h ? "Pronto" : "Brief para aprovar";
+              const fase = esperando && r.spec?.pendente?.erro ? "Não deu certo" : esperando ? (r.spec?.pendente?.etapa === "html" ? "Claude escrevendo a peça…" : "Claude refinando o pedido…") : h ? "Pronto" : "Brief para aprovar";
               return (
                 <div key={r.id} className={`relative rounded-xl border p-2 ${selecao?.has(r.id) ? "border-red-400" : openHtml?.id === r.id ? "border-mint" : "border-line"}`}>
                   {selecao && <Marca on={selecao.has(r.id)} onClick={() => marcar(r.id)} />}
@@ -365,9 +384,9 @@ function Motion() {
                     : <button disabled={esperando && !selecao} onClick={() => (selecao ? marcar(r.id) : abrir(r))} className="block w-full aspect-[9/12] rounded-lg bg-white/5 p-3 text-left">
                     <span className="font-mono text-[10px] uppercase tracking-widest text-mint">{fase}</span>
                     <p className="text-xs text-fog mt-2 line-clamp-6">{r.spec?.brief?.ideia || r.pedido || ""}</p>
-                    {esperando && falhas[r.id] && <span className="block text-red-400 text-xs mt-2">{falhas[r.id]}</span>}
+                    {esperando && (falhas[r.id] || r.spec?.pendente?.erro) && <span className="block text-red-400 text-xs mt-2">{falhas[r.id] || r.spec?.pendente?.erro}</span>}
                   </button>}
-                  {esperando && falhas[r.id] && <button onClick={() => reenviar(r)} className="chip mt-2">Tentar de novo</button>}
+                  {esperando && (falhas[r.id] || r.spec?.pendente?.erro || travado(r)) && <button onClick={() => refazer(r)} className="chip chip-mint mt-2" title="Manda o pedido de novo para o Claude">↻ Refazer</button>}
                   <p className="text-sm font-semibold truncate mt-2">{r.titulo}</p>
                   <p className="text-[11px] text-fog">{r.formato}{inf ? ` · ${inf.duracao} s` : ""} · HyperFrames</p>
                   <div className="flex flex-wrap gap-1 mt-2">
