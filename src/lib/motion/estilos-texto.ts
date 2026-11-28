@@ -97,7 +97,7 @@ const arco = doc({
   titulo: "Texto em arco", dur: 3,
   variaveis: [{ id: "texto", type: "string", label: "Texto (repete em volta)", default: "TEXTO EM ARCO" }, POS, { id: "tinta", type: "color", label: "Cor do texto", default: "#FFFFFF" }, { id: "cor", type: "color", label: "Ponto do meio", default: "#E8242B" }],
   css: `#a{position:relative;width:660px;height:660px}#a svg{position:absolute;inset:0}
-#a text{font-family:Poppins,sans-serif;font-weight:600;font-size:40px;letter-spacing:6px;fill:var(--tinta)}
+#a text{font-family:Poppins,sans-serif;font-weight:700;font-size:52px;letter-spacing:5px;fill:var(--tinta)}
 #pt{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:var(--cor)}`,
   corpo: `<div id="pos"><div id="a"><svg viewBox="0 0 440 440"><defs><path id="cir" d="M220,220 m-170,0 a170,170 0 1,1 340,0 a170,170 0 1,1 -340,0"/></defs><text><textPath href="#cir" id="tp"></textPath></text></svg><div id="pt"></div></div></div>`,
   script: `var t=String(v('texto','TEXTO EM ARCO')).toUpperCase();document.getElementById('tp').textContent=(t+' • ').repeat(Math.max(2,Math.ceil(80/(t.length+3))));document.querySelector('#a text').setAttribute('fill',v('tinta','#FFFFFF'));
