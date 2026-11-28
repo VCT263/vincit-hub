@@ -201,7 +201,7 @@ export function RefEdicaoArea({ refs, onChange, onOpen }: { refs: any[]; onChang
     <>
       <form onSubmit={enviar} className="card p-5 mb-6 space-y-3">
         <div>
-          <p className="font-display font-bold">Engenharia reversa da edição</p>
+          <p className="font-display font-bold">Engenharia reversa</p>
           <p className="text-sm text-fog mt-1">Cole um ou vários links de reels, um por linha. O Claude desmonta cada edição (cortes, ritmo, câmera, legenda, letterings, motion, cor e som). Num Estilo de referência, o que se repete entre os vídeos vira regra, e o estilo fica mais preciso a cada link novo.</p>
         </div>
         <textarea className="input min-h-[96px] font-mono text-xs" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder={"https://www.instagram.com/reel/…\nhttps://www.instagram.com/reel/…"} />
