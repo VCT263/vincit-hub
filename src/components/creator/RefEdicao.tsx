@@ -43,7 +43,7 @@ export function RefEdicaoNovo({ onCreated }: { onCreated: (id?: string) => void 
   }
   return (
     <form onSubmit={enviar} className="card p-5 mb-8">
-      <p className="font-display font-bold">Engenharia reversa da edição</p>
+      <p className="font-display font-bold">Engenharia reversa</p>
       <p className="text-sm text-fog mt-1">Cole o link de um reel. O Claude desmonta a edição (cortes, ritmo, câmera, legenda, letterings, motion, cor e som) e propõe um Kit de estilo. O Kit só vale depois que você aprovar.</p>
       <div className="grid sm:grid-cols-[minmax(0,1fr)_180px_auto] gap-2 mt-3">
         <input type="url" required className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.instagram.com/reel/…" />
