@@ -148,7 +148,7 @@ export const CAMPOS_EDICAO: Record<string, string> = {
   cortes: "silêncio a tirar (silencio_ms), respiro (folga_ms), pausas naturais mantidas (batida_ms), vícios a tirar só com silêncio dos dois lados, tomada repetida: fica a última",
   legenda: "estilo do kit, palavras por tela, palavra em destaque; nunca cobrir a boca; zona segura",
   broll: "onde entra B-roll ou cartão e por quê; a pessoa não fica fora da tela mais que max_sem_rosto_s",
-  som: "trilha uns 11 dB abaixo da voz (trilha_db), mix final em lufs e pico_dbtp do kit, efeitos sonoros só na ação (sfx)",
+  som: "trilha uns 11 dB abaixo da voz (trilha_db), mix final em lufs e pico_dbtp do kit, efeitos sonoros só na ação (sfx), no estilo de som do kit (som_estilo: delicado, cinemático ou agressivo)",
   vocabulario: "palavras da marca que a transcrição erra e como escrever certo",
 };
 
