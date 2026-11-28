@@ -3,18 +3,23 @@ import { callClaude, extractJson, withAIQueue } from "@/lib/ai";
 import { createClient } from "@/lib/supabase/server";
 import { brandPrompt } from "@/lib/brandPrompt";
 import { CENA_CAMPOS, CENA_LABEL, CENA_TIPOS, normalizeSpec } from "@/lib/motion/engine";
+import { normalizeBrief, promptRefinarMotion } from "@/lib/briefs";
+import { conferirHtml, extrairHtml, promptProduzirHtml } from "@/lib/motion/html";
 
 export const maxDuration = 60;
+
+/* Etapas do motion em HTML (27/11): "brief" refina o pedido cru num brief de 8 partes; "html" escreve a composição
+   HyperFrames a partir do brief aprovado. Sem etapa, segue o motor antigo de cenas (motions já salvos). */
 
 /* Motion sob demanda: a pessoa descreve o motion no HUB e o Claude devolve as cenas em JSON.
    Vai pela fila do Claude (sem API paga); quando o Claude responde, esta rota roda de novo,
    monta o motion com as cores e letras escolhidas na tela e grava em av_motions. */
 async function handle(req: Request) {
   try {
-    const { motion_id, pedido, formato, base, account_id } = await req.json();
+    const { motion_id, pedido, formato, base, account_id, etapa, ajuste } = await req.json();
     if (!motion_id || !String(pedido || "").trim()) return NextResponse.json({ error: "Descreva o motion que você quer." }, { status: 400 });
     const sb = await createClient();
-    const { data: row } = await sb.from("av_motions").select("id,spec").eq("id", motion_id).maybeSingle();
+    const { data: row } = await sb.from("av_motions").select("id,spec,kit_id").eq("id", motion_id).maybeSingle();
     if (!row) return NextResponse.json({ error: "Pedido de motion não encontrado." }, { status: 404 });
 
     let ctx = "";
@@ -24,6 +29,36 @@ async function handle(req: Request) {
       const { data: marca } = await sb.from("design_projects").select("data").eq("kind", "marca").is("archived_at", null).eq("data->>perfil_id", account_id).limit(1).maybeSingle();
       if (marca?.data) ctx += `\n${brandPrompt(marca.data)}\n`;
     }
+    {
+      const kitId = (row as any).kit_id;
+      if (kitId) {
+        const { data: kit } = await sb.from("av_style_kits").select("name,data").eq("id", kitId).maybeSingle();
+        if (kit?.data) ctx += `\nKit de estilo "${kit.name || ""}": cores ${JSON.stringify(kit.data.cores || {})}, fontes ${JSON.stringify(kit.data.fontes || {})}.\n`;
+      }
+    }
+
+    if (etapa === "brief") {
+      const text = await callClaude({ maxTokens: 5000, prompt: promptRefinarMotion({ pedido: String(pedido), formato, contexto: ctx, ajuste, briefAnterior: row.spec?.brief }) });
+      const brief = normalizeBrief(extractJson(text), "motion");
+      if (!brief.cenas.length) return NextResponse.json({ error: "O Claude não mandou as cenas do brief. Tente de novo." }, { status: 500 });
+      const { pendente: _p1, ...sem1 } = row.spec || {};
+      const spec = { ...sem1, motor: "html", etapa: "brief", brief, html: undefined, formato: formato || row.spec?.formato || "9:16" };
+      await sb.from("av_motions").update({ spec, titulo: brief.titulo.slice(0, 80), status: "pronto", updated_at: new Date().toISOString() }).eq("id", motion_id);
+      return NextResponse.json({ brief, titulo: brief.titulo });
+    }
+    if (etapa === "html") {
+      const brief = normalizeBrief(base?.brief || row.spec?.brief, "motion");
+      if (!brief.cenas.length) return NextResponse.json({ error: "Falta o brief aprovado." }, { status: 400 });
+      const text = await callClaude({ maxTokens: 16000, prompt: promptProduzirHtml({ brief, contexto: ctx, ajuste, htmlAnterior: ajuste ? row.spec?.html : undefined }) });
+      const html = extrairHtml(text);
+      const problemas = conferirHtml(html);
+      if (problemas.length) return NextResponse.json({ error: `A composição veio com problema: ${problemas.join("; ")}.` }, { status: 500 });
+      const { pendente: _p2, ...sem2 } = row.spec || {};
+      const spec = { ...sem2, motor: "html", etapa: "pronto", brief, html, valores: ajuste ? sem2.valores || {} : {} };
+      await sb.from("av_motions").update({ spec, titulo: brief.titulo.slice(0, 80), status: "pronto", updated_at: new Date().toISOString() }).eq("id", motion_id);
+      return NextResponse.json({ ok: true, titulo: brief.titulo });
+    }
+
     const tipos = CENA_TIPOS.map((t) => {
       const f = CENA_CAMPOS[t];
       const campos = [f.texto && `texto = ${f.texto}`, f.sub && `sub = ${f.sub}`, f.itens && `itens = ${f.itens}`, f.valor && "valor (número), prefixo, sufixo (ex.: %, mil, x)"].filter(Boolean).join("; ");
