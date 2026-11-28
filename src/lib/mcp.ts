@@ -13,7 +13,7 @@ import { FORMATO_ROTEIRO, rowsFromScript } from "@/lib/roteiro";
 import { AD_RULES_TEXT } from "@/lib/anuncio";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 import { kitsComMarca } from "./kitMarca";
-import { CLAUDE_PANEL_URL, HUB_URL, PAINEL_URI } from "@/lib/painelApp";
+import { HUB_URL, PAINEL_URI } from "@/lib/painelApp";
 import { SKILL_PAGINAS, slugify } from "@/lib/paginas";
 
 /**
@@ -113,7 +113,7 @@ export const TOOLS: Tool[] = [
         versao_ia: VERSAO_IA,
         novidades: novas,
         ultimas: novas.length ? [] : NOVIDADES.slice(0, 3),
-        painel: { na_conversa: "Este resultado aparece como o painel da VINCIT aqui na conversa, com o botão Atualizar.", completo: CLAUDE_PANEL_URL, hub: HUB_URL },
+        painel: { na_conversa: "Este resultado aparece como o painel da VINCIT aqui na conversa, com o botão Atualizar.", hub: HUB_URL },
         dica: novas.length ? "Conte as novidades em 2 ou 3 linhas antes de seguir." : "Sem novidades desde a última visita.",
         prompts_prontos: ["Começar no HUB", "Dossiê do perfil", "Plano do mês", "Pacote da semana", "Análise do perfil", "Refazer aberturas", "Responder pedidos de IA", "Entrevista de marca", "Criar página"],
       };

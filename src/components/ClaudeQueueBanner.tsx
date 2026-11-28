@@ -47,7 +47,7 @@ export default function ClaudeQueueBanner() {
             <span className="text-xs text-fog tabular-nums shrink-0">{elapsed}</span>
           </div>
           <p className="text-xs text-fog mt-1 ml-5">
-            {open ? "Claude respondendo" : "Esperando o Claude"}
+            {open ? "No Claude: envie a mensagem que já vem escrita" : "Esperando o Claude"}
             {items.length > 1 ? ` · mais ${items.length - 1} na fila` : ""}
           </p>
           <div className="mt-2 ml-5 h-1 rounded bg-white/10 overflow-hidden" aria-hidden>

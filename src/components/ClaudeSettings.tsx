@@ -37,7 +37,7 @@ export default function ClaudeSettings() {
       </ol>
       <div className="flex flex-wrap gap-2">
         <a href="https://claude.ai/settings/connectors" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Abrir conectores do Claude</a>
-        {CLAUDE_PANEL_URL && <a href={CLAUDE_PANEL_URL} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Abrir o painel do HUB no Claude</a>}
+        {CLAUDE_PANEL_URL && <a href={CLAUDE_PANEL_URL} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Começar no HUB pelo Claude</a>}
       </div>
       <p className="text-sm text-fog">No Claude, escolha o prompt <span className="text-paper">Começar no HUB</span> (botão + › VINCIT HUB). Regras, ferramentas e prompts se atualizam sozinhos a cada versão do HUB.</p>
       <details className="rounded-lg border border-line p-3">

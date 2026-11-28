@@ -6,8 +6,18 @@
  * por postMessage com o Claude (ui/initialize, tools/call, ui/message, ui/open-link).
  */
 
-/** painel do HUB publicado como artifact no Claude (o mesmo da fila de IA) */
-export const CLAUDE_PANEL_URL = "https://claude.ai/artifact/AWg3shE2RQH28mLQnnLQsx";
+/**
+ * Links que abrem uma conversa nova no Claude de QUEM ESTÁ LOGADO (claude.ai/new?q=).
+ * Antes eram o artifact do painel, que é privado da conta do Vinícius: em qualquer outra conta
+ * (ex.: a da ISYS) aparecia "Página não encontrada". Cada cliente usa o próprio Claude e o
+ * próprio conector VINCIT HUB, sem custo para a VINCIT.
+ */
+export const claudeNewChat = (q: string) => `https://claude.ai/new?q=${encodeURIComponent(q)}`;
+/** pedido que faz o Claude responder a fila de IA do HUB */
+export const CLAUDE_QUEUE_PROMPT = "Responda os pedidos do HUB: chame listar_pedidos_ia do conector VINCIT HUB e responda cada pedido com responder_pedido_ia, exatamente no formato pedido.";
+export const CLAUDE_QUEUE_URL = claudeNewChat(CLAUDE_QUEUE_PROMPT);
+/** começar a trabalhar no HUB pelo Claude (painel aparece na conversa) */
+export const CLAUDE_PANEL_URL = claudeNewChat("Vamos trabalhar no VINCIT HUB. Chame comecar_no_hub.");
 export const HUB_URL = "https://vincit-hub.vercel.app";
 export const PAINEL_URI = "ui://vincit/painel.html";
 export const PAINEL_MIME = "text/html;profile=mcp-app";
@@ -86,8 +96,7 @@ function draw(){
     '<button onclick="__v.pedir(\\'Monte o pacote da semana\\')">Pacote da semana</button>'+
     '<button onclick="__v.pedir(\\'Quero fazer a entrevista de marca\\')">Entrevista de marca</button>'+
     '<button onclick="__v.pedir(\\'Faça a análise do perfil\\')">Análise do perfil</button>'+
-    '<button onclick="__v.abrir(HUB)">Abrir o HUB</button>'+
-    '<button onclick="__v.abrir(PAINEL)">Painel completo</button></div>';
+    '<button onclick="__v.abrir(HUB)">Abrir o HUB</button></div>';
   if(erro) h+='<p class="err">'+esc(erro)+'</p>';
   el.innerHTML=h; size();
 }
