@@ -8,7 +8,7 @@ import PageHead from "@/components/PageHead";
 import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import RefProfiles from "@/components/creator/RefProfiles";
-import { EdicaoPanel, JuntarRefs, RefEdicaoNovo } from "@/components/creator/RefEdicao";
+import { EdicaoPanel, RefEdicaoArea } from "@/components/creator/RefEdicao";
 import { apagarComLixeira } from "@/lib/lixeira";
 
 const empty = { title: "", url: "", handle: "", format: "Reels", content: "", tags: "", views: "", followers: "", median_views: "" };
@@ -62,8 +62,7 @@ export default function Referencias() {
       <div className="flex gap-1 border-b border-line mb-6">{([["perfis", "Perfis (roube como um artista)"], ["posts", "Posts que funcionaram"]] as const).map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 text-sm border-b-2 -mb-px ${tab === k ? "border-mint text-mint" : "border-transparent text-fog hover:text-paper"}`}>{l}</button>)}</div>
       {tab === "perfis" ? <RefProfiles /> : <>
 
-      <RefEdicaoNovo onCreated={(id) => { load(); if (id) setOpen(id); }} />
-      <JuntarRefs refs={list} onDone={load} />
+      <RefEdicaoArea refs={list} onChange={load} onOpen={(id) => setOpen(id)} />
 
       <form onSubmit={analyze} className="card p-5 grid md:grid-cols-3 gap-4 mb-8">
         <div><label className="label">Título</label><input required className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Reels bastidores com 2M views" /></div>
