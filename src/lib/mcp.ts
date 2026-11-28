@@ -5,6 +5,7 @@ import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
 import { igTokenForOwner } from "@/lib/tokens";
 import { contaInsights } from "@/lib/igInsights";
 import { porMes } from "@/lib/igHistorico";
+import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -445,6 +446,64 @@ export const TOOLS: Tool[] = [
       if (error) fail(error.message);
       if (!data) fail("Kit não encontrado.");
       return { ok: true, id: data.id, onde: "AUDIOVISUAL › Premiere" };
+    },
+  },
+  {
+    name: "entrevista_abrir",
+    title: "Abrir entrevista de marca",
+    description: "Abre (ou retoma) a entrevista de marca de um perfil: traz o briefing atual, os temas, as regras de condução e a conversa já feita (no HUB ou no Claude). Use para conduzir a entrevista com a pessoa, uma pergunta por vez, com senso crítico.",
+    inputSchema: { type: "object", required: ["perfil_id"], properties: { perfil_id: { type: "string", description: "id do perfil (de listar_perfis)" }, nova: { type: "boolean", description: "true para começar outra do zero" } } },
+    needs: "creator",
+    run: async (ctx, a) => {
+      await account(ctx, a.perfil_id);
+      const { data: acc } = await ctx.sb.from("ig_accounts").select("id, username, name, niche, goals, brand_voice, briefing").eq("id", a.perfil_id).maybeSingle();
+      let ent: any = null;
+      if (!a.nova) ent = (await ctx.sb.from("brand_interviews").select("id, status, turns, tema").eq("account_id", a.perfil_id).eq("status", "andamento").order("updated_at", { ascending: false }).limit(1).maybeSingle()).data;
+      if (!ent) {
+        const { data, error } = await ctx.sb.from("brand_interviews").insert({ account_id: a.perfil_id, owner_id: ctx.userId }).select("id, status, turns, tema").single();
+        if (error) fail(error.message);
+        ent = data;
+      }
+      return {
+        entrevista_id: ent.id, perfil: `@${acc?.username}`, tema_atual: ent.tema, conversa_ate_agora: ent.turns || [],
+        briefing_atual: contextoPerfil(acc), temas: TEMAS, regras: REGRAS_CONDUCAO,
+        como_registrar: "A cada resposta, chame entrevista_registrar com a pergunta feita, a resposta e quem respondeu. Ao final, entrevista_concluir com a proposta.",
+        formato_da_proposta: `{"resumo": string, "campos": {${esquemaBriefing()}}, "campanha": {"pecas": [{"nome","preco","tamanhos","obs"}], "datas": [string], "oferta": string, "gravacao": string, "meta": string}, "citacoes": [string], "pendencias": [string]}`,
+        tela_no_hub: `/creator/entrevista?perfil=${a.perfil_id}`,
+      };
+    },
+  },
+  {
+    name: "entrevista_registrar",
+    title: "Registrar resposta da entrevista",
+    description: "Grava no HUB uma pergunta da entrevista de marca e a resposta da pessoa (para a conversa aparecer no HUB e poder continuar lá). Não precisa pedir confirmação.",
+    inputSchema: { type: "object", required: ["entrevista_id", "pergunta", "resposta"], properties: { entrevista_id: { type: "string" }, pergunta: { type: "string" }, resposta: { type: "string" }, quem: { type: "string", description: "nome de quem respondeu" }, tema: { type: "integer", minimum: 1, maximum: 10 } } },
+    needs: "creator",
+    run: async (ctx, a) => {
+      const { data: ent } = await ctx.sb.from("brand_interviews").select("id, turns, tema, status").eq("id", a.entrevista_id).maybeSingle();
+      if (!ent) fail("Entrevista não encontrada. Use entrevista_abrir.");
+      const at = new Date().toISOString();
+      const tema = Number(a.tema) || ent.tema || 1;
+      const turns: Turno[] = [...(ent.turns || []), { r: "e", t: clip(a.pergunta, 1500)!, tema, at, via: "claude" }, { r: "p", t: clip(a.resposta, 6000)!, quem: clip(a.quem, 60) || undefined, tema, at, via: "claude" }];
+      const { error } = await ctx.sb.from("brand_interviews").update({ turns, tema, status: "andamento", updated_at: at }).eq("id", a.entrevista_id);
+      if (error) fail(error.message);
+      return { ok: true, respostas: turns.filter((t) => t.r === "p").length };
+    },
+  },
+  {
+    name: "entrevista_concluir",
+    title: "Concluir entrevista de marca",
+    description: "Salva a proposta de briefing da entrevista (formato em entrevista_abrir). O briefing do perfil só muda depois que a pessoa aprova na tela Entrevista do HUB. Mostre a proposta e confirme antes de chamar.",
+    inputSchema: { type: "object", required: ["entrevista_id", "proposta"], properties: { entrevista_id: { type: "string" }, proposta: { type: "object" } } },
+    needs: "creator",
+    run: async (ctx, a) => {
+      let p = a.proposta;
+      if (typeof p === "string") { try { p = JSON.parse(p); } catch { fail("A proposta precisa ser um JSON válido."); } }
+      const proposta = limparProposta(p);
+      const { data, error } = await ctx.sb.from("brand_interviews").update({ proposta, status: "concluida", updated_at: new Date().toISOString() }).eq("id", a.entrevista_id).select("id, account_id").maybeSingle();
+      if (error) fail(error.message);
+      if (!data) fail("Entrevista não encontrada.");
+      return { ok: true, campos: Object.keys(proposta.campos), aprovar_em: `/creator/entrevista?perfil=${data.account_id}` };
     },
   },
 ];
