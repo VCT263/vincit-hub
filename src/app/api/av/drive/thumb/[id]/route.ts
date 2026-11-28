@@ -5,7 +5,7 @@ import { gdrive } from "@/lib/drive";
 /** miniatura de um arquivo do banco de mídia (o link do Drive precisa do token, por isso passa pelo servidor) */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const size = Math.min(1200, Number(new URL(request.url).searchParams.get("s")) || 480);
+  const size = Math.min(2400, Number(new URL(request.url).searchParams.get("s")) || 480);
   const s = await createClient();
   const { data: row } = await s.from("av_media").select("id").eq("drive_id", id).maybeSingle();
   if (!row) return new Response("Não encontrado", { status: 404 });

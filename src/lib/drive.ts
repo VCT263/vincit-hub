@@ -140,8 +140,8 @@ export function driveRow(f: any, folder: string) {
 
 /** No navegador: salva um export no Drive da pessoa, já na pasta certa (área › perfil › mês), e põe no Banco de mídia.
  *  kind = área do banco (foto, interno, lut…); sub troca o mês por uma subpasta fixa (ex.: "Motion"). */
-export async function salvarNoDrive(o: { kind: string; nome: string; blob: Blob; accountId?: string | null; sub?: string }): Promise<{ ok: boolean; caminho?: string; link?: string; error?: string; needsScope?: boolean }> {
-  const meta = { kind: o.kind, nome: o.nome, mime: o.blob.type || "application/octet-stream", account_id: o.accountId || null, sub: o.sub };
+export async function salvarNoDrive(o: { kind: string; nome: string; blob: Blob; accountId?: string | null; sub?: string; caminho?: string[] }): Promise<{ ok: boolean; caminho?: string; link?: string; error?: string; needsScope?: boolean }> {
+  const meta = { kind: o.kind, nome: o.nome, mime: o.blob.type || "application/octet-stream", account_id: o.accountId || null, sub: o.sub, caminho: o.caminho };
   const r = await fetch("/api/av/drive/salvar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(meta) }).then((x) => x.json()).catch(() => ({ error: "Falha de conexão" }));
   if (!r.ok) return { ok: false, error: r.error || "Não salvou no Drive.", needsScope: r.needsScope };
   let arquivo: any = null;
