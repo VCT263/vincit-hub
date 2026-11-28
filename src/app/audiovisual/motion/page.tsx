@@ -8,7 +8,7 @@ import { aiFetch, AI_QUEUE_EVENT, type AIQueueEvent } from "@/lib/aiFetch";
 import { apagarComLixeira } from "@/lib/lixeira";
 import MotionStudio, { MotionThumb, type MotionDoc } from "@/components/av/MotionStudio";
 import { MOTION_FORMAT_LABEL, motionDuration, normalizeSpec, specDoModelo, type MotionFormat } from "@/lib/motion/engine";
-import MotionHtml, { type HtmlRow } from "@/components/av/MotionHtml";
+import MotionHtml, { CapaMotion, type HtmlRow } from "@/components/av/MotionHtml";
 import { MODELOS_HTML } from "@/lib/motion/modelos-html";
 import { ESTILOS_TEXTO } from "@/lib/motion/estilos-texto";
 import { infoComposicao } from "@/lib/motion/html";
@@ -55,6 +55,9 @@ function Motion() {
   const [conta, setConta] = useState(() => q.get("perfil") || "");
   const [msg, setMsg] = useState<string | null>(null);
   const [falhas, setFalhas] = useState<Record<string, string>>({});
+  // seleção de vários motions para mandar à lixeira de uma vez (28/11)
+  const [selecao, setSelecao] = useState<Set<string> | null>(null);
+  const marcar = (id: string) => setSelecao((s) => { const n = new Set(s || []); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const tentados = useRef(new Set<string>());
   // pastas (28/11): agrupam os motions por campanha, coleção ou ação. "" = todas, SEM = sem pasta
   const [pasta, setPasta] = useState<string>(() => { const u = q.get("pasta"); if (u) return u.slice(0, 60); try { return localStorage.getItem("motion-pasta") || ""; } catch { return ""; } });
@@ -228,6 +231,12 @@ function Motion() {
     const ok = await apagarComLixeira({ tabela: "av_motions", filtro: { id: r.id }, oque: `o motion "${r.titulo}"`, rotulo: `Motion: ${r.titulo}`, link: "/audiovisual/motion" });
     if (ok) { if (open?.id === r.id) setOpen(null); if (openHtml?.id === r.id) setOpenHtml(null); load(); }
   }
+  async function excluirSelecionados() {
+    const ids = Array.from(selecao || []); if (!ids.length) return;
+    const nomes = (rows || []).filter((r) => selecao?.has(r.id)).map((r) => r.titulo);
+    const ok = await apagarComLixeira({ tabela: "av_motions", filtro: { id: ids }, oque: ids.length === 1 ? `o motion "${nomes[0]}"` : `${ids.length} motions`, rotulo: ids.length === 1 ? `Motion: ${nomes[0]}` : `${ids.length} motions: ${nomes.slice(0, 3).join(", ")}${nomes.length > 3 ? "…" : ""}`, link: "/audiovisual/motion" });
+    if (ok) { if (open?.id && selecao?.has(open.id)) setOpen(null); if (openHtml && selecao?.has(openHtml.id)) setOpenHtml(null); setSelecao(null); setMsg(`${ids.length} ${ids.length === 1 ? "motion foi" : "motions foram"} para a lixeira (15 dias para recuperar).`); load(); }
+  }
   async function duplicar(r: Row) {
     const { id, updated_at, ai_request_id, ...rest } = r as any;
     await createClient().from("av_motions").insert({ ...rest, titulo: r.titulo + " (cópia)", status: "pronto", origem: "hub" });
@@ -313,7 +322,15 @@ function Motion() {
           {pastas.map((n) => <button key={n} onClick={() => setPasta(n)} className={`chip ${pasta === n ? "!border-mint text-mint" : ""}`}><I.folder className="w-3 h-3 inline -mt-0.5 mr-1" />{n} ({(rows || []).filter((r) => r.pasta === n).length})</button>)}
           {(rows || []).some((r) => !r.pasta) && pastas.length > 0 && <button onClick={() => setPasta(SEM)} className={`chip ${pasta === SEM ? "!border-mint text-mint" : ""}`}>Sem pasta ({(rows || []).filter((r) => !r.pasta).length})</button>}
           <button onClick={() => { const n = novaPasta(); if (n) setPasta(n); }} className="chip"><I.plus className="w-3 h-3 inline -mt-0.5" /> Nova pasta</button>
+          {!!rows?.length && <button onClick={() => setSelecao((s) => (s ? null : new Set()))} className={`chip ml-auto ${selecao ? "chip-mint" : ""}`}>{selecao ? "Cancelar seleção" : "Selecionar"}</button>}
         </div>
+        {selecao && (
+          <div className="sticky top-2 z-10 flex flex-wrap items-center gap-2 mb-3 rounded-xl border border-line bg-[var(--color-ink,#141414)] p-2">
+            <span className="text-sm">{selecao.size} {selecao.size === 1 ? "selecionado" : "selecionados"}</span>
+            <button onClick={() => setSelecao(new Set((rows || []).filter((r) => (!perfilF || r.account_id === perfilF) && (filtro === "todas" || r.spec?.avaliacao === filtro) && (pasta === "" ? true : pasta === SEM ? !r.pasta : r.pasta === pasta)).map((r) => r.id)))} className="chip">Selecionar todos</button>
+            <button disabled={!selecao.size} onClick={excluirSelecionados} className="chip text-red-400 ml-auto disabled:opacity-40"><I.trash className="w-3 h-3 inline -mt-0.5 mr-1" />Excluir {selecao.size || ""}</button>
+          </div>
+        )}
         {pastaAtual && <p className="text-xs text-fog -mt-2 mb-3">Os motions que você criar agora (pedido ao Claude ou modelo) entram na pasta &quot;{pastaAtual}&quot;.{campanhaAtual ? <> A pasta é da <Link href={`/ecommerce/acoes/campanha?id=${campanhaAtual}`} className="text-mint">campanha no E-commerce</Link>: o Claude lê o conceito dela no pedido, e o Editor abre esta pasta quando o vídeo é de um card da campanha.</> : " No Editor, a aba Motion também filtra por pasta."}</p>}
         {(pasta === "" && pastas.length ? [...pastas, SEM] : [pasta || SEM]).map((grupo) => {
           const lista = (rows || []).filter((r) => !perfilF || r.account_id === perfilF).filter((r) => filtro === "todas" || r.spec?.avaliacao === filtro).filter((r) => (pasta === "" && !pastas.length) ? true : grupo === SEM ? !r.pasta : r.pasta === grupo);
@@ -329,12 +346,15 @@ function Motion() {
               const esperando = r.status === "pedido";
               const fase = esperando ? (r.spec?.pendente?.etapa === "html" ? "Claude escrevendo a peça…" : "Claude refinando o pedido…") : h ? "Pronto" : "Brief para aprovar";
               return (
-                <div key={r.id} className={`rounded-xl border p-2 ${openHtml?.id === r.id ? "border-mint" : "border-line"}`}>
-                  <button disabled={esperando} onClick={() => abrir(r)} className="block w-full aspect-[9/12] rounded-lg bg-white/5 p-3 text-left">
+                <div key={r.id} className={`relative rounded-xl border p-2 ${selecao?.has(r.id) ? "border-red-400" : openHtml?.id === r.id ? "border-mint" : "border-line"}`}>
+                  {selecao && <Marca on={selecao.has(r.id)} onClick={() => marcar(r.id)} />}
+                  {!esperando && h
+                    ? <button onClick={() => (selecao ? marcar(r.id) : abrir(r))} className="block w-full" aria-label={`Abrir ${r.titulo}`}><CapaMotion html={h} valores={r.spec?.valores} /></button>
+                    : <button disabled={esperando && !selecao} onClick={() => (selecao ? marcar(r.id) : abrir(r))} className="block w-full aspect-[9/12] rounded-lg bg-white/5 p-3 text-left">
                     <span className="font-mono text-[10px] uppercase tracking-widest text-mint">{fase}</span>
                     <p className="text-xs text-fog mt-2 line-clamp-6">{r.spec?.brief?.ideia || r.pedido || ""}</p>
                     {esperando && falhas[r.id] && <span className="block text-red-400 text-xs mt-2">{falhas[r.id]}</span>}
-                  </button>
+                  </button>}
                   {esperando && falhas[r.id] && <button onClick={() => reenviar(r)} className="chip mt-2">Tentar de novo</button>}
                   <p className="text-sm font-semibold truncate mt-2">{r.titulo}</p>
                   <p className="text-[11px] text-fog">{r.formato}{inf ? ` · ${inf.duracao} s` : ""} · HyperFrames</p>
@@ -353,10 +373,11 @@ function Motion() {
             }
             const spec = normalizeSpec(r.spec);
             return (
-              <div key={r.id} className={`rounded-xl border p-2 ${open?.id === r.id ? "border-mint" : "border-line"}`}>
+              <div key={r.id} className={`relative rounded-xl border p-2 ${selecao?.has(r.id) ? "border-red-400" : open?.id === r.id ? "border-mint" : "border-line"}`}>
+                {selecao && <Marca on={selecao.has(r.id)} onClick={() => marcar(r.id)} />}
                 {r.status === "pedido" || !spec.cenas.length
                   ? <div className="aspect-[9/12] grid place-items-center text-center text-xs text-fog p-3 rounded-lg bg-white/5">{r.ai_request_id ? "Esperando o Claude…" : falhas[r.id] ? <span className="text-red-400">{falhas[r.id]}</span> : "Enviando o pedido…"}<br />{r.pedido?.slice(0, 80)}{falhas[r.id] && <button onClick={() => reenviar(r)} className="chip mt-2">Tentar de novo</button>}</div>
-                  : <button onClick={() => abrir(r)} className="block w-full"><MotionThumb spec={spec} /></button>}
+                  : <button onClick={() => (selecao ? marcar(r.id) : abrir(r))} className="block w-full"><MotionThumb spec={spec} /></button>}
                 <p className="text-sm font-semibold truncate mt-2">{r.titulo}</p>
                 <p className="text-[11px] text-fog">{r.formato} · {motionDuration(spec).toFixed(1)} s</p>
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -375,5 +396,12 @@ function Motion() {
         })}
       </section>
     </>
+  );
+}
+
+/** caixinha de seleção no canto do card */
+function Marca({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-pressed={on} aria-label={on ? "Tirar da seleção" : "Selecionar"} className={`absolute top-3 left-3 z-10 w-7 h-7 rounded-md border-2 grid place-items-center text-sm font-bold ${on ? "bg-red-500 border-red-500 text-white" : "bg-black/60 border-white/70 text-transparent"}`}>✓</button>
   );
 }
