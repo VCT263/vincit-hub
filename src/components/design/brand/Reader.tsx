@@ -48,7 +48,7 @@ const I = {
 function Btn({ on, title, onClick, disabled, children, wide }: { on?: boolean; title: string; onClick: () => void; disabled?: boolean; children: ReactNode; wide?: boolean }) {
   return (
     <button type="button" title={title} aria-label={title} aria-pressed={on} onClick={onClick} disabled={disabled}
-      className={`h-9 ${wide ? "px-2.5" : "w-8 sm:w-9"} grid place-items-center rounded-lg text-sm font-semibold transition disabled:opacity-35 ${on ? "bg-mint text-[#06140e]" : "text-paper hover:bg-white/10 active:bg-white/15"}`}>
+      className={`h-9 ${wide ? "px-2.5" : "w-[30px] sm:w-9"} grid place-items-center rounded-lg text-sm font-semibold transition disabled:opacity-35 ${on ? "bg-mint text-[#06140e]" : "text-paper hover:bg-white/10 active:bg-white/15"}`}>
       {children}
     </button>
   );
@@ -169,21 +169,23 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
   const jump = () => { const n = parseInt(typed || "", 10); setTyped(null); if (n >= 1 && n <= total) goTo(n - 1); };
 
   return (
-    <section ref={sec} className="reader print:hidden pb-20">
+    <section ref={sec} className="reader print:hidden pb-28">
       {/* barra fixa embaixo, ao alcance do polegar no celular */}
-      <div ref={bar} className={`fixed inset-x-0 bottom-0 z-30 bg-ink/90 backdrop-blur border-t border-line transition-transform duration-200 ${shown ? "translate-y-0" : "translate-y-full"}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="max-w-6xl mx-auto px-1.5 md:px-8 py-1.5 flex flex-wrap items-center justify-between gap-x-1 sm:gap-x-2 gap-y-1">
-          <div className="flex items-center gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Como ver as páginas">
+      {/* solta das bordas: os cantos arredondados do celular não cortam os botões */}
+      <div ref={bar} className={`fixed z-30 left-1/2 w-[calc(100%-20px)] sm:w-[calc(100%-32px)] max-w-3xl rounded-2xl bg-ink/90 backdrop-blur border border-line shadow-2xl transition-[transform,opacity] duration-200 ${shown ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 14px)", transform: `translateX(-50%) translateY(${shown ? "0" : "calc(100% + 30px)"})` }}>
+        <div className="px-1 sm:px-3 py-1 sm:py-1.5 flex flex-wrap items-center justify-between gap-x-1 sm:gap-x-2 gap-y-1">
+          <div className="flex items-center sm:gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Como ver as páginas">
             <Btn on={mode === "uma"} title="Uma página" onClick={() => setMode("uma")}>{I.uma}</Btn>
             <Btn on={mode === "duas"} title="Duas páginas lado a lado" onClick={() => setMode("duas")}>{I.duas}</Btn>
             <Btn on={mode === "grade"} title="Todas em miniatura" onClick={() => setMode("grade")}>{I.grade}</Btn>
           </div>
-          <div className="flex items-center gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Zoom">
+          <div className="flex items-center sm:gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Zoom">
             <Btn title={mode === "grade" ? "Miniaturas menores" : "Diminuir zoom"} onClick={zoomOut} disabled={mode === "grade" ? nCols >= 8 : z === 0}>−</Btn>
-            <button type="button" onClick={fit} title="Ajustar à tela" className="h-9 min-w-[44px] sm:min-w-[64px] px-1 rounded-lg font-mono text-[11px] sm:text-[12px] text-fog hover:text-paper hover:bg-white/10">{zoomLabel}</button>
+            <button type="button" onClick={fit} title="Ajustar à tela" className="h-9 min-w-[38px] sm:min-w-[64px] px-0.5 sm:px-1 rounded-lg font-mono text-[11px] sm:text-[12px] text-fog hover:text-paper hover:bg-white/10">{zoomLabel}</button>
             <Btn title={mode === "grade" ? "Miniaturas maiores" : "Aumentar zoom"} onClick={zoomIn} disabled={mode === "grade" ? nCols <= 1 : z === ZOOMS.length - 1}>+</Btn>
           </div>
-          <div className="flex items-center gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Páginas">
+          <div className="flex items-center sm:gap-0.5 rounded-xl bg-panel p-0.5" role="group" aria-label="Páginas">
             <Btn title="Página anterior" onClick={prev} disabled={cur <= 0}>‹</Btn>
             <span className="flex items-center font-mono text-[12px] text-fog px-0.5">
               <input inputMode="numeric" aria-label="Ir para a página" value={typed ?? String(cur + 1)}
@@ -191,8 +193,8 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
                 onChange={(e) => setTyped(e.target.value.replace(/\D/g, "").slice(0, 3))}
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setTyped(null); (e.target as HTMLInputElement).blur(); } }}
                 onBlur={jump}
-                className="w-8 sm:w-9 h-8 text-center rounded-md bg-panel2 text-paper text-[13px] outline-none focus:ring-1 focus:ring-mint" />
-              <span className="pl-1 pr-0.5">/ {total}</span>
+                className="w-7 sm:w-9 h-8 text-center rounded-md bg-panel2 text-paper text-[13px] outline-none focus:ring-1 focus:ring-mint" />
+              <span className="pl-0.5 sm:pl-1 pr-0.5">/{total}</span>
             </span>
             <Btn title="Próxima página" onClick={next} disabled={cur >= total - 1}>›</Btn>
           </div>
