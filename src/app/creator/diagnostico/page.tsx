@@ -111,7 +111,7 @@ export default function Diagnostico() {
         {list.length > 1 && <select className="input !w-auto ml-auto" value={list.indexOf(cur)} onChange={(e) => { setCur(list[Number(e.target.value)]); setSel([]); }}>{list.map((x, i) => <option key={x.id || i} value={i}>{new Date(x.created_at).toLocaleDateString("pt-BR")}</option>)}</select>}
         <button onClick={() => run()} disabled={busy || !acc} className={`btn btn-sm btn-mint ${list.length > 1 ? "" : "ml-auto"}`}><I.spark className="w-4 h-4" />{busy ? "Aguardando o Claude…" : cur ? "Refazer diagnóstico" : "Fazer diagnóstico"}</button>
       </div>
-      {!accounts.length && <p className="text-fog text-sm text-center py-10">Cadastre um perfil em <Link href="/creator/perfis" className="text-mint underline">Perfis & briefing</Link> para fazer o diagnóstico.</p>}
+      {!accounts.length && <p className="text-fog text-sm text-center py-10">Cadastre um perfil em <Link href="/creator/perfis" className="text-mint underline">Perfis e marcas</Link> para fazer o diagnóstico.</p>}
       {busy && <section className="card p-5 mb-5 border-mint-dim">
         <p className="label text-mint mb-3">Raio-X na fila do Claude{queued ? ` desde ${new Date(queued.since).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
         <div className="grid sm:grid-cols-3 gap-2 text-sm">
