@@ -138,6 +138,45 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
 }
 
 /** prévia ao vivo num iframe isolado, com tocar/pausar e barra de tempo */
+/* capa dos cards (pedido do Vinícius, 28/11): um quadro parado da peça, para saber qual é qual na lista.
+   Carrega só quando o card aparece na tela e no máximo 2 de cada vez (cada uma abre a composição num iframe). */
+let capasRodando = 0;
+const filaCapas: (() => void)[] = [];
+function vezDaCapa() { return new Promise<() => void>((res) => { const vai = () => { capasRodando++; res(() => { capasRodando--; filaCapas.shift()?.(); }); }; if (capasRodando < 2) vai(); else filaCapas.push(vai); }); }
+
+export function CapaMotion({ html, valores, className = "" }: { html: string; valores?: Record<string, any>; className?: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const ifr = useRef<HTMLIFrameElement>(null);
+  const [visivel, setVisivel] = useState(false);
+  const [pronta, setPronta] = useState(false);
+  const [scale, setScale] = useState(0.15);
+  const info = useMemo(() => infoComposicao(html), [html]);
+  const vals = JSON.stringify(valores || {});
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const ro = new ResizeObserver(() => setScale(el.clientWidth / info.w)); ro.observe(el);
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setVisivel(true); io.disconnect(); } }, { rootMargin: "200px" }); io.observe(el);
+    return () => { ro.disconnect(); io.disconnect(); };
+  }, [info.w]);
+  useEffect(() => {
+    if (!visivel || !ifr.current) return;
+    let vivo = true; let solta: (() => void) | null = null;
+    const f = new MotionFrame(ifr.current);
+    (async () => {
+      solta = await vezDaCapa(); if (!vivo) { solta(); return; }
+      try { await f.load(montarDoc(html, JSON.parse(vals))); await f.info(); await f.pause().catch(() => {}); await f.seek(Math.min(info.duracao * 0.6, Math.max(0, info.duracao - 0.3))); if (vivo) setPronta(true); } catch {}
+      solta(); solta = null;
+    })();
+    return () => { vivo = false; solta?.(); f.destroy(); };
+  }, [visivel, html, vals, info.duracao]);
+  return (
+    <div ref={box} className={`relative w-full overflow-hidden rounded-lg bg-black ${className}`} style={{ aspectRatio: `${info.w} / ${info.h}`, backgroundImage: "repeating-conic-gradient(#2c2c2c 0 25%, #1f1f1f 0 50%)", backgroundSize: "20px 20px" }}>
+      {visivel && <iframe ref={ifr} sandbox="allow-scripts" tabIndex={-1} aria-hidden title="Capa do motion" style={{ width: info.w, height: info.h, transform: `scale(${scale})`, transformOrigin: "0 0", border: 0, position: "absolute", left: 0, top: 0, pointerEvents: "none", opacity: pronta ? 1 : 0, transition: "opacity .3s" }} />}
+      {!pronta && <span className="absolute inset-0 grid place-items-center font-mono text-[10px] uppercase tracking-widest text-mint">Pronto</span>}
+    </div>
+  );
+}
+
 export function Previa({ html, valores, w, h, duracao, className = "" }: { html: string; valores: Record<string, any>; w: number; h: number; duracao: number; className?: string }) {
   const box = useRef<HTMLDivElement>(null);
   const ifr = useRef<HTMLIFrameElement>(null);
