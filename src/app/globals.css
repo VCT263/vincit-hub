@@ -152,3 +152,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   body:has(.bottom-nav) { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   body:has(.brainstorm) .bottom-nav { display: none; }
 }
+
+/* Gestor: olho que esconde os valores (números em dinheiro e quantidades financeiras) */
+html.ocultar-valores [data-gestor] :is(.tabular-nums, .font-mono, .valor) { filter: blur(7px); transition: filter .15s; }
+html.ocultar-valores [data-gestor] :is(.tabular-nums, .font-mono, .valor):hover { filter: blur(7px); }

@@ -9,9 +9,12 @@ import { A } from "@/components/agency/icons";
 import { useFinance, ACCOUNT_KINDS, todayBR } from "@/components/finance/useFinance";
 import TxForm from "@/components/finance/TxForm";
 import Charges from "@/components/finance/Charges";
+import Fechamento from "@/components/finance/Fechamento";
+import NotasFiscais from "@/components/finance/NotasFiscais";
+import Painel from "@/components/finance/Painel";
 import { apagarComLixeira } from "@/lib/lixeira";
 
-const TABS = [["geral", "Visão geral"], ["lancamentos", "Lançamentos"], ["contas", "Contas & cartões"], ["categorias", "Categorias & orçamento"], ["cobrancas", "Cobranças"]] as const;
+const TABS = [["geral", "Visão geral"], ["fechamento", "Fechamento do mês"], ["lancamentos", "Lançamentos"], ["notas", "Notas fiscais"], ["contas", "Contas & cartões"], ["categorias", "Categorias & orçamento"], ["cobrancas", "Cobranças"]] as const;
 type Tab = (typeof TABS)[number][0];
 const PALETTE = ["#6eefb6", "#7aa7ff", "#f5c84c", "#ff6b6b", "#c084fc", "#fb923c", "#22d3ee", "#a3e635", "#f472b6", "#8a8f94"];
 const monthLabel = (m: string) => new Date(m + "-15T12:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -30,6 +33,8 @@ export default function Financeiro() {
   const [catNew, setCatNew] = useState<any>({ name: "", kind: "saida", color: PALETTE[0] });
   const [chargePrefill, setChargePrefill] = useState<any>(null);
   const td = todayBR();
+  const [notas, setNotas] = useState<any[]>([]);
+  useEffect(() => { createClient().from("ag_invoices").select("*").order("issued_at", { ascending: false }).then(({ data }) => setNotas(data || [])); }, []);
 
   useEffect(() => {
     const q2 = new URLSearchParams(location.search);
@@ -103,12 +108,14 @@ export default function Financeiro() {
 
       {tab === "geral" && (
         <div className="space-y-5">
+          <Painel fin={fin} saldo={saldo} />
+          <p className="font-display font-bold pt-2">Mês a mês</p>
           <div className="flex flex-wrap items-center justify-between gap-3"><MonthNav />{!!overdue.length && <button onClick={() => { go("lancamentos"); setFType("pendentes"); }} className="chip text-danger border-danger/40">{overdue.length} lançamento(s) atrasado(s) · {brl(sum(overdue))}</button>}</div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="card p-4"><p className="text-xs text-fog">Saldo em contas</p><p className={`font-display text-2xl font-bold mt-1 ${saldo < 0 ? "text-danger" : ""}`}>{brl(saldo)}</p></div>
-            <div className="card p-4"><p className="text-xs text-fog">Receitas do mês</p><p className="font-display text-2xl font-bold mt-1 text-mint">{brl(k.receitas)}</p><p className="text-[11px] text-fog mt-1">{brl(k.recebido)} recebido</p></div>
-            <div className="card p-4"><p className="text-xs text-fog">Despesas do mês</p><p className="font-display text-2xl font-bold mt-1 text-danger">{brl(k.despesas)}</p><p className="text-[11px] text-fog mt-1">{brl(k.pago)} pago</p></div>
-            <div className="card p-4"><p className="text-xs text-fog">Resultado previsto</p><p className={`font-display text-2xl font-bold mt-1 ${k.receitas - k.despesas < 0 ? "text-danger" : ""}`}>{brl(k.receitas - k.despesas)}</p><p className="text-[11px] text-fog mt-1">{k.receitas ? `margem ${(((k.receitas - k.despesas) / k.receitas) * 100).toFixed(0)}%` : "–"}</p></div>
+            <div className="card p-4"><p className="text-xs text-fog">Saldo em contas</p><p className={`valor font-display text-2xl font-bold mt-1 ${saldo < 0 ? "text-danger" : ""}`}>{brl(saldo)}</p></div>
+            <div className="card p-4"><p className="text-xs text-fog">Receitas do mês</p><p className="valor font-display text-2xl font-bold mt-1 text-mint">{brl(k.receitas)}</p><p className="valor text-[11px] text-fog mt-1">{brl(k.recebido)} recebido</p></div>
+            <div className="card p-4"><p className="text-xs text-fog">Despesas do mês</p><p className="valor font-display text-2xl font-bold mt-1 text-danger">{brl(k.despesas)}</p><p className="valor text-[11px] text-fog mt-1">{brl(k.pago)} pago</p></div>
+            <div className="card p-4"><p className="text-xs text-fog">Resultado previsto</p><p className={`valor font-display text-2xl font-bold mt-1 ${k.receitas - k.despesas < 0 ? "text-danger" : ""}`}>{brl(k.receitas - k.despesas)}</p><p className="text-[11px] text-fog mt-1">{k.receitas ? `margem ${(((k.receitas - k.despesas) / k.receitas) * 100).toFixed(0)}%` : "–"}</p></div>
           </div>
           <div className="grid lg:grid-cols-3 gap-5">
             <section className="card p-5 lg:col-span-2">
@@ -169,6 +176,7 @@ export default function Financeiro() {
                   <li key={x.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-panel2/40">
                     <span className="w-8 h-8 rounded-full grid place-items-center text-xs shrink-0" style={{ background: (x.transfer_id ? "#8a8f94" : catColor(x.category)) + "22", color: x.transfer_id ? "#8a8f94" : catColor(x.category) }}>{x.transfer_id ? "⇄" : (x.category || "?")[0]}</span>
                     <button onClick={() => setForm({ ...x })} className="flex-1 min-w-0 text-left"><p className="text-sm truncate">{x.description}</p><p className="text-[11px] text-fog truncate">{[x.category, acc?.name, x.ag_clients?.name].filter(Boolean).join(" · ")}{x.recurrence_group && !x.installment ? " · fixa" : ""}</p></button>
+                    {x.receipt_url && <a href={x.receipt_url} target="_blank" rel="noreferrer" title="Ver comprovante" className="chip hover:text-mint shrink-0">comprovante</a>}
                     <span className={`font-mono text-sm ${x.transfer_id ? "text-fog" : x.kind === "saida" ? "text-danger" : "text-mint"}`}>{x.transfer_id ? "" : x.kind === "saida" ? "−" : "+"}{brl(Number(x.amount))}</span>
                     {!x.transfer_id && <button onClick={() => togglePaid(x)} title={x.paid ? "Desfazer" : x.kind === "saida" ? "Marcar como pago" : "Marcar como recebido"} className={`text-[11px] px-2 py-1 rounded-md border whitespace-nowrap ${x.paid ? "border-mint/40 text-mint" : late ? "border-danger/50 text-danger" : "border-line text-fog hover:text-paper"}`}>{x.paid ? (x.kind === "saida" ? "Pago" : "Recebido") : late ? "Atrasado" : "Pendente"}</button>}
                   </li>
@@ -193,14 +201,14 @@ export default function Financeiro() {
                   <div className="flex justify-between items-start"><div><p className="font-semibold">{a.name}</p><p className="text-xs text-fog">{ACCOUNT_KINDS[a.kind]}</p></div><button onClick={() => setAccForm({ ...a })} className="text-xs text-fog hover:text-mint">Editar</button></div>
                   {a.kind === "cartao" ? (
                     <>
-                      <p className="font-display text-2xl font-bold mt-3 text-danger">{brl(-bal)}</p>
+                      <p className="valor font-display text-2xl font-bold mt-3 text-danger">{brl(-bal)}</p>
                       <p className="text-[11px] text-fog">em aberto{a.credit_limit ? ` · limite disponível ${brl(Number(a.credit_limit) + bal)}` : ""} · fecha dia {a.closing_day}, vence dia {a.due_day}</p>
                       {a.credit_limit && <div className="h-1.5 bg-panel2 rounded-full overflow-hidden mt-2"><div className="h-full bg-danger/80" style={{ width: `${Math.min(100, (-bal / Number(a.credit_limit)) * 100)}%` }} /></div>}
                       {invoices.slice(0, 3).map((due) => { const v = sum(fin.tx.filter((t) => t.account_id === a.id && t.kind === "saida" && !t.paid && t.due_date === due)); return (
                         <div key={due} className="flex items-center gap-2 mt-3 text-sm bg-panel2 rounded-lg px-3 py-2"><span className="flex-1">Fatura {new Date(due + "T12:00").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })} · vence {new Date(due + "T12:00").toLocaleDateString("pt-BR")}</span><span className="font-mono text-xs">{brl(v)}</span><button onClick={() => payInvoice(a, due)} className="text-[11px] text-mint hover:underline">Pagar</button></div>
                       ); })}
                     </>
-                  ) : <p className={`font-display text-2xl font-bold mt-3 ${bal < 0 ? "text-danger" : ""}`}>{brl(bal)}</p>}
+                  ) : <p className={`valor font-display text-2xl font-bold mt-3 ${bal < 0 ? "text-danger" : ""}`}>{brl(bal)}</p>}
                 </div>
               );
             })}
@@ -232,6 +240,10 @@ export default function Financeiro() {
       )}
 
       {tab === "cobrancas" && <Charges fin={fin} prefill={chargePrefill} />}
+
+      {tab === "fechamento" && <div className="space-y-4"><MonthNav /><Fechamento fin={fin} month={month} saldo={saldo} notas={notas} /></div>}
+
+      {tab === "notas" && <NotasFiscais fin={fin} notas={notas} />}
 
       {form && <TxForm init={form} fin={fin} onClose={() => setForm(null)} />}
 
