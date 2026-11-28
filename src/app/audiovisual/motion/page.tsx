@@ -20,8 +20,18 @@ const SEM = "__sem_pasta", NOVA = "__nova_pasta";
 const corpoPendente = (r: Row) => {
   const etapa = r.spec?.pendente?.etapa;
   if (!ehHtml(r) || !etapa) return { task: "motion", motion_id: r.id, pedido: r.pedido, formato: r.formato, account_id: r.account_id };
-  return { task: etapa === "brief" ? "motion_brief" : "motion_html", etapa, motion_id: r.id, pedido: r.pedido, formato: r.formato, account_id: r.account_id, ajuste: r.spec?.pendente?.ajuste || undefined, base: etapa === "html" ? { brief: r.spec?.brief } : undefined };
+  return { task: etapa === "brief" ? "motion_brief" : "motion_html", etapa, motion_id: r.id, pedido: r.pedido, formato: r.formato, account_id: r.account_id, ajuste: r.spec?.pendente?.ajuste || undefined, variacao: r.spec?.pendente?.variacao || undefined, base: etapa === "html" ? { brief: r.spec?.brief } : undefined };
 };
+
+/** biblioteca de animações (ideia do @gabeberaldo, 28/11): direções de movimento para as versões de uma peça */
+const DIRECOES = [
+  { nome: "Rápida", texto: "entrada forte e rápida: cortes secos, texto entra com escala e desfoque de movimento, ritmo acelerado, nada parado mais de 1 s." },
+  { nome: "Elegante", texto: "calma e elegante: fades e deslizes longos, curvas suaves (ease-in-out), bastante respiro na tela, movimentos pequenos." },
+  { nome: "Cinética", texto: "tipografia cinética: as palavras se montam uma a uma ou letra a letra, cada uma com um ponto de ancoragem diferente (girar, esticar, cair)." },
+  { nome: "Camadas", texto: "editorial em camadas: formas, cartões e blocos de cor de destaque deslizam em camadas com paralaxe, o texto aparece por trás de uma máscara." },
+  { nome: "Contraste", texto: "contraste máximo: troca de fundo a cada cena (cor da marca e escuro), texto grande em caixa alta, transições de corte com flash curto." },
+  { nome: "Mínima", texto: "mínima: uma só linha de movimento contínuo (traço ou forma que conduz o olho), texto pequeno e preciso, muito espaço vazio." },
+];
 
 type Row = { id: string; titulo: string; formato: MotionFormat; spec: any; status: "pedido" | "pronto"; pedido?: string; ai_request_id?: string | null; account_id?: string | null; kit_id?: string | null; brand_id?: string | null; pasta?: string | null; ec_action_id?: string | null; updated_at: string };
 
@@ -172,6 +182,32 @@ function Motion() {
     setOpenHtml(null); load();
     await etapa(r.id, { task: "motion_html", etapa: "html", motion_id: r.id, pedido: row.pedido || r.titulo, formato: row.formato, account_id: row.account_id, ajuste: ajuste || undefined, base: { brief: r.spec?.brief } }, r.spec?.html ? "Ajuste enviado. O Claude refaz a peça." : "Brief aprovado. O Claude escreve a peça e ela aparece aqui.");
   }
+  /** gera versões da mesma peça em direções de movimento diferentes, para aprovar ou descartar */
+  async function versoes(r: Row) {
+    const brief = r.spec?.brief;
+    if (!brief?.cenas?.length) { setMsg("Aprove o brief desta peça antes de gerar versões."); return; }
+    const nTxt = window.prompt(`Quantas versões de "${r.titulo}"? (2 a 6)\nDireções: ${DIRECOES.map((d) => d.nome).join(", ")}`, "4");
+    const n = Math.max(2, Math.min(6, parseInt(nTxt || "", 10) || 0));
+    if (!nTxt) return;
+    const s = createClient();
+    const base = r.titulo.replace(/ · versão .*$/, "");
+    const novos: { id: string; d: (typeof DIRECOES)[number] }[] = [];
+    for (const d of DIRECOES.slice(0, n)) {
+      const spec = { motor: "html", etapa: "brief", formato: r.formato, brief, versao_de: r.spec?.versao_de || r.id, direcao: d.nome, pendente: { etapa: "html", variacao: d.texto } };
+      const { data, error } = await s.from("av_motions").insert({ titulo: `${base} · versão ${d.nome}`.slice(0, 80), formato: r.formato, spec, status: "pedido", pedido: r.pedido || r.titulo, origem: "pedido", pasta: r.pasta || null, ec_action_id: r.ec_action_id || null, account_id: r.account_id || null, kit_id: r.kit_id || null }).select("id").single();
+      if (error) { setMsg(error.message); break; }
+      novos.push({ id: data.id, d });
+    }
+    if (!novos.length) return;
+    if (r.pasta && pasta !== "" && pasta !== r.pasta) setPasta(r.pasta);
+    load();
+    setMsg(`${novos.length} versões de "${base}" foram para o Claude (${novos.map((x) => x.d.nome).join(", ")}). Elas aparecem na lista; aprove as boas e descarte as outras, e o Claude passa a seguir as aprovadas.`);
+    await Promise.all(novos.map(({ id, d }) => {
+      const grab = (e: Event) => { const det = (e as CustomEvent<AIQueueEvent>).detail; if (det.state === "waiting") { s.from("av_motions").update({ ai_request_id: det.id }).eq("id", id).then(() => load()); window.removeEventListener(AI_QUEUE_EVENT, grab); } };
+      return aiFetch("/api/av/motion", { task: "motion_html", etapa: "html", motion_id: id, pedido: r.pedido || r.titulo, formato: r.formato, account_id: r.account_id, variacao: d.texto, base: { brief } }).catch(() => null);
+    }));
+    load();
+  }
   async function usarModelo(id: string) {
     const m = [...MODELOS_HTML, ...ESTILOS_TEXTO].find((x) => x.id === id); if (!m) return;
     const { data, error } = await createClient().from("av_motions").insert({ titulo: `${m.nome} · ${m.marca}`, formato: "9:16", spec: { motor: "html", etapa: "pronto", html: m.html, valores: {}, modelo: m.id }, status: "pronto", origem: "hub", pasta: pastaAtual, ec_action_id: campanhaAtual }).select("id").single();
@@ -308,6 +344,7 @@ function Motion() {
                       <button onClick={() => avaliar(r, "aprovado")} className={`chip ${r.spec?.avaliacao === "aprovado" ? "chip-mint" : ""}`} title="O Claude segue a linha das aprovadas nas próximas peças">{r.spec?.avaliacao === "aprovado" ? "✓ Aprovada" : "Aprovar"}</button>
                       <button onClick={() => avaliar(r, "descartado")} className={`chip ${r.spec?.avaliacao === "descartado" ? "text-red-400 border-red-400/50" : ""}`} title="O Claude evita o que as descartadas tinham">{r.spec?.avaliacao === "descartado" ? "✗ Descartada" : "Descartar"}</button>
                     </>}
+                    {!esperando && r.spec?.brief?.cenas?.length > 0 && <button onClick={() => versoes(r)} className="chip" title="Gera versões desta peça com movimentos diferentes para você aprovar ou descartar">Gerar versões</button>}
                     <select value={r.pasta || SEM} onChange={(e) => mover(r, e.target.value)} aria-label="Pasta" className="chip !py-0 max-w-[9rem] bg-transparent"><option value={SEM}>Sem pasta</option>{pastas.map((n) => <option key={n} value={n}>{n}</option>)}<option value={NOVA}>+ Nova pasta…</option></select>
                     <button onClick={() => excluir(r)} className="chip text-red-400" aria-label={`Excluir ${r.titulo}`}><I.trash className="w-3 h-3" /></button>
                   </div>
