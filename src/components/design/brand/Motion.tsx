@@ -191,7 +191,7 @@ export function videoSupport() {
 }
 
 /** transforma cada slide em JPEG, um por vez, fora da tela */
-async function rasterize(x: Ctx, seq: { s: SlideDef; n: number }[], total: number, outW: number, onProg: (f: number) => void, stop: () => boolean) {
+export async function rasterize(x: Ctx, seq: { s: SlideDef; n: number }[], total: number, outW: number, onProg: (f: number) => void, stop: () => boolean) {
   const { domToBlob } = await import("modern-screenshot");
   /* as fontes da marca vêm do Google Fonts por <link>; o navegador não deixa ler essas regras e a
      imagem gerada não carrega arquivos de fora, então busco o CSS, fico com os blocos latinos (os que

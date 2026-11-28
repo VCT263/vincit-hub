@@ -692,7 +692,7 @@ export function ScaledSlide({ x, s, n, total }: { x: Ctx; s: SlideDef; n: number
 
 /** o PDF: na hora de imprimir, os slides vão para uma camada própria no body, no tamanho real
    (sem escala, sem o layout do HUB em volta), uma página por slide no tamanho do formato */
-export function PrintDeck({ x, slides }: { x: Ctx; slides: SlideDef[] }) {
+export function PrintDeck({ x, slides, imgs }: { x: Ctx; slides: SlideDef[]; imgs?: string[] }) {
   const on = usePrintAll();
   const [el, setEl] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -705,13 +705,16 @@ export function PrintDeck({ x, slides }: { x: Ctx; slides: SlideDef[] }) {
     return () => { root.remove(); st.remove(); document.documentElement.classList.remove("print-deck"); setEl(null); };
   }, [on, x.W, x.H]);
   if (!el) return null;
+  if (imgs?.length) return createPortal(imgs.map((u, i) => (
+    <div key={i} className="print-deck-page" style={{ width: x.W, height: x.H }}><img src={u} alt="" style={{ width: x.W, height: x.H, display: "block", objectFit: "cover" }} /></div>
+  )), el);
   return createPortal(slides.map((s, i) => (
     <div key={s.key} className="print-deck-page" style={{ width: x.W, height: x.H }}><Frame x={x} s={s} n={i + 1} total={slides.length}>{s.body(x)}</Frame></div>
   )), el);
 }
 
 /** apresentação em tela cheia: setas para navegar, Esc para sair */
-export function Presenter({ x, slides, start, onClose }: { x: Ctx; slides: SlideDef[]; start: number; onClose: () => void }) {
+export function Presenter({ x, slides, start, onClose, imgs }: { x: Ctx; slides: SlideDef[]; start: number; onClose: () => void; imgs?: string[] }) {
   const [i, setI] = useState(start);
   const [vp, setVp] = useState({ w: 1600, h: 900 });
   useEffect(() => {
@@ -725,15 +728,16 @@ export function Presenter({ x, slides, start, onClose }: { x: Ctx; slides: Slide
   const rot = vp.h > vp.w && x.W > x.H;
   const k = rot ? Math.min(vp.h / x.W, vp.w / x.H) : Math.min(vp.w / x.W, vp.h / x.H);
   const swipe = useRef<number | null>(null);
-  const go = (fwd: boolean) => setI((v) => (fwd ? Math.min(slides.length - 1, v + 1) : Math.max(0, v - 1)));
+  const last = (imgs?.length || slides.length) - 1;
+  const go = (fwd: boolean) => setI((v) => (fwd ? Math.min(last, v + 1) : Math.max(0, v - 1)));
   return (
     <div className="fixed inset-0 z-[100] bg-black grid place-items-center print:hidden touch-none"
       onTouchStart={(e) => { swipe.current = rot ? e.touches[0].clientY : e.touches[0].clientX; }}
       onTouchEnd={(e) => { const a = swipe.current; swipe.current = null; if (a == null) return; const b = rot ? e.changedTouches[0].clientY : e.changedTouches[0].clientX; if (Math.abs(b - a) > 40) { e.preventDefault(); go(b < a); } }}
       onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); go(rot ? e.clientY - r.top > r.height / 2 : e.clientX - r.left > r.width / 2); }}>
-      <div style={{ width: (rot ? x.H : x.W) * k, height: (rot ? x.W : x.H) * k }}><div style={{ transform: rot ? `translateX(${x.H * k}px) rotate(90deg) scale(${k})` : `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}><Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame></div></div>
+      <div style={{ width: (rot ? x.H : x.W) * k, height: (rot ? x.W : x.H) * k }}><div style={{ transform: rot ? `translateX(${x.H * k}px) rotate(90deg) scale(${k})` : `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>{imgs?.length ? <img src={imgs[i]} alt={`Página ${i + 1}`} style={{ width: x.W, height: x.H, display: "block" }} /> : <Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame>}</div></div>
       <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white/60 hover:text-white text-sm font-mono">Esc · sair</button>
-      <span className="absolute bottom-4 right-4 text-white/50 text-xs font-mono">{i + 1} / {slides.length}</span>
+      <span className="absolute bottom-4 right-4 text-white/50 text-xs font-mono">{i + 1} / {imgs?.length || slides.length}</span>
     </div>
   );
 }

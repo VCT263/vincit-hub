@@ -7,6 +7,8 @@ import { FORMATS, Presenter, PrintDeck, useDeck, type Format } from "@/component
 import Logo from "@/components/Logo";
 import { VideoControls } from "@/components/design/brand/Motion";
 import { Reader } from "@/components/design/brand/Reader";
+import { useLite } from "@/components/design/brand/lazy";
+import { PaginasLista, type Paginas } from "@/components/design/brand/pages";
 
 /* Apresentação pública da marca (link do projeto): o cliente vê os slides, apresenta em tela cheia,
    baixa o PDF e aprova ou pede ajuste. Sempre mostra a versão salva mais recente do projeto. */
@@ -25,6 +27,11 @@ function Deck({ token, p }: { token: string; p: any }) {
   const format: Format = (d.deck_format as Format) in FORMATS ? d.deck_format : "16:9";
   const { x, slides } = useDeck(d, format, p.mockups || []);
   const [show, setShow] = useState<number | null>(null);
+  const lite = useLite();
+  /* páginas prontas em imagem (geradas no HUB): o link só mostra as imagens, sem montar os slides.
+     Sem elas (marca ainda não aberta no computador depois desta versão), usa o leitor antigo. */
+  const pg: Paginas | null = d.paginas?.urls?.length ? d.paginas : null;
+  const total = pg ? pg.urls.length : slides.length;
   const nome = d.brief?.nome || p.title;
   const ent = d.entrega || {};
   const [mode, setMode] = useState<"" | "ajuste">("");
@@ -49,17 +56,17 @@ function Deck({ token, p }: { token: string; p: any }) {
       <header className="max-w-6xl mx-auto px-4 md:px-8 pt-6 md:pt-10 print:hidden">
         <div className="flex items-center justify-between"><Logo className="h-6" vincitOnly /><span className="font-mono text-[11px] text-fog tracking-widest uppercase">Identidade de marca</span></div>
         <h1 className="font-display text-4xl md:text-6xl font-extrabold tracking-tight mt-10 leading-[1.02]">{nome}</h1>
-        <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma. Na barra das páginas, escolha uma página, duas lado a lado ou todas em miniatura, e use + e − para o zoom. Toque numa página para abrir em tela cheia.</p>
+        <p className="text-fog mt-3 text-[15px] max-w-xl">Sua marca, do porquê às aplicações. Veja com calma. {pg ? "Toque numa página para abrir em tela cheia e passe para o lado para seguir." : "Na barra das páginas, escolha uma página, duas lado a lado ou todas em miniatura, e use + e − para o zoom. Toque numa página para abrir em tela cheia."}</p>
         <div className="flex flex-wrap gap-2 mt-6">
           <button onClick={() => setShow(0)} className="btn btn-mint">▶ Apresentar em tela cheia</button>
-          <button onClick={printAll} className="btn btn-ghost">Baixar PDF</button>
-          <div className="w-full flex flex-wrap items-center gap-2"><VideoControls x={x} slides={slides} name={nome} d={d} /></div>
+          {!(lite && !pg) && <button onClick={printAll} className="btn btn-ghost">Baixar PDF</button>}
+          {!lite && <div className="w-full flex flex-wrap items-center gap-2"><VideoControls x={x} slides={slides} name={nome} d={d} /></div>}
           <a href="#retorno" className="btn btn-ghost">{aprovado ? "Aprovada" : "Aprovar ou pedir ajuste"}</a>
         </div>
-        <p className="text-[11px] text-fog mt-3">{slides.length} páginas · no PDF, escolha “Salvar como PDF” e ative “Gráficos de fundo”.</p>
+        <p className="text-[11px] text-fog mt-3">{total} páginas · no PDF, escolha “Salvar como PDF” e ative “Gráficos de fundo”.</p>
       </header>
 
-      <div className="mt-8"><Reader x={x} slides={slides} onPresent={setShow} active={show === null} /></div>
+      <div className="mt-8 mb-12">{pg ? <PaginasLista pg={pg} onOpen={setShow} /> : <Reader x={x} slides={slides} onPresent={setShow} active={show === null} />}</div>
 
       <section id="retorno" className="max-w-2xl mx-auto px-4 md:px-8 pb-20 print:hidden">
         {aprovado && !mode ? (
@@ -86,8 +93,8 @@ function Deck({ token, p }: { token: string; p: any }) {
           </div>
         )}
       </section>
-      <PrintDeck x={x} slides={slides} />
-      {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} />}
+      <PrintDeck x={x} slides={slides} imgs={pg?.urls} />
+      {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} imgs={pg?.urls} />}
     </main>
   );
 }
