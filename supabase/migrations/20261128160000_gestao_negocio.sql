@@ -31,3 +31,22 @@ alter table public.ag_clients add column if not exists contract jsonb;
 
 -- divisão do dinheiro que entra (Profit First adaptado): {lucro, prolabore, impostos, operacao} em %
 alter table public.ag_settings add column if not exists alocacao jsonb;
+
+-- metas do trimestre da empresa (Gestor): por mês {AAAA-MM: {min, meta, super}}, 3 prioridades e o pró-labore fixo
+create table if not exists public.ag_goals (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  year int not null,
+  quarter int not null check (quarter between 1 and 4),
+  months jsonb not null default '{}'::jsonb,
+  priorities text[] not null default '{}',
+  first_step text,
+  pro_labore numeric,
+  pro_labore_day int check (pro_labore_day between 1 and 31),
+  closing text,
+  updated_at timestamptz not null default now(),
+  unique (owner_id, year, quarter)
+);
+alter table public.ag_goals enable row level security;
+drop policy if exists ag_goals_owner on public.ag_goals;
+create policy ag_goals_owner on public.ag_goals for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());

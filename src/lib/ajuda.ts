@@ -52,6 +52,7 @@ export const AJUDA_TELA: Record<string, Dica> = {
   "/agency/clientes": { titulo: "Clientes", texto: "Cadastro, ficha e onboarding de cada cliente." },
   "/agency/propostas": { titulo: "Propostas", texto: "Monte o orçamento, gere o texto e mande um link para o cliente aceitar online." },
   "/agency/financeiro": { titulo: "Financeiro", texto: "Contas e lançamentos, o fechamento do mês (divisão em lucro, pró-labore, impostos e operação), notas fiscais e cobranças com Pix." },
+  "/agency/metas": { titulo: "Metas do trimestre", texto: "Mínimo, meta e super meta de faturamento por mês, 3 prioridades e o pró-labore fixo. O faturado vem sozinho do Financeiro." },
   "/agency/funil": { titulo: "Funil de vendas", texto: "Cada oportunidade do primeiro contato ao fechamento." },
   "/agency/equipe": { titulo: "Equipe", texto: "Quem faz parte do time, diárias e produtividade." },
   "/agency/equipamentos": { titulo: "Equipamentos", texto: "Inventário, reservas por projeto e manutenção." },

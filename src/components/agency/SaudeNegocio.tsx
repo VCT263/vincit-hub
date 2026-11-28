@@ -12,22 +12,22 @@ export default function SaudeNegocio({ s, saldo }: { s: ReturnType<typeof saude>
         <div className="card p-4">
           <p className="text-xs text-fog">Receita em 12 meses</p>
           <p className="font-display text-2xl md:text-3xl font-bold mt-1 tabular-nums">{brlShort(r.receita)}</p>
-          <p className="text-[11px] text-fog mt-1">média de {brlShort(s.media)} por mês{s.mrr ? ` · contratos ${brlShort(s.mrr)}/mês` : ""}</p>
+          <p className="valor text-[11px] text-fog mt-1">média de {brlShort(s.media)} por mês{s.mrr ? ` · contratos ${brlShort(s.mrr)}/mês` : ""}</p>
         </div>
         <div className="card p-4">
           <p className="text-xs text-fog">Maior cliente</p>
           <p className={`font-display text-2xl md:text-3xl font-bold mt-1 tabular-nums ${s.maior && s.maior.pct >= 50 ? "text-danger" : ""}`}>{s.maior ? `${Math.round(s.maior.pct)}%` : "–"}</p>
-          <p className="text-[11px] text-fog mt-1 truncate">{s.maior ? `da receita vem de ${s.maior.nome}` : "sem recebimentos"}</p>
+          <p className="valor text-[11px] text-fog mt-1 truncate">{s.maior ? `da receita vem de ${s.maior.nome}` : "sem recebimentos"}</p>
         </div>
         <div className="card p-4">
           <p className="text-xs text-fog">Ficou na empresa</p>
           <p className={`font-display text-2xl md:text-3xl font-bold mt-1 tabular-nums ${pct(r.saida.lucro) < aloc.lucro ? "text-danger" : "text-mint"}`}>{Math.round(pct(r.saida.lucro))}%</p>
-          <p className="text-[11px] text-fog mt-1">alvo {aloc.lucro}% · {brlShort(r.saida.lucro)} em 12 meses</p>
+          <p className="valor text-[11px] text-fog mt-1">alvo {aloc.lucro}% · {brlShort(r.saida.lucro)} em 12 meses</p>
         </div>
         <div className="card p-4">
           <p className="text-xs text-fog">Meses de caixa</p>
           <p className={`font-display text-2xl md:text-3xl font-bold mt-1 tabular-nums ${caixaCor}`}>{s.mesesCaixa === null ? "–" : s.mesesCaixa.toFixed(1)}</p>
-          <p className="text-[11px] text-fog mt-1">saldo {brlShort(saldo)} ÷ custo de {brlShort(s.custoMes)}/mês · alvo 3</p>
+          <p className="valor text-[11px] text-fog mt-1">saldo {brlShort(saldo)} ÷ custo de {brlShort(s.custoMes)}/mês · alvo 3</p>
         </div>
       </div>
 

@@ -27,10 +27,10 @@ export default function Fechamento({ fin, month, saldo, notas }: { fin: any; mon
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="card p-4"><p className="text-xs text-fog">Entrou no mês</p><p className="font-display text-2xl font-bold mt-1 text-mint tabular-nums">{brl(r.receita)}</p><p className="text-[11px] text-fog mt-1">{r.clientes.length} cliente(s)</p></div>
-        <div className="card p-4"><p className="text-xs text-fog">Saiu no mês</p><p className="font-display text-2xl font-bold mt-1 text-danger tabular-nums">{brl(r.gasto)}</p><p className="text-[11px] text-fog mt-1">pró-labore, impostos e operação</p></div>
-        <div className="card p-4"><p className="text-xs text-fog">Ficou na empresa</p><p className={`font-display text-2xl font-bold mt-1 tabular-nums ${r.saida.lucro < 0 ? "text-danger" : ""}`}>{brl(r.saida.lucro)}</p><p className="text-[11px] text-fog mt-1">{r.receita ? `${Math.round((r.saida.lucro / r.receita) * 100)}% do que entrou` : "–"}</p></div>
-        <div className="card p-4"><p className="text-xs text-fog">Meses de caixa</p><p className={`font-display text-2xl font-bold mt-1 tabular-nums ${mesesCaixa !== null && mesesCaixa < 3 ? "text-danger" : ""}`}>{mesesCaixa === null ? "–" : mesesCaixa.toFixed(1)}</p><p className="text-[11px] text-fog mt-1">saldo hoje {brlShort(saldo)}</p></div>
+        <div className="card p-4"><p className="text-xs text-fog">Entrou no mês</p><p className="font-display text-2xl font-bold mt-1 text-mint tabular-nums">{brl(r.receita)}</p><p className="valor text-[11px] text-fog mt-1">{r.clientes.length} cliente(s)</p></div>
+        <div className="card p-4"><p className="text-xs text-fog">Saiu no mês</p><p className="font-display text-2xl font-bold mt-1 text-danger tabular-nums">{brl(r.gasto)}</p><p className="valor text-[11px] text-fog mt-1">pró-labore, impostos e operação</p></div>
+        <div className="card p-4"><p className="text-xs text-fog">Ficou na empresa</p><p className={`font-display text-2xl font-bold mt-1 tabular-nums ${r.saida.lucro < 0 ? "text-danger" : ""}`}>{brl(r.saida.lucro)}</p><p className="valor text-[11px] text-fog mt-1">{r.receita ? `${Math.round((r.saida.lucro / r.receita) * 100)}% do que entrou` : "–"}</p></div>
+        <div className="card p-4"><p className="text-xs text-fog">Meses de caixa</p><p className={`font-display text-2xl font-bold mt-1 tabular-nums ${mesesCaixa !== null && mesesCaixa < 3 ? "text-danger" : ""}`}>{mesesCaixa === null ? "–" : mesesCaixa.toFixed(1)}</p><p className="valor text-[11px] text-fog mt-1">saldo hoje {brlShort(saldo)}</p></div>
       </div>
 
       <section className="card p-5">
