@@ -1,5 +1,6 @@
 "use client";
 import { briefEmTexto, normalizeBrief } from "@/lib/briefs";
+import { salvarNoDrive } from "@/lib/drive";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAMERAS as LUT_CAMERAS, ESTILOS as LUT_ESTILOS } from "@/lib/luts/catalog";
 import Ajuda from "@/components/ajuda/Ajuda";
@@ -39,6 +40,7 @@ export default function Editor() {
   const [busy, setBusy] = useState<Busy>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; size: number } | null>(null);
+  const [drive, setDrive] = useState<{ busy?: boolean; ok?: boolean; link?: string; caminho?: string; error?: string; needsScope?: boolean } | null>(null);
   const [preset, setPreset] = useState("");
   const [addAs, setAddAs] = useState<"fala" | "broll">("fala");
   const [ask, setAsk] = useState("");
@@ -72,7 +74,7 @@ export default function Editor() {
   useEffect(() => {
     const s = createClient();
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
-    s.from("content_ideas").select("id,title,hook,format,body").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
+    s.from("content_ideas").select("id,title,hook,format,body,account_id").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
     if (document.fonts) FONTS_LOAD.forEach((f) => document.fonts.load(f).catch(() => {}));
     loadMotions().then((list) => {
       const id = new URLSearchParams(window.location.search).get("motion");
@@ -85,6 +87,17 @@ export default function Editor() {
     const list = ((data as any) || []).map((r: any) => ({ ...r, spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec }[];
     setMotions(list);
     return list;
+  }
+
+  /** guarda o vídeo exportado no Drive: Meus conteúdos > Projetos e entregas > perfil > AAAA-MM */
+  async function salvarDrive() {
+    if (!result) return;
+    setDrive({ busy: true });
+    const c = contents.find((x) => x.id === contentId);
+    const nome = `${(c?.title || "video").replace(/[\\/:*?"<>|]+/g, "").slice(0, 60)}.mp4`;
+    const blob = await fetch(result.url).then((r) => r.blob());
+    const r = await salvarNoDrive({ kind: "interno", nome, blob, accountId: c?.account_id || null });
+    setDrive(r.ok ? { ok: true, caminho: r.caminho, link: r.link } : { error: r.error, needsScope: r.needsScope });
   }
 
   /* ---------- importar arquivos ---------- */
@@ -384,7 +397,7 @@ export default function Editor() {
       const { exportMp4 } = await import("@/lib/editor/export");
       const blob = await exportMp4(p, media, kit, (f, m) => setBusy({ f, msg: m }), cancelRef.current);
       if (result) URL.revokeObjectURL(result.url);
-      setResult({ url: URL.createObjectURL(blob), size: blob.size });
+      setResult({ url: URL.createObjectURL(blob), size: blob.size }); setDrive(null);
       setMsg("Vídeo exportado. Baixe abaixo da prévia.");
     } catch (e: any) { setMsg(e.message); }
     setBusy(null);
@@ -750,6 +763,9 @@ export default function Editor() {
             <div className="w-full max-w-[320px] rounded-xl border border-mint-dim p-3 text-sm">
               <p className="font-semibold">Vídeo pronto · {(result.size / 1048576).toFixed(1)} MB</p>
               <a href={result.url} download={`${(contents.find((c) => c.id === contentId)?.title || "video").replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 60)}.mp4`} className="mt-2 inline-flex px-3 py-1.5 rounded-lg bg-mint text-ink font-semibold">Baixar MP4</a>
+              <button disabled={drive?.busy || drive?.ok} onClick={salvarDrive} className="mt-2 ml-2 inline-flex px-3 py-1.5 rounded-lg border border-mint-dim text-mint font-semibold disabled:opacity-50">{drive?.busy ? "Salvando…" : drive?.ok ? "No Drive" : "Salvar no Drive"}</button>
+              {drive?.ok && <p className="mt-2 text-xs text-fog">Salvo em {drive.caminho}{drive.link && <> · <a href={drive.link} target="_blank" rel="noreferrer" className="text-mint">abrir</a></>}</p>}
+              {drive?.error && <p className="mt-2 text-xs text-amber-300">{drive.error}{drive.needsScope && <> Libere em <Link href="/audiovisual/midia" className="text-mint">Banco de mídia</Link>, "Liberar organização do Drive".</>}</p>}
             </div>
           )}
           {!media.length && <p className="text-sm text-fog text-center">Comece adicionando os takes na aba Clipes.</p>}
