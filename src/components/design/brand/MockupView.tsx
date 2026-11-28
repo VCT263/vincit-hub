@@ -120,9 +120,13 @@ function cylinderAngle(w: number, h: number, q: number[]) {
 }
 function Cylinder({ w, h, quad, children }: { w: number; h: number; quad: number[]; children: ReactNode }) {
   const cyl = useMemo(() => cylinderAngle(w, h, quad), [w, h, quad]);
+  const lite = useLite();
   if (!cyl) return <>{children}</>;
   const { t: tmax, extra } = cyl;
-  const N = 36; const half = w / 2; const sm = Math.sin(tmax);
+  // celular: as faixas são cópias inteiras da arte (3000 px cada) e estouravam a memória do iPhone
+  // ("a página não suporta"). Lá vai uma cópia só, esticada para a proporção certa no meio.
+  if (lite) return <div style={{ position: "absolute", inset: 0, transformOrigin: "50% 50%", transform: `scaleX(${(tmax / Math.sin(tmax)) * extra})` }}>{children}</div>;
+  const N = 24; const half = w / 2; const sm = Math.sin(tmax);
   const lift = h * .1; // quanto as pontas sobem (vista levemente de cima)
   const strips = Array.from({ length: N }, (_, i) => {
     const x0 = (i / N) * w, x1 = ((i + 1) / N) * w;

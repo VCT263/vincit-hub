@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
@@ -36,9 +37,33 @@ export default function TopBar() {
       ))}
     </nav>
   );
+  /* iPhone com a escala do modo compacto (viewport 0,8): ao rolar, o Safari recolhe a barra de
+     endereço e o "fundo" do position:fixed fica fora do fundo visível; a barra subia no meio da tela.
+     Aqui ela acompanha o fundo da área visível (visualViewport). */
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const vv = window.visualViewport; const el = navRef.current;
+    if (!vv || !el) return;
+    let raf = 0;
+    const fit = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        // mede onde a barra está de fato (sem o ajuste atual) e leva o fundo dela para o fundo visível
+        const cur = parseFloat(el.dataset.dy || "0");
+        const gap = parseFloat(getComputedStyle(el).bottom) || 0;
+        const base = el.getBoundingClientRect().bottom - cur;
+        const d = Math.round(vv.offsetTop + vv.height - gap - base);
+        el.dataset.dy = String(Math.abs(d) > 1 ? d : 0);
+        el.style.transform = Math.abs(d) > 1 ? `translateY(${d}px)` : "";
+      });
+    };
+    fit();
+    vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); window.addEventListener("scroll", fit, { passive: true });
+    return () => { cancelAnimationFrame(raf); vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit); window.removeEventListener("scroll", fit); };
+  }, []);
   /* celular: barra fixa embaixo só com ícones, como aplicativo (nome em aria-label e no title) */
   const bottom = (
-    <nav aria-label="Áreas do HUB" className="bottom-nav md:hidden print:hidden fixed z-40 rounded-2xl border border-line bg-panel shadow-[0_8px_30px_rgba(0,0,0,.45)]"
+    <nav ref={navRef} aria-label="Áreas do HUB" className="bottom-nav md:hidden print:hidden fixed z-40 rounded-2xl border border-line bg-panel shadow-[0_8px_30px_rgba(0,0,0,.45)]"
       // solta das bordas: os cantos arredondados do iPhone e a barra de gestos não cortam os ícones
       style={{ left: "max(14px, env(safe-area-inset-left))", right: "max(14px, env(safe-area-inset-right))", bottom: "max(12px, calc(env(safe-area-inset-bottom) + 6px))" }}>
       <div className="flex items-stretch justify-around px-1.5 h-14">
