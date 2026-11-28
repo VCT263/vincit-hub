@@ -71,17 +71,19 @@ export default function MidiaPage() {
   /** cria a estrutura e organiza a pasta Entrada: regras primeiro, o que sobrar vai ao Claude pela fila */
   const organizar = useCallback(async (quiet = false) => {
     setOrganizando(true);
-    const r = await fetch("/api/av/drive/organizar", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({ error: "Falha de conexão" }));
+    const r = await fetch("/api/av/drive/organizar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(quiet ? { estrutura: false } : {}) }).then((x) => x.json()).catch(() => ({ error: "Falha de conexão" }));
     if (r.error) { setOrganizando(false); if (!quiet) setMsg({ t: r.error }); return; }
     let movidos = r.movidos?.length || 0, sobra = r.duvidas?.length || 0;
-    if (sobra) {
-      if (!quiet) setMsg({ t: `${movidos} arquivo(s) organizados. Pedi ao Claude para decidir ${sobra} que as regras não souberam…`, ok: true });
+    // ao abrir a página (quiet) não recria as pastas (uns 20 pedidos ao Drive) nem chama o Claude: senão cada visita poria um pedido novo na fila pelos mesmos arquivos
+    if (sobra && !quiet) {
+      setMsg({ t: `${movidos} arquivo(s) organizados. Pedi ao Claude para decidir ${sobra} que as regras não souberam…`, ok: true });
       const res = await aiFetch("/api/av/drive/organizar", { task: "drive_organizar", claude: true, estrutura: false, duvidas: r.duvidas });
       const j = await res.json().catch(() => ({}));
       if (res.ok) { movidos += j.movidos?.length || 0; sobra = j.duvidas?.length || 0; }
     }
     setOrganizando(false);
-    if (!quiet || movidos) setMsg({ t: movidos || sobra ? `Entrada: ${movidos} arquivo(s) foram para a pasta certa${sobra ? `, ${sobra} ficaram na Entrada para você ver` : ""}.` : "Estrutura conferida. A Entrada está vazia.", ok: true });
+    if (quiet && sobra && !movidos) setMsg({ t: `${sobra} arquivo(s) na Entrada esperando lugar. Toque em Organizar Entrada para o Claude decidir.`, ok: true });
+    else if (!quiet || movidos) setMsg({ t: movidos || sobra ? `Entrada: ${movidos} arquivo(s) foram para a pasta certa${sobra ? `, ${sobra} ficaram na Entrada para você ver` : ""}.` : "Estrutura conferida. A Entrada está vazia.", ok: true });
     if (movidos) await sync(true);
   }, [sync]);
 
