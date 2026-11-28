@@ -101,6 +101,12 @@ function timecodes(rows: any[]) {
   });
 }
 
+/* colunas da decupagem: no celular, fala, direção e B-roll empilhados; no computador e no PDF, lado a lado */
+const GRID = "grid-cols-[52px_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,.85fr)_28px]";
+const GRID_M = "grid-cols-[44px_minmax(0,1fr)_30px]";
+const GRID_MD = "md:grid-cols-[52px_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,.85fr)_28px]";
+const GRID_PRINT = "print:grid-cols-[52px_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,.85fr)_28px]";
+
 const fmtDate = (d?: string | null) => (d ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).replace(/\./g, "") : null);
 
 /** folha A4 do roteiro técnico: pauta, roteiro falado, tabela fala × direção técnica e set */
@@ -118,6 +124,10 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
   const [broll, setBroll] = useState<string | null>(null);
   const [brand, setBrand] = useState<Brand>(HUB_BRAND);
   const built = useRef(false);
+  // B-roll gravado: marca só neste aparelho (é lista de conferência do set)
+  const [brollOk, setBrollOk] = useState<Record<string, boolean>>({});
+  useEffect(() => { try { setBrollOk(JSON.parse(localStorage.getItem(`rt-broll-${id}`) || "{}")); } catch {} }, [id]);
+  const toggleBroll = (sid: string) => setBrollOk((m) => { const n = { ...m, [sid]: !m[sid] }; try { localStorage.setItem(`rt-broll-${id}`, JSON.stringify(n)); } catch {} return n; });
   const s = () => createClient();
 
   const extras = useMemo(() => scriptExtras(body), [body]);
@@ -258,6 +268,7 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
   const chip = { background: light ? brand.dark : brand.accent, color: light ? brand.accent : "#fff" };
   const bf = { fontFamily: `"${brand.font}", var(--font-display)` };
   const v = (x?: string | null) => x || "—";
+  const brolls = (shots || []).map((x, i) => ({ x, n: nums[i] })).filter(({ x }) => (x.broll || "").trim());
 
   const doc = (
     <div className="roteiro-root fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm overflow-y-auto scroll-thin" onClick={(e) => { e.stopPropagation(); onClose(); }}>
@@ -345,13 +356,14 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
             </div>
           </Sec>
 
-          {/* 02 decupagem técnica: vídeo × áudio */}
-          <Sec n={2} title="Decupagem técnica" aside="vídeo × áudio, plano a plano" chip={chip} bf={bf} className="print:break-before-page print:mt-0">
+          {/* 02 decupagem técnica: fala × direção × B-roll */}
+          <Sec n={2} title="Decupagem técnica" aside="fala, direção e B-roll, plano a plano" chip={chip} bf={bf} className="print:break-before-page print:mt-0">
             <div className="rounded-[6px] border-[1.5px] border-[#141416] overflow-hidden sheet-ink">
-              <div className="hidden md:grid print:grid grid-cols-[58px_minmax(0,1.05fr)_minmax(0,1fr)_30px] font-mono text-[9px] uppercase tracking-[.18em]" style={{ background: brand.dark, color: "#fafaf7" }}>
+              <div className={`hidden md:grid print:grid ${GRID} font-mono text-[9px] uppercase tracking-[.16em]`} style={{ background: brand.dark, color: "#fafaf7" }}>
                 <span className="px-2 py-2">Plano</span>
-                <span className="px-3 py-2 border-l border-white/15">Vídeo · o que a câmera vê</span>
-                <span className="px-3 py-2 border-l border-white/15">Áudio · fala</span>
+                <span className="px-3 py-2 border-l border-white/15">Fala · o que dizer</span>
+                <span className="px-3 py-2 border-l border-white/15">Direção · como gravar</span>
+                <span className="px-3 py-2 border-l border-white/15">B-roll · à parte</span>
                 <span className="py-2 border-l border-white/15 text-center">ok</span>
               </div>
               {shots === null && <p className="text-sm text-[#6b6f74] p-4">Carregando…</p>}
@@ -360,6 +372,7 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
                 const [et, tempo] = splitPart(x.part);
                 const col = etapaColor(et);
                 const sp = sigla(x.framing, SIGLA_PLANO), sm = sigla(x.movement, SIGLA_MOV);
+                const cell = "min-w-0 px-3 md:border-l print:border-l border-[#e3e3dd] md:py-3 print:py-3 md:col-start-auto md:row-start-auto print:col-start-auto print:row-start-auto";
                 return (
                   <div key={x.id} className="roteiro-row">
                     {firstOf[i] && (
@@ -369,26 +382,15 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
                         <span className="font-mono text-[9.5px] font-bold uppercase tracking-[.18em]" style={{ color: col.ink }}>{et || "Sem etapa"}</span>
                       </div>
                     )}
-                    <div className={`grid grid-cols-[50px_minmax(0,1fr)_30px] md:grid-cols-[58px_minmax(0,1.05fr)_minmax(0,1fr)_30px] print:grid-cols-[58px_minmax(0,1.05fr)_minmax(0,1fr)_30px] border-t border-[#d4d4ce] ${x.done ? "bg-[color-mix(in_srgb,var(--color-mint)_10%,#fafaf7)] print:bg-transparent" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${col.c}` }}>
-                      <div className="pl-2.5 pr-1 py-3 row-span-2 md:row-span-1 print:row-span-1">
+                    <div className={`grid ${GRID_M} ${GRID_MD} ${GRID_PRINT} border-t border-[#d4d4ce] ${x.done ? "bg-[color-mix(in_srgb,var(--color-mint)_10%,#fafaf7)] print:bg-transparent" : ""}`} style={{ boxShadow: `inset 3px 0 0 ${col.c}` }}>
+                      <div className="pl-2.5 pr-1 py-3 row-span-3 md:row-span-1 print:row-span-1">
                         <p className="text-[17px] font-extrabold leading-none tracking-tight" style={bf}>{nums[i]}</p>
                         <p className="font-mono text-[8.5px] text-[#6b6f74] mt-1.5 leading-tight tabular-nums">{tempo ? tempo : tcs[i]}</p>
                       </div>
-                      {/* vídeo */}
-                      <div className="min-w-0 px-3 py-3 md:border-l print:border-l border-[#e3e3dd] col-start-2 row-start-2 md:col-start-auto md:row-start-auto print:col-start-auto print:row-start-auto pt-0 md:pt-3 print:pt-3 text-[13px] leading-snug">
-                        <Field value={x.description || ""} onCommit={(t) => patchShot(x.id, { description: t || "Plano" })} placeholder="O que a câmera vê" className="font-medium" />
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                          <span className="flex items-center gap-1.5 min-w-0"><Pill s={sp?.s} /><Field value={x.framing || ""} onCommit={(t) => patchShot(x.id, { framing: t || null })} placeholder="Plano" list="rt-framings" className="text-[12px] text-[#4a4d52] !w-[118px]" /></span>
-                          <span className="flex items-center gap-1.5 min-w-0"><Pill s={sm?.s} /><Field value={x.movement || ""} onCommit={(t) => patchShot(x.id, { movement: t || null })} placeholder="Câmera" list="rt-moves" className="text-[12px] text-[#4a4d52] !w-[118px]" /></span>
-                        </div>
-                        {(x.broll || broll === x.id) && (
-                          <div className="mt-1.5 flex gap-1.5 items-baseline"><span className="font-mono text-[8.5px] uppercase tracking-[.14em] text-[#8a8f94] shrink-0">+ apoio</span><Field value={x.broll || ""} onCommit={(t) => { setBroll(null); patchShot(x.id, { broll: t || null }); }} placeholder="Imagem de apoio para gravar também" className="text-[12.5px]" /></div>
-                        )}
-                        {!x.broll && broll !== x.id && <button onClick={() => setBroll(x.id)} className="roteiro-noprint mt-1.5 text-[11px] text-[#9a9c9f] hover:text-[#141416]">+ imagem de apoio</button>}
-                      </div>
-                      {/* áudio */}
-                      <div className="min-w-0 px-3 py-3 md:border-l print:border-l border-[#e3e3dd] col-start-2 row-start-1 md:col-start-auto md:row-start-auto print:col-start-auto print:row-start-auto">
-                        <Field value={x.line || ""} onCommit={(t) => patchShot(x.id, { line: t || null })} placeholder="Sem fala · só imagem" className="text-[14.5px] leading-relaxed" />
+                      {/* fala: só o que se diz (o teleprompter lê esta coluna) */}
+                      <div className={`${cell} col-start-2 row-start-1 pt-3`}>
+                        <p className="sheet-tag md:hidden print:hidden">Fala</p>
+                        <Field value={x.line || ""} onCommit={(t) => patchShot(x.id, { line: t || null })} placeholder="Sem fala · só imagem" className="text-[15px] font-medium leading-relaxed" />
                         <div className="roteiro-noprint flex items-center gap-1 mt-2 text-[#9a9c9f]">
                           <select value={et} onChange={(e) => patchShot(x.id, { part: tempo ? `${e.target.value} · ${tempo}` : e.target.value })} className="bg-transparent font-mono text-[9px] uppercase tracking-[.12em] text-[#6b6f74] outline-none cursor-pointer">
                             {[...new Set([...PARTS, et].filter(Boolean))].map((o) => <option key={o} value={o}>{o}</option>)}
@@ -398,6 +400,29 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
                           <button onClick={() => moveShot(i, 1)} className="px-1 hover:text-[#141416]" aria-label="Descer">▼</button>
                           <button onClick={() => removeShot(x.id)} className="px-1 hover:text-[#c0392b]" aria-label="Apagar"><I.trash className="w-3.5 h-3.5" /></button>
                         </div>
+                      </div>
+                      {/* direção: plano, câmera e estilo da cena, junto da fala */}
+                      <div className={`${cell} col-start-2 row-start-2 pt-2.5 md:bg-transparent text-[13px] leading-snug`}>
+                        <p className="sheet-tag md:hidden print:hidden">Direção</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="flex items-center gap-1.5 min-w-0"><Pill s={sp?.s} /><Field value={x.framing || ""} onCommit={(t) => patchShot(x.id, { framing: t || null })} placeholder="Plano" list="rt-framings" className="text-[12px] text-[#4a4d52] !w-[112px]" /></span>
+                          <span className="flex items-center gap-1.5 min-w-0"><Pill s={sm?.s} /><Field value={x.movement || ""} onCommit={(t) => patchShot(x.id, { movement: t || null })} placeholder="Câmera" list="rt-moves" className="text-[12px] text-[#4a4d52] !w-[112px]" /></span>
+                        </div>
+                        <Field value={x.description || ""} onCommit={(t) => patchShot(x.id, { description: t || "Plano" })} placeholder="Estilo da cena: ação, lugar, tom" className="mt-1.5 text-[#33363a]" />
+                      </div>
+                      {/* B-roll: imagem de apoio gravada à parte */}
+                      <div className={`${cell} col-start-2 row-start-3 pt-2.5 pb-3 text-[13px] leading-snug`}>
+                        <p className="sheet-tag md:hidden print:hidden">B-roll</p>
+                        {x.broll || broll === x.id ? (
+                          <div className="rounded-[4px] border border-dashed border-[#d9b45a] bg-[#fdf6e3] px-2 py-1.5 print:bg-transparent">
+                            <Field value={x.broll || ""} onCommit={(t) => { setBroll(null); patchShot(x.id, { broll: t || null }); }} placeholder="O que gravar de apoio, sem fala" className="text-[12.5px] text-[#5c4300]" />
+                          </div>
+                        ) : (
+                          <>
+                            <button onClick={() => setBroll(x.id)} className="roteiro-noprint text-[11px] text-[#9a9c9f] hover:text-[#141416]">+ B-roll</button>
+                            <span className="hidden print:inline text-[#b3b4b0]">—</span>
+                          </>
+                        )}
                       </div>
                       <div className="py-3 md:border-l print:border-l border-[#e3e3dd] flex justify-center col-start-3 row-start-1 md:col-start-auto md:row-start-auto print:col-start-auto print:row-start-auto">
                         <button onClick={() => patchShot(x.id, { done: !x.done })} className={`w-[17px] h-[17px] rounded-[4px] border-[1.5px] grid place-items-center text-[10px] font-bold ${x.done ? "bg-[#141416] border-[#141416] text-[var(--color-mint)] print:bg-transparent print:text-[#141416]" : "border-[#9a9c9f]"}`} aria-label="Gravado" title="Gravado">{x.done ? "✓" : ""}</button>
@@ -434,8 +459,29 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
             )}
           </Sec>
 
-          {/* 03 set: ordem do dia */}
-          <Sec n={3} title="Set" aside="ordem do dia" chip={chip} bf={bf}>
+          {/* 03 B-roll: lista para gravar à parte, de uma vez */}
+          {brolls.length > 0 && (
+            <Sec n={3} title="B-roll" aside="gravar à parte, sem fala" chip={chip} bf={bf}>
+              <p className="text-[12.5px] text-[#6b6f74] -mt-1 mb-3">Imagens de apoio que cobrem a fala na edição. Grave em sequência, depois das falas ou quando a luz estiver boa.</p>
+              <ol className="border-[1.5px] border-[#141416] rounded-[6px] overflow-hidden sheet-ink">
+                {brolls.map(({ x, n }, j) => {
+                  const ok = !!brollOk[x.id];
+                  return (
+                    <li key={x.id} className={`grid grid-cols-[48px_minmax(0,1fr)_30px] items-start ${j ? "border-t border-[#e3e3dd]" : ""} ${ok ? "bg-[#fdf6e3] print:bg-transparent" : ""}`}>
+                      <span className="pl-3 py-2.5 text-[14px] font-extrabold tracking-tight" style={bf}>{n}</span>
+                      <span className={`py-2.5 pr-2 text-[13.5px] leading-snug ${ok ? "line-through text-[#8a8f94] print:no-underline print:text-[#141416]" : ""}`}>{x.broll}</span>
+                      <span className="py-2.5 flex justify-center">
+                        <button onClick={() => toggleBroll(x.id)} className={`w-[17px] h-[17px] rounded-[4px] border-[1.5px] grid place-items-center text-[10px] font-bold ${ok ? "bg-[#141416] border-[#141416] text-[#f0b429] print:bg-transparent print:text-[#141416]" : "border-[#9a9c9f]"}`} aria-label="B-roll gravado" title="Gravado">{ok ? "✓" : ""}</button>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </Sec>
+          )}
+
+          {/* set: ordem do dia */}
+          <Sec n={brolls.length ? 4 : 3} title="Set" aside="ordem do dia" chip={chip} bf={bf}>
             <div className="grid grid-cols-2 sm:grid-cols-4 print:grid-cols-4 border-[1.5px] border-[#141416] rounded-[6px] overflow-hidden">
               {([
                 ["Data", shoot ? fmtDate(shoot.date) : fmtDate(item.record_date) || "a definir"],

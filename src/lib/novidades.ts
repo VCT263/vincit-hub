@@ -7,6 +7,7 @@
 export type Novidade = { versao: string; data: string; titulo: string; texto: string };
 
 export const NOVIDADES: Novidade[] = [
+  { versao: "2026.11.28-3", data: "2026-11-28", titulo: "Roteiro com fala, direção e B-roll separados", texto: "Em vídeo, o enviar_roteiro recebe as cenas plano a plano, com a fala (vai para o teleprompter), a direção de gravação (plano, câmera e estilo da cena) e o B-roll em campos separados. A folha do roteiro técnico do set mostra as três coisas em colunas e junta o B-roll numa lista para gravar à parte." },
   { versao: "2026.11.28-2", data: "2026-11-28", titulo: "Começar no HUB e prompts prontos", texto: "Ao ligar o conector, use o prompt \"Começar no HUB\": o Claude carrega sua conta, perfis, manual da marca e pendências. Há prompts prontos para pacote da semana, análise do perfil, pedidos de IA e entrevista de marca. As regras e os prompts se atualizam sozinhos a cada versão do HUB." },
   { versao: "2026.11.28-1", data: "2026-11-28", titulo: "Entrevista de marca por voz", texto: "Uma entrevistadora conversa com o dono da marca, questiona respostas vagas e propõe o briefing do perfil. Funciona no HUB (Creator › Perfis & briefing › Entrevista por voz, com botão de áudio) e aqui no Claude, pelo prompt \"Entrevista de marca\". O briefing só muda depois de aprovado no HUB." },
   { versao: "2026.11.27-3", data: "2026-11-27", titulo: "Motion pelo Claude", texto: "O pedido de motion do Audiovisual vira um brief para aprovar e depois uma peça animada (HyperFrames), feita pelo Claude e exportada no navegador." },

@@ -55,7 +55,7 @@ export function prompterSource(md: string): string {
   if (table) {
     const f = col(table.head, FALA_COL), c = col(table.head, /cena|visual|imagem|a[cç][aã]o/i), t = col(table.head, /tempo|tc\b|time/i);
     return table.rows.map((r) => {
-      const fala = unquote(r[f] || "");
+      const fala = unquote(r[f] || "").replace(/^[-–—·]+$/, "");
       const cue = c >= 0 && r[c] ? ` [${r[c].replace(/[\[\]]/g, "")}]` : "";
       return fala || cue ? `${t >= 0 && r[t] ? `**${r[t]}:** ` : ""}${fala}${cue}` : "";
     }).filter(Boolean).join("\n");
