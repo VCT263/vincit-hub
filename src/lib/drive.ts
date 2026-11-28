@@ -1,6 +1,8 @@
 /** Google Drive como banco de mídia: o arquivo fica no Drive, o HUB guarda o índice e as etiquetas (tabela av_media) */
 
-export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+/* 28/11: acesso completo (aprovado pelo Vinícius) para o HUB criar as pastas, salvar os exports e organizar a Entrada.
+   O app do Google está em modo de teste: só as contas de teste usam. */
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 const API = "https://www.googleapis.com/drive/v3";
 export const FOLDER = "application/vnd.google-apps.folder";
 const FIELDS = "id,name,mimeType,size,modifiedTime,hasThumbnail,webViewLink,videoMediaMetadata(width,height,durationMillis),imageMediaMetadata(width,height)";
@@ -134,4 +136,27 @@ export function driveRow(f: any, folder: string) {
     modified_at: f.modifiedTime || null,
     missing: false,
   };
+}
+
+/** No navegador: salva um export no Drive da pessoa, já na pasta certa (área › perfil › mês), e põe no Banco de mídia.
+ *  kind = área do banco (foto, interno, lut…); sub troca o mês por uma subpasta fixa (ex.: "Motion"). */
+export async function salvarNoDrive(o: { kind: string; nome: string; blob: Blob; accountId?: string | null; sub?: string }): Promise<{ ok: boolean; caminho?: string; link?: string; error?: string; needsScope?: boolean }> {
+  const meta = { kind: o.kind, nome: o.nome, mime: o.blob.type || "application/octet-stream", account_id: o.accountId || null, sub: o.sub };
+  const r = await fetch("/api/av/drive/salvar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(meta) }).then((x) => x.json()).catch(() => ({ error: "Falha de conexão" }));
+  if (!r.ok) return { ok: false, error: r.error || "Não salvou no Drive.", needsScope: r.needsScope };
+  let arquivo: any = null;
+  try {
+    const up = await fetch(r.uploadUrl, { method: "PUT", headers: { "content-type": meta.mime }, body: o.blob });
+    if (up.ok) arquivo = await up.json().catch(() => null);
+  } catch {}
+  if (!arquivo?.id) {
+    // plano B: o servidor manda (só arquivo de até ~4 MB, limite da Vercel)
+    if (o.blob.size > 4_000_000) return { ok: false, error: "O Drive não aceitou o envio direto deste arquivo." };
+    const fd = new FormData(); fd.append("meta", JSON.stringify(meta)); fd.append("file", o.blob, o.nome);
+    const b = await fetch("/api/av/drive/salvar", { method: "POST", body: fd }).then((x) => x.json()).catch(() => ({ error: "Falha de conexão" }));
+    if (!b.ok) return { ok: false, error: b.error || "Não salvou no Drive.", needsScope: b.needsScope };
+    arquivo = b.arquivo;
+  }
+  const ix = await fetch("/api/av/drive/indexar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ drive_id: arquivo.id, pasta: r.pasta }) }).then((x) => x.json()).catch(() => ({}));
+  return { ok: true, caminho: r.caminho, link: ix.link || arquivo.webViewLink };
 }
