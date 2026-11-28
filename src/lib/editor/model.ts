@@ -4,6 +4,7 @@
  */
 
 import { drawMotion as drawMotionSpec, motionDuration, type MotionSpec } from "@/lib/motion/engine";
+import { applyLutToCanvas } from "@/lib/luts/gl";
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
@@ -46,6 +47,10 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   fade?: boolean;
   /** cor do vídeo (natural, quente, frio, contraste, filme, pb) */
   look?: string;
+  /** vídeo gravado em log: perfil da câmera para converter para Rec.709 (ids de LOG_PROFILES em src/lib/luts/core.ts) */
+  logCamera?: string;
+  /** estilo da Biblioteca de LUTs (/audiovisual/luts), aplicado depois da conversão e antes do look */
+  lut?: string;
   /** transição nos cortes entre trechos */
   transicao?: string;
   /** grão de filme mesmo sem o look filme */
@@ -658,6 +663,7 @@ function grainTile() {
   return (grain = c);
 }
 export function drawLook(ctx: Ctx, p: Project, t: number) {
+  if (p.logCamera || p.lut) applyLutToCanvas(ctx, { log: p.logCamera, look: p.lut }, W, H);
   const look = p.look || "natural";
   if (look !== "natural" && LOOK_FILTER[look]) { ctx.save(); ctx.filter = LOOK_FILTER[look]; ctx.drawImage(ctx.canvas as CanvasImageSource, 0, 0, W, H); ctx.restore(); }
   if (look === "filme" || look === "pb" || p.grao) {

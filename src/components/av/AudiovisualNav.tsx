@@ -11,6 +11,7 @@ const items = [
   { href: "/audiovisual/premiere", label: "Premiere", Icon: I.arrow, group: "02 · Pós-produção" },
   { href: "/audiovisual/midia", label: "Banco de mídia", Icon: I.folder, group: "03 · Acervo" },
   { href: "/audiovisual/kit", label: "Kit de estilo", Icon: I.pen, group: "03 · Acervo" },
+  { href: "/audiovisual/luts", label: "LUTs", Icon: I.palette, group: "03 · Acervo" },
 ];
 
 export default function AudiovisualNav() {
