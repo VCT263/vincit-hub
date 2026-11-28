@@ -39,9 +39,9 @@ export default function TodayTasks({ tasks, spaces, statuses, today }: { tasks: 
           const late = !t.done && t.due_date < today;
           const sp = spaces.find((s) => s.id === t.space_id);
           return (
-            <li key={t.id} className="flex items-center gap-3 py-2.5">
+            <li key={t.id} className="flex items-center gap-2 sm:gap-3 py-2 sm:py-2.5">
               <input type="checkbox" checked={!!t.done} onChange={() => toggle(t)} className="accent-[var(--color-mint)] w-4 h-4 shrink-0" aria-label="Concluir" />
-              <Link href={t.project_id ? `/tarefas?projeto=${t.project_id}` : `/tarefas?space=${t.space_id}`} className={`flex-1 min-w-0 truncate text-[15px] hover:text-mint ${t.done ? "line-through text-fog" : ""}`}>{t.title}</Link>
+              <Link href={t.project_id ? `/tarefas?projeto=${t.project_id}` : `/tarefas?space=${t.space_id}`} className={`flex-1 min-w-0 truncate text-sm sm:text-[15px] hover:text-mint ${t.done ? "line-through text-fog" : ""}`}>{t.title}</Link>
               {late && <span className="text-[11px] text-danger border border-danger/40 rounded-full px-2 py-0.5 whitespace-nowrap">atrasada · {t.due_date === yest ? "ontem" : `${t.due_date.slice(8)}/${t.due_date.slice(5, 7)}`}</span>}
               {t.due_time && !late && <span className="text-[11px] text-mint border border-mint/40 rounded-full px-2 py-0.5">{String(t.due_time).slice(0, 5).replace(":00", "h")}</span>}
               {t.recurrence && <span className="hidden sm:flex items-center gap-1 text-[11px] text-fog border border-line rounded-full px-2 py-0.5 whitespace-nowrap"><Recur /> {recurLabel(t.recurrence).toLowerCase()}</span>}

@@ -10,6 +10,7 @@ import { brandVoice } from "./MockupArt";
 import { brandPrompt } from "@/lib/brandPrompt";
 import { createPortal } from "react-dom";
 import { useLite, useNear, usePrintAll } from "./lazy";
+import { grainBg, warmGrain } from "./grain";
 import { ArchetypeSlide, ChannelsSlide, ManifestoSlide, PositioningSlide, RewriteSlide, SituationsSlide, ToneSlide, ValuesSlide, VocabSlide, WeAreSlide, type Verbal } from "./VerbalSlides";
 import { ExpressionSlide, FeedGridSlide, FeedWhySlide, PhotoMoodSlide, PhotoRulesSlide, RealAppsSlide, type AppReal, type Feed, type FotoMood, FeedCompareSlide, FeedPlanSlide, FeedIdealWhySlide, FeedRefsSlide, type FeedIdeal } from "./RealSlides";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
@@ -60,6 +61,26 @@ export function useDeck(d: any, format: Format, mockups: Mockup[] = []) {
 
 /* grão de papel: tira a cara de tela lisa (como nos cases impressos do Behance) */
 const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
+warmGrain(GRAIN);
+
+/** palavra grande que diminui até caber (nome longo, como "Alanis Gomes", saía cortado pela esquerda).
+   Mede com canvas: no deck de impressão os slides ficam ocultos até imprimir, sem largura para medir. */
+let measureCtx: CanvasRenderingContext2D | null = null;
+function textWidth(text: string, st: CSSProperties, size: number) {
+  if (typeof document === "undefined") return 0;
+  measureCtx = measureCtx || document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return 0;
+  measureCtx.font = `${st.fontStyle || "normal"} ${st.fontWeight || 400} ${size}px ${st.fontFamily || "serif"}`;
+  const ls = typeof st.letterSpacing === "string" && st.letterSpacing.endsWith("em") ? parseFloat(st.letterSpacing) * size : typeof st.letterSpacing === "number" ? st.letterSpacing : 0;
+  return measureCtx.measureText(text).width + ls * Math.max(text.length - 1, 0);
+}
+function FitWord({ style, max, children }: { style: CSSProperties; max: number; children: string }) {
+  const base = typeof style.fontSize === "number" ? style.fontSize : 0;
+  const calc = () => { const w = base ? textWidth(children, style, base) : 0; return w > max ? max / w : 1; };
+  const [k, setK] = useState(1);
+  useEffect(() => { setK(calc()); document.fonts?.ready.then(() => setK(calc())); }, [base, max, children, style.fontFamily]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <p style={{ ...style, fontSize: base ? base * k : style.fontSize }}>{children}</p>;
+}
 
 /* ───────── peças de layout ───────── */
 const Label = ({ x, children, style }: { x: Ctx; children: ReactNode; style?: CSSProperties }) => <p style={x.B({ fontSize: 13, letterSpacing: ".28em", textTransform: "uppercase", fontWeight: 600, ...style })}>{children}</p>;
@@ -69,7 +90,7 @@ export function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: nu
   const bg = s.tone === "dark" ? x.ink : s.tone === "acc" ? x.acc : x.paper;
   const fg = readableOn(bg) === "#ffffff" ? (s.tone === "dark" ? x.paper : "#ffffff") : x.ink;
   const nn = String(n).padStart(2, "0");
-  const grain = <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: GRAIN, opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />;
+  const grain = <div aria-hidden className="deck-grain" style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: grainBg(GRAIN), opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />;
   const wrap = (inner: ReactNode) => <div className="deck-slide" data-style={x.style} style={{ width: x.W, height: x.H, background: bg, color: fg, position: "relative", overflow: "hidden" }}>{inner}{grain}<span style={{ display: "none" }}>{total}</span></div>;
   if (s.bare) return wrap(children);
   const small = (t: ReactNode, st: CSSProperties = {}) => <Label x={x} style={{ fontSize: 11, opacity: .65, ...st }}>{t}</Label>;
@@ -448,7 +469,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
             <div style={x.B({ position: "absolute", left: 56, right: 56, top: 22, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 600 })}>
               <span>{i === 0 ? "Tipografias" : bd.role}</span><span style={{ textAlign: "center" }}>{bd.font}</span><span style={{ textAlign: "right", opacity: .7 }}>{bd.why}</span>
             </div>
-            <p style={{ ...bd.st, position: "absolute", right: 56, bottom: -x.H * .05, whiteSpace: "nowrap" }}>{bd.word}</p>
+            <FitWord style={{ ...bd.st, position: "absolute", right: 56, bottom: -x.H * .05, whiteSpace: "nowrap" }} max={x.W - 56 - (i === 0 ? 300 : 56)}>{bd.word}</FitWord>
             {i === 0 && <p style={x.B({ position: "absolute", left: 56, bottom: 22, fontSize: 12, opacity: .6 })}>escala {[4, 3, 2, 1, 0].map((n) => Math.round(base * ratio ** n)).join(" · ")} px</p>}
           </div>
         ); })}
