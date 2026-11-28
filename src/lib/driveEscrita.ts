@@ -80,6 +80,16 @@ export async function nomePerfil(s: any, accountId?: string | null) {
   return data ? limparNome(data.name || data.username) : null;
 }
 
+/** cliente do perfil dono da pasta (Meus conteúdos/<área>/<perfil>/…): liga o arquivo do Drive ao perfil */
+export function clientePelaPasta(folder: string, contas: { name: string | null; username: string; client_id: string | null }[]) {
+  const partes = new Set(String(folder || "").split("/").map((x) => x.trim().toLowerCase()));
+  for (const c of contas) {
+    if (!c.client_id) continue;
+    if ([c.name, c.username].some((n) => n && partes.has(limparNome(n).toLowerCase()))) return c.client_id;
+  }
+  return null;
+}
+
 /** perfil citado no nome do arquivo (ex.: "isys natal 01.jpg") */
 export function perfilPeloNome(nome: string, contas: { name: string | null; username: string }[]) {
   const n = nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");

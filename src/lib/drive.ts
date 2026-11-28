@@ -157,6 +157,6 @@ export async function salvarNoDrive(o: { kind: string; nome: string; blob: Blob;
     if (!b.ok) return { ok: false, error: b.error || "Não salvou no Drive.", needsScope: b.needsScope };
     arquivo = b.arquivo;
   }
-  const ix = await fetch("/api/av/drive/indexar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ drive_id: arquivo.id, pasta: r.pasta }) }).then((x) => x.json()).catch(() => ({}));
+  const ix = await fetch("/api/av/drive/indexar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ drive_id: arquivo.id, pasta: r.pasta, account_id: o.accountId || null }) }).then((x) => x.json()).catch(() => ({}));
   return { ok: true, caminho: r.caminho, link: ix.link || arquivo.webViewLink };
 }

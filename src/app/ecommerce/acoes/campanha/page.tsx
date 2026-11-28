@@ -70,7 +70,7 @@ function Studio({ ctx }: { ctx: any }) {
     // liga ao perfil de Instagram da loja no Creator, quando existir um com o nome da loja
     const key = ctx.store.name.toLowerCase().replace(/[^a-z0-9]/g, "");
     const { data: profs } = await sb.from("ig_accounts").select("id,username,name");
-    const prof = (profs || []).find((x: any) => [x.username, x.name].some((n) => n && n.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key)));
+    const prof = (ctx.store.account_id && (profs || []).find((x: any) => x.id === ctx.store.account_id)) || (profs || []).find((x: any) => [x.username, x.name].some((n) => n && n.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key)));
     const { error } = await sb.from("content_ideas").insert(posts.map((p) => ({
       account_id: prof?.id || null, caption: p.legenda || null, ec_action_id: a!.id,
       kind: "plano", status: "backlog", title: `${ctx.store.name} · ${p.titulo}`.slice(0, 120), format: p.formato || null, planned_for: p.data, hook: p.gancho || null, pillar: (p.tipo && TIPOS_MODA[p.tipo]?.label) || a!.title,

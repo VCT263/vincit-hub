@@ -149,6 +149,14 @@ function StoreProfileCard({ ctx }: { ctx: any }) {
   const total = PROFILE_FIELDS.length + 2;
   const [open, setOpen] = useState(filled < 3);
   const [msg, setMsg] = useState<string | null>(null);
+  const [perfis, setPerfis] = useState<{ id: string; username: string }[]>([]);
+  useEffect(() => { createClient().from("ig_accounts").select("id,username").order("created_at").then(({ data }) => setPerfis((data as any) || [])); }, []);
+  async function ligarPerfil(id: string) {
+    const { error } = await createClient().from("ec_stores").update({ account_id: id || null }).eq("id", ctx.storeId);
+    if (error) return setMsg(error.message);
+    setMsg(null); ctx.reload?.();
+  }
+  const perfil = perfis.find((x) => x.id === ctx.store?.account_id);
   async function save(k: string, v: any) {
     if ((p[k] ?? null) === (v ?? null)) return;
     const next = { ...p, [k]: v };
@@ -165,6 +173,15 @@ function StoreProfileCard({ ctx }: { ctx: any }) {
         </div>
         <div className="w-16 h-1.5 rounded-full bg-line overflow-hidden shrink-0"><div className="h-full bg-mint" style={{ width: `${(filled / total) * 100}%` }} /></div>
       </button>
+      {/* a loja sabe qual é o perfil do Instagram (28/11): campanhas mandam os cards para ele e a ficha do perfil mostra a loja */}
+      <div className="mt-4 flex items-center gap-2 flex-wrap">
+        <label className="label !mb-0">Perfil do Instagram</label>
+        <select className="input !w-auto !py-1.5 text-sm" value={ctx.store?.account_id || ""} disabled={!ctx.isOwner} onChange={(e) => ligarPerfil(e.target.value)}>
+          <option value="">Nenhum</option>
+          {perfis.map((x) => <option key={x.id} value={x.id}>@{x.username}</option>)}
+        </select>
+        {perfil && <Link href={`/creator/desempenho/${perfil.id}`} className="text-xs text-mint underline">Briefing, voz e marca em Perfis & marca</Link>}
+      </div>
       {open && (
         <div className="mt-4 space-y-3">
           {PROFILE_FIELDS.map(([k, l, ph]) => (
