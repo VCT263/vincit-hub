@@ -10,6 +10,7 @@ import MotionStudio, { MotionThumb, type MotionDoc } from "@/components/av/Motio
 import { MOTION_FORMAT_LABEL, motionDuration, normalizeSpec, specDoModelo, type MotionFormat } from "@/lib/motion/engine";
 import MotionHtml, { type HtmlRow } from "@/components/av/MotionHtml";
 import { MODELOS_HTML } from "@/lib/motion/modelos-html";
+import { ESTILOS_TEXTO } from "@/lib/motion/estilos-texto";
 import { infoComposicao } from "@/lib/motion/html";
 
 /** motion em HTML (HyperFrames, 27/11): brief do Claude → peça. Os motions antigos de cenas seguem no MotionStudio. */
@@ -137,7 +138,7 @@ function Motion() {
     await etapa(r.id, { task: "motion_html", etapa: "html", motion_id: r.id, pedido: row.pedido || r.titulo, formato: row.formato, account_id: row.account_id, ajuste: ajuste || undefined, base: { brief: r.spec?.brief } }, r.spec?.html ? "Ajuste enviado. O Claude refaz a peça." : "Brief aprovado. O Claude escreve a peça e ela aparece aqui.");
   }
   async function usarModelo(id: string) {
-    const m = MODELOS_HTML.find((x) => x.id === id); if (!m) return;
+    const m = [...MODELOS_HTML, ...ESTILOS_TEXTO].find((x) => x.id === id); if (!m) return;
     const { data, error } = await createClient().from("av_motions").insert({ titulo: `${m.nome} · ${m.marca}`, formato: "9:16", spec: { motor: "html", etapa: "pronto", html: m.html, valores: {}, modelo: m.id }, status: "pronto", origem: "hub" }).select("id").single();
     if (error) { setMsg(error.message); return; }
     const list = await load();
@@ -203,6 +204,19 @@ function Motion() {
               <p className="text-sm font-semibold">{m.nome}</p>
               <p className="text-[11px] text-fog mt-1">{m.desc}</p>
               <span className="chip mt-2 inline-block">{m.marca}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="card p-5 mb-4">
+        <p className="font-display text-lg font-extrabold">Estilos de texto por cima do vídeo</p>
+        <p className="text-sm text-fog mt-1">Escolha pelo nome, troque o texto e exporte em WebM transparente. Ele cai em cima do vídeo de quem fala no Editor, no Premiere ou no CapCut, na palavra que você quiser.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mt-3">
+          {ESTILOS_TEXTO.map((m) => (
+            <button key={m.id} onClick={() => usarModelo(m.id)} title={m.desc} className="text-left rounded-xl border border-line p-2.5 hover:border-mint min-w-0">
+              <p className="text-[13px] font-semibold leading-tight">{m.nome}</p>
+              <p className="text-[10px] text-fog mt-1 line-clamp-2">{m.desc}</p>
             </button>
           ))}
         </div>

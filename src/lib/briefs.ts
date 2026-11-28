@@ -7,7 +7,9 @@
  * O mesmo formato serve ao Motion (tipo "motion") e ao editor de vídeo (tipo "edicao", com o bloco `edicao`).
  */
 
-export type BriefCena = { inicio: number; fim: number; o_que: string; texto?: string; movimento?: string; fala?: string };
+import { NOMES_ESTILOS } from "./motion/estilos-texto";
+
+export type BriefCena = { inicio: number; fim: number; o_que: string; texto?: string; movimento?: string; fala?: string; estilo?: string };
 export type Brief = {
   tipo: "motion" | "edicao";
   titulo: string;
@@ -79,7 +81,7 @@ export function normalizeBrief(x: any, tipo: Brief["tipo"] = "motion"): Brief {
     conferir: list(x?.conferir, 12),
     cenas: (Array.isArray(x?.cenas) ? x.cenas : []).slice(0, 40).map((c: any) => ({
       inicio: num(c?.inicio, 0, 0, 600), fim: num(c?.fim, 0, 0, 600), o_que: str(c?.o_que, 400),
-      texto: c?.texto ? str(c.texto, 200) : undefined, movimento: c?.movimento ? str(c.movimento, 300) : undefined, fala: c?.fala ? str(c.fala, 200) : undefined,
+      texto: c?.texto ? str(c.texto, 200) : undefined, movimento: c?.movimento ? str(c.movimento, 300) : undefined, fala: c?.fala ? str(c.fala, 200) : undefined, estilo: c?.estilo ? str(c.estilo, 60) : undefined,
     })),
     falta_da_cliente: list(x?.falta_da_cliente, 8),
     edicao: x?.edicao && typeof x.edicao === "object" ? x.edicao : undefined,
@@ -103,6 +105,7 @@ Como refinar:
 - Texto na tela: só o que veio do pedido, do roteiro ou da marca. Máximo 6 palavras por vez; título com 120 px ou mais; nada menor que 30 px.
 - Tempo: cada cena com início e fim em segundos, somando a duração pedida (vinheta de abertura 3 a 5 s; CTA 3 a 4 s). Nenhuma cena acima de 4 s sem dizer o que ela sustenta.
 - Movimento: entra desacelerando, sai acelerando; escada de 0,08 a 0,15 s entre elementos irmãos; algo vivo em todo quadro; corte no movimento em vez de fade.
+- Texto por cima do vídeo de quem fala: escolha em cada cena um estilo do catálogo pelo nome (campo "estilo") e diga em que palavra da fala ele entra; fundo transparente. Catálogo: ${NOMES_ESTILOS.join(", ")}.
 - O que faltar e só a pessoa souber (preço, data, peça, nome, aprovação) vai em falta_da_cliente; não invente.
 - Português do Brasil, frases curtas, sem clichês de IA.
 
@@ -115,7 +118,7 @@ Responda SOMENTE com JSON:
 "ideia":"a ideia única em uma frase",
 "visual":{"cores":[{"nome":"...","hex":"#RRGGBB","uso":"..."}],"letras":[{"nome":"família do Google Fonts","uso":"..."}],"grafismos":["..."],"regras":["..."]},
 "movimento":["..."],"nunca":["..."],"conferir":["..."],
-"cenas":[{"inicio":0,"fim":1.2,"o_que":"o que acontece na tela","texto":"texto exato ou vazio","movimento":"como entra e sai"}],
+"cenas":[{"inicio":0,"fim":1.2,"o_que":"o que acontece na tela","texto":"texto exato ou vazio","movimento":"como entra e sai","estilo":"nome do catálogo ou vazio","fala":"palavra da fala ou vazio"}],
 "falta_da_cliente":["pergunta curta"]}`;
 }
 
@@ -131,7 +134,7 @@ export function briefEmTexto(b: Brief) {
   L.push(`6. Nunca: ${b.nunca.join("; ")}`);
   L.push(`7. Conferir: ${b.conferir.join("; ")}`);
   L.push(`8. Cenas:`);
-  b.cenas.forEach((c) => L.push(`- ${c.inicio.toFixed(2)}–${c.fim.toFixed(2)} s: ${c.o_que}${c.texto ? ` | texto: "${c.texto}"` : ""}${c.movimento ? ` | movimento: ${c.movimento}` : ""}${c.fala ? ` | na fala: "${c.fala}"` : ""}`));
+  b.cenas.forEach((c) => L.push(`- ${c.inicio.toFixed(2)}–${c.fim.toFixed(2)} s: ${c.o_que}${c.texto ? ` | texto: "${c.texto}"` : ""}${c.movimento ? ` | movimento: ${c.movimento}` : ""}${c.fala ? ` | na fala: "${c.fala}"` : ""}${c.estilo ? ` | estilo: ${c.estilo}` : ""}`));
   if (b.edicao) Object.entries(b.edicao).forEach(([k, v]) => L.push(`${k}: ${Array.isArray(v) ? v.join("; ") : v}`));
   if (b.falta_da_cliente.length) L.push(`Falta da cliente: ${b.falta_da_cliente.join(" / ")}`);
   return L.join("\n");

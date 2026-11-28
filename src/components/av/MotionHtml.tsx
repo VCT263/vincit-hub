@@ -91,6 +91,8 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
                     <span className="text-[11px] text-fog">{v.label || v.id}</span>
                     {v.type === "color"
                       ? <div className="flex items-center gap-2"><input type="color" value={valores[v.id] ?? v.default} onChange={(e) => setValores((x) => ({ ...x, [v.id]: e.target.value }))} className="h-9 w-12 rounded border border-line bg-transparent" /><span className="text-xs text-fog">{valores[v.id] ?? v.default}</span></div>
+                      : v.type === "select" && Array.isArray(v.options)
+                      ? <select value={valores[v.id] ?? v.default} onChange={(e) => setValores((x) => ({ ...x, [v.id]: e.target.value }))} className="input text-sm">{v.options.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                       : <input value={valores[v.id] ?? v.default ?? ""} onChange={(e) => setValores((x) => ({ ...x, [v.id]: e.target.value }))} className="input text-sm" />}
                   </label>
                 ))}
@@ -164,7 +166,7 @@ export function Previa({ html, valores, w, h, duracao, className = "" }: { html:
 
   return (
     <div className={className}>
-      <div ref={box} className="relative w-full overflow-hidden rounded-xl border border-line bg-black" style={{ aspectRatio: `${w} / ${h}` }}>
+      <div ref={box} className="relative w-full overflow-hidden rounded-xl border border-line bg-black" style={{ aspectRatio: `${w} / ${h}`, backgroundImage: "repeating-conic-gradient(#2c2c2c 0 25%, #1f1f1f 0 50%)", backgroundSize: "28px 28px" }}>
         <iframe ref={ifr} sandbox="allow-scripts" title="Prévia do motion" style={{ width: w, height: h, transform: `scale(${scale})`, transformOrigin: "0 0", border: 0, position: "absolute", left: 0, top: 0 }} />
         {erro && <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-red-300 bg-black/70">{erro}</div>}
       </div>
@@ -195,7 +197,7 @@ function BriefView({ brief, respostas, setRespostas }: { brief: Brief; respostas
         {brief.visual.grafismos.length > 0 && <p className="text-xs mt-1">Grafismos: {brief.visual.grafismos.join("; ")}</p>}
       </>)}
       {linha("5", "Movimento", <ul className="list-disc pl-4 text-xs space-y-0.5">{brief.movimento.map((m, i) => <li key={i}>{m}</li>)}</ul>)}
-      {linha("8", "Cena a cena", <ol className="space-y-1">{brief.cenas.map((c, i) => <li key={i} className="text-xs"><span className="font-mono text-fog">{c.inicio.toFixed(1)}–{c.fim.toFixed(1)} s</span> {c.o_que}{c.texto ? <> · <b>&quot;{c.texto}&quot;</b></> : null}</li>)}</ol>)}
+      {linha("8", "Cena a cena", <ol className="space-y-1">{brief.cenas.map((c, i) => <li key={i} className="text-xs"><span className="font-mono text-fog">{c.inicio.toFixed(1)}–{c.fim.toFixed(1)} s</span> {c.o_que}{c.texto ? <> · <b>&quot;{c.texto}&quot;</b></> : null}{c.estilo ? <span className="chip ml-1">{c.estilo}</span> : null}</li>)}</ol>)}
       {linha("6", "Nunca", <p className="text-xs text-fog">{brief.nunca.join(" · ")}</p>)}
       {brief.falta_da_cliente.length > 0 && linha("?", "Falta você responder", <div className="space-y-2">{brief.falta_da_cliente.map((q, i) => (
         <label key={i} className="block"><span className="text-xs">{q}</span><input value={respostas[i] || ""} onChange={(e) => setRespostas((r) => ({ ...r, [i]: e.target.value }))} className="input text-sm mt-1" /></label>
