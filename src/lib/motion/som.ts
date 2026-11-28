@@ -43,12 +43,14 @@ export function eventosSom(s: MotionSpec): [number, PapelSom][] {
 
 /** Mistura a trilha de efeitos do motion. Devolve null sem estilo de som ou sem Web Audio. */
 export async function trilhaSom(s: MotionSpec, sampleRate = 48000): Promise<AudioBuffer | null> {
-  const estilo = s.som;
+  if (!ehEstiloSom(s.som)) return null;
+  return mixarEventos(s.som, eventosSom(s), motionDuration(s), sampleRate);
+}
+
+/** Mistura os sons do estilo nos momentos dados (usado pelo motor de cenas e pelas peças HyperFrames). */
+export async function mixarEventos(estilo: string | undefined, ev: [number, PapelSom][], total: number, sampleRate = 48000): Promise<AudioBuffer | null> {
   if (!ehEstiloSom(estilo) || typeof OfflineAudioContext === "undefined") return null;
-  const total = motionDuration(s);
-  if (!total) return null;
-  const ev = eventosSom(s);
-  if (!ev.length) return null;
+  if (!total || !ev.length) return null;
   const ctx = new OfflineAudioContext(2, Math.ceil(total * sampleRate), sampleRate);
   const papeis = Array.from(new Set(ev.map((e) => e[1])));
   const buf: Partial<Record<PapelSom, AudioBuffer>> = {};
@@ -71,4 +73,24 @@ export async function trilhaSom(s: MotionSpec, sampleRate = 48000): Promise<Audi
     src.start(Math.max(0, ini), Math.max(0, -ini));
   }
   return ctx.startRendering();
+}
+
+/**
+ * Momentos de som de uma peça HyperFrames (28/11): os inícios das animações da timeline GSAP
+ * ([início, duração]) e as cenas do brief. Abertura no começo, transição na troca de cena,
+ * um toque curto nas outras entradas (no máximo um a cada 0,35 s) e destaque na última.
+ */
+export function eventosHtml(tweens: [number, number][], cenas: { inicio: number }[], total: number): [number, PapelSom][] {
+  const fim = Math.max(0, total - 0.15);
+  let ini = tweens.filter(([t, d]) => d > 0.05 && t >= 0 && t < fim).map(([t]) => t).sort((a, b) => a - b);
+  if (!ini.length) ini = cenas.map((c) => c.inicio).filter((t) => t < fim);
+  const trocas = cenas.map((c) => c.inicio).filter((t) => t > 0.3 && t < fim);
+  const ev: [number, PapelSom][] = [[Math.min(ini[0] ?? 0, 0.3), "abertura"]];
+  for (const t of trocas) ev.push([t, "transicao"]);
+  let ultimo = ev[0][0];
+  const resto = ini.filter((t) => t - ev[0][0] > 0.35 && !trocas.some((x) => Math.abs(x - t) < 0.3));
+  for (const t of resto) { if (t - ultimo < 0.35) continue; ev.push([t, "itens"]); ultimo = t; }
+  const itens = ev.filter((e) => e[1] === "itens");
+  if (itens.length) itens[itens.length - 1][1] = "destaque";
+  return ev.sort((a, b) => a[0] - b[0]).slice(0, 24);
 }
