@@ -280,6 +280,55 @@
     return res;
   }
 
+
+  /* ---------- cor (LUT) ---------- */
+
+  async function lumetriDe(item) {
+    const chain = await item.getComponentChain();
+    for (let i = 0; i < chain.getComponentCount(); i++) {
+      const comp = chain.getComponentAtIndex(i);
+      if (/lumetri/i.test(await comp.getMatchName())) return { chain, comp };
+    }
+    return { chain, comp: null };
+  }
+
+  async function noteMarker(name, note) {
+    const { project, seq } = await ctx();
+    const markers = await ppro.Markers.getMarkers(seq);
+    return run(project, [markers.createAddMarkerAction(String(name).slice(0, 120), "Comment", T(0), T(0), note || "")], "VINCIT: nota de cor");
+  }
+
+  /**
+   * Põe o Lumetri nos clipes de V1 (se ainda não tiver) e tenta carregar o .cube no Look criativo.
+   * A API UXP não documenta o campo de arquivo do Lumetri: se o Premiere recusar, fica um marcador com o caminho.
+   */
+  async function applyLut(cubePath, nome) {
+    const tl = await readTimeline();
+    const { project } = tl;
+    const v1 = tl.clips.filter((c) => c.faixa === "V1").map((c) => c._c);
+    if (!v1.length) throw new Error("Não há clipes em V1.");
+    const res = { clipes: v1.length, lumetri: 0, lut: 0, avisos: [] };
+    for (const c of v1) {
+      let { chain, comp } = await lumetriDe(c.item);
+      if (!comp) {
+        try {
+          const novo = await ppro.VideoFilterFactory.createComponent("AE.ADBE Lumetri");
+          if (run(project, [chain.createAppendComponentAction(novo)], "VINCIT: Cor Lumetri")) { res.lumetri++; comp = (await lumetriDe(c.item)).comp || novo; }
+        } catch (e) { res.avisos.push("Lumetri: " + e.message); }
+      }
+      if (!comp) continue;
+      let feito = false;
+      for (let j = 0; j < comp.getParamCount() && !feito; j++) {
+        const p = comp.getParam(j);
+        if (!/look|lut/i.test(p.displayName || "")) continue;
+        try { feito = run(project, [p.createSetValueAction(p.createKeyframe(cubePath), true)], "VINCIT: LUT"); } catch (e) { feito = false; }
+      }
+      if (feito) res.lut++;
+    }
+    if (res.lut < v1.length) await noteMarker(`🎨 LUT ${nome}: Lumetri › Criativo › Look › Procurar`, `Arquivo: ${cubePath}`);
+    return res;
+  }
+
   /* ---------- cortar de verdade (pausas e cortes do plano) ---------- */
 
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -382,5 +431,5 @@
     await seq.setPlayerPosition(T(seconds));
   }
 
-  window.PR = { readTimeline, readTranscript, transcribe, applyPlan, cutSequence, seek };
+  window.PR = { readTimeline, readTranscript, transcribe, applyPlan, cutSequence, seek, applyLut, noteMarker };
 })();

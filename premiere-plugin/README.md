@@ -10,6 +10,8 @@ Painel que liga o Premiere ao HUB e ao Claude:
 6. Painel 0.6: em Revisar, "Achar pausas e tropeços" junta às pausas o gaguejo (palavra repetida colada), o vício com silêncio dos dois lados (lista em `regras.vicios` do kit), o falso começo e a tomada repetida (frase dita de novo logo depois; fica a última). Tudo entra na mesma lista para desmarcar antes de cortar. A folga padrão vem de `regras.folga_ms` do kit. Base: cut-mistakes do herk-edit-kit (MIT).
 6. Segunda saída do Editor do HUB: o botão "Enviar para o Premiere" grava a edição montada no HUB (cortes, legendas, letterings, motion, câmera com tipo do movimento e imagens) já como `plano_pronto`, no tempo do arquivo original. O painel pega e aplica igual.
 
+7. Painel 0.7: cartão "Cor (LUT)" em Editar, com a Biblioteca de LUTs do HUB (`/api/luts/catalogo`, público). As autorais VINCIT vêm de `/api/luts/<look>.cube`: o painel salva na pasta escolhida (lembrada por token), põe o Lumetri nos clipes de V1 (`AE.ADBE Lumetri`) e tenta pôr o arquivo no Look. A API não documenta o campo de arquivo do Lumetri; se o Premiere recusar, fica um marcador no início com o caminho. As de marca abrem o site oficial e deixam o passo num marcador.
+
 Requer Premiere Pro 25.6 ou mais novo (UXP estável). A API usada está em `@adobe/premierepro` 27.
 
 ## Instalar
