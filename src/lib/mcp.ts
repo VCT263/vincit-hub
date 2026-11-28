@@ -14,6 +14,7 @@ import { AD_RULES_TEXT } from "@/lib/anuncio";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 import { kitsComMarca } from "./kitMarca";
 import { CLAUDE_PANEL_URL, HUB_URL, PAINEL_URI } from "@/lib/painelApp";
+import { SKILL_PAGINAS, slugify } from "@/lib/paginas";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -114,7 +115,7 @@ export const TOOLS: Tool[] = [
         ultimas: novas.length ? [] : NOVIDADES.slice(0, 3),
         painel: { na_conversa: "Este resultado aparece como o painel da VINCIT aqui na conversa, com o botão Atualizar.", completo: CLAUDE_PANEL_URL, hub: HUB_URL },
         dica: novas.length ? "Conte as novidades em 2 ou 3 linhas antes de seguir." : "Sem novidades desde a última visita.",
-        prompts_prontos: ["Começar no HUB", "Dossiê do perfil", "Plano do mês", "Pacote da semana", "Análise do perfil", "Refazer aberturas", "Responder pedidos de IA", "Entrevista de marca"],
+        prompts_prontos: ["Começar no HUB", "Dossiê do perfil", "Plano do mês", "Pacote da semana", "Análise do perfil", "Refazer aberturas", "Responder pedidos de IA", "Entrevista de marca", "Criar página"],
       };
     },
   },
@@ -669,6 +670,102 @@ export const TOOLS: Tool[] = [
       if (error) fail(error.message);
       if (!data) fail("Entrevista não encontrada.");
       return { ok: true, campos: Object.keys(proposta.campos), aprovar_em: `/creator/entrevista?perfil=${data.account_id}` };
+    },
+  },
+  {
+    name: "paginas_pendentes",
+    title: "Páginas e sites: pedidos",
+    description: "Design › Páginas e sites. Sem id: lista as páginas esperando o Claude (criar ou ajustar). Com id: traz tudo para criar ou ajustar a página: briefing, perfil (nicho, público, voz), direcionamento_marca (manual do Design), letras e logotipo, fotos já salvas no HUB, comentários abertos do cliente, o pedido de ajuste, a versão atual e a skill Criar páginas (processo, regras técnicas, design e entrega). Siga a skill: mostre a ficha da página antes de escrever o código.",
+    inputSchema: { type: "object", properties: { id: { type: "string", description: "id da página (opcional)" }, incluir_html: { type: "boolean", description: "true para receber o HTML da versão atual (para ajustar em vez de refazer). Padrão: true quando há pedido de ajuste." } } },
+    readOnly: true,
+    needs: "design:paginas",
+    run: async (ctx, a) => {
+      if (!a.id) {
+        const { data, error } = await ctx.sb.from("web_pages").select("id, title, tipo, status, pedido, versions, comments, updated_at").is("archived_at", null).in("status", ["pedido", "rascunho", "revisao"]).order("updated_at", { ascending: false }).limit(20);
+        if (error) fail(error.message);
+        return {
+          paginas: (data || []).map((p: any) => ({ id: p.id, titulo: p.title, tipo: p.tipo, status: p.status === "pedido" ? "esperando o Claude" : p.status === "rascunho" ? "briefing salvo, sem pedido" : "em revisão com o cliente", versoes: (p.versions || []).length, comentarios_abertos: (p.comments || []).filter((c: any) => !c.resolvido).length, pedido: clip(p.pedido, 400) })),
+          dica: "Chame paginas_pendentes com o id para ler tudo da página.",
+        };
+      }
+      const { data: p, error } = await ctx.sb.from("web_pages").select("*").eq("id", a.id).maybeSingle();
+      if (error) fail(error.message);
+      if (!p) fail("Página não encontrada. Chame paginas_pendentes sem id para ver a lista.");
+      const [{ data: acc }, { data: marca }] = await Promise.all([
+        p.account_id ? ctx.sb.from("ig_accounts").select("id, username, name, niche, goals, brand_voice, briefing").eq("id", p.account_id).maybeSingle() : Promise.resolve({ data: null } as any),
+        p.brand_id ? ctx.sb.from("design_projects").select("id, title, data").eq("id", p.brand_id).maybeSingle() : Promise.resolve({ data: null } as any),
+      ]);
+      // fotos já salvas no Storage do HUB (posts do Instagram da marca em brand/<marca>/ig)
+      let fotos: string[] = Array.isArray(p.briefing?.fotos) ? p.briefing.fotos.slice(0, 60) : [];
+      if (marca) {
+        const pasta = `brand/${slugify(marca.title)}/ig`;
+        const { data: objs } = await ctx.sb.storage.from("design-mockups").list(pasta, { limit: 100 });
+        fotos = fotos.concat((objs || []).filter((o: any) => /\.(jpe?g|png|webp)$/i.test(o.name)).map((o: any) => ctx.sb.storage.from("design-mockups").getPublicUrl(`${pasta}/${o.name}`).data.publicUrl));
+      }
+      const versoes = p.versions || [];
+      const atualV = versoes[versoes.length - 1] || null;
+      const comHtml = a.incluir_html ?? (p.status === "pedido" && !!atualV);
+      const d = marca?.data || {};
+      return {
+        pagina: { id: p.id, titulo: p.title, tipo: p.tipo, status: p.status, briefing: p.briefing, pedido_de_ajuste: p.pedido },
+        perfil: acc ? { ...acc, perfil: `@${acc.username}` } : null,
+        direcionamento_marca: marca ? brandPrompt(d) : null,
+        marca: marca ? { nome: marca.title, letras: d.type || null, paleta: d.palette || null, logotipo_svg: clip(d.logotype?.svg, 60000), grafismo_svg: clip(d.pattern?.svg, 20000) } : null,
+        fotos,
+        comentarios_abertos: (p.comments || []).filter((c: any) => !c.resolvido).map((c: any) => ({ id: c.id, tela: c.tela, onde: `${c.modo === "desk" ? "notebook" : "celular"}, ${Math.round(c.x)}% da largura, ${Math.round(c.y)} px do topo`, texto: c.texto, quem: c.nome, versao: c.v })),
+        versao_atual: atualV ? { n: atualV.n, nota: atualV.nota, telas: atualV.telas.map((t: any) => (comHtml ? t : { slug: t.slug, nome: t.nome, tamanho_kb: Math.round((t.html || "").length / 1024) })) } : null,
+        skill_criar_paginas: SKILL_PAGINAS,
+        como_gravar: "salvar_pagina com id, telas [{slug, nome, html}] (todas as telas da versão, inclusive as que não mudaram), nota (o que mudou) e resolver_comentarios (ids atendidos).",
+        telas_no_hub: `${HUB_URL}/design/paginas/${p.id}`,
+      };
+    },
+  },
+  {
+    name: "salvar_pagina",
+    title: "Gravar versão da página",
+    description: "Grava uma versão nova da página no HUB (Design › Páginas e sites): cada tela é um HTML completo. Sem id, cria a página. A versão entra em revisão: a pessoa e o cliente veem a prévia, comentam e aprovam. Mostre a ficha da página e confirme com a pessoa antes da primeira versão.",
+    inputSchema: {
+      type: "object", required: ["telas"],
+      properties: {
+        id: { type: "string", description: "id da página (de paginas_pendentes). Sem id, cria uma nova." },
+        titulo: { type: "string", description: "nome da página (só ao criar)" },
+        tipo: { type: "string", enum: ["landing", "site", "loja", "pagina"] },
+        perfil_id: accountId,
+        telas: { type: "array", maxItems: 8, items: { type: "object", required: ["nome", "html"], properties: { slug: { type: "string", description: "id curto da tela, usado nos links href=\"#tela-<slug>\"" }, nome: { type: "string" }, html: { type: "string", description: "documento HTML completo da tela" } } } },
+        nota: { type: "string", description: "o que esta versão traz ou mudou (aparece no histórico)" },
+        resolver_comentarios: { type: "array", items: { type: "string" }, description: "ids dos comentários atendidos nesta versão" },
+      },
+    },
+    needs: "design:paginas",
+    run: async (ctx, a) => {
+      const telas = (Array.isArray(a.telas) ? a.telas : []).slice(0, 8).map((t: any, i: number) => ({ slug: slugify(t.slug || t.nome || `tela-${i + 1}`), nome: clip(t.nome, 60) || `Tela ${i + 1}`, html: String(t.html || "") }));
+      if (!telas.length) fail("Mande ao menos uma tela.");
+      const grande = telas.find((t: any) => t.html.length > 300 * 1024);
+      if (grande) fail(`A tela "${grande.nome}" passou de 300 KB. Tire imagens em base64 e use as URLs de fotos.`);
+      if (telas.some((t: any) => !/<html|<body|<!doctype/i.test(t.html))) fail("Cada tela precisa ser um documento HTML completo (<!doctype html>…</html>).");
+      if (new Set(telas.map((t: any) => t.slug)).size !== telas.length) fail("Duas telas com o mesmo slug.");
+      let pg: any = null;
+      if (a.id) {
+        const { data } = await ctx.sb.from("web_pages").select("id, versions, comments").eq("id", a.id).maybeSingle();
+        if (!data) fail("Página não encontrada. Use paginas_pendentes.");
+        pg = data;
+      } else {
+        await account(ctx, a.perfil_id);
+        const { data, error } = await ctx.sb.from("web_pages").insert({ title: clip(a.titulo, 120) || "Nova página", tipo: ["landing", "site", "loja", "pagina"].includes(a.tipo) ? a.tipo : "landing", account_id: a.perfil_id || null, owner_id: ctx.userId }).select("id, versions, comments").single();
+        if (error) fail(error.message);
+        pg = data;
+      }
+      const versoes = pg.versions || [];
+      const n = versoes.length + 1;
+      const resolver = new Set((a.resolver_comentarios || []).map(String));
+      const comments = (pg.comments || []).map((c: any) => (resolver.has(c.id) ? { ...c, resolvido: true } : c));
+      const { error } = await ctx.sb.from("web_pages").update({
+        versions: [...versoes, { n, nota: clip(a.nota, 600), em: new Date().toISOString(), por: "claude", telas }],
+        comments, status: "revisao", pedido: null, approved: null,
+      }).eq("id", pg.id);
+      if (error) fail(error.message);
+      const { data: tk } = await ctx.sb.from("web_pages").select("share_token").eq("id", pg.id).maybeSingle();
+      return { ok: true, id: pg.id, versao: n, telas: telas.map((t: any) => t.slug), ver_no_hub: `${HUB_URL}/design/paginas/${pg.id}`, link_do_cliente: tk ? `${HUB_URL}/w/${tk.share_token}` : null };
     },
   },
 ];

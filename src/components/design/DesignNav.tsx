@@ -8,9 +8,10 @@ const items = [
   { href: "/design/briefings", label: "Briefings", Icon: I.pen, group: "01 · Marca" },
   { href: "/design/marcas", label: "Criação de marca", Icon: I.shapes },
   { href: "/design/pecas", label: "Carrosséis e peças", Icon: I.cards, group: "02 · Peças" },
-  { href: "/design/mockups", label: "Mockups fotográficos", Icon: I.camera, group: "03 · Biblioteca" },
+  { href: "/design/paginas", label: "Páginas e sites", Icon: I.board, group: "03 · Páginas" },
+  { href: "/design/mockups", label: "Mockups fotográficos", Icon: I.camera, group: "04 · Biblioteca" },
 ];
 
 export default function DesignNav() {
-  return <HubNav title="Design" desc="Marca, carrosséis e peças" root="/design" items={items} />;
+  return <HubNav title="Design" desc="Marca, peças, páginas e sites" root="/design" items={items} />;
 }
