@@ -35,7 +35,7 @@ export const TOOLS: Tool[] = [
 ];
 
 /** páginas que usam a liberação de outra ferramenta */
-const ALIAS: [string, string][] = [["/creator/diagnostico", "creator:estrategia"]];
+const ALIAS: [string, string][] = [["/creator/diagnostico", "creator:estrategia"], ["/creator/agendar", "creator:automacoes"]];
 
 export type Access = { role: "superadmin" | "user"; status: "ativo" | "pendente" | "suspenso" | "expirado"; tools: string[]; plan?: string | null; expires_at?: string | null; name?: string | null };
 

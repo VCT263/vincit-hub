@@ -230,8 +230,8 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           <Section title="Publicação">
             <label className="label">Link do post</label>
             <input className="input" value={f.post_url || ""} onChange={(e) => set("post_url", e.target.value)} placeholder="https://www.instagram.com/p/…" />
-            <p className="text-xs text-fog mt-2">Publicou fora do HUB? Cole o link do post. Para publicar pelo HUB, agende em Automações.</p>
-            <Link href="/creator/automacoes?tab=agendar" className="btn btn-ghost btn-sm mt-3">Agendar publicação</Link>
+            <p className="text-xs text-fog mt-2">Publicou fora do HUB? Cole o link do post. Para publicar pelo HUB, agende aqui.</p>
+            <Link href={`/creator/agendar?c=${item.id}`} className="btn btn-ghost btn-sm mt-3">Agendar publicação</Link>
           </Section>
         )}
 
@@ -288,7 +288,7 @@ function NextStep({ stage, f, itemId, onSheet, onShare, copied, next, onAdvance,
     edicao: { t: "Editar", d: "Edite no Editor do HUB e cole o link da versão final.", a: <Link href="/audiovisual/editor" className="btn btn-mint btn-sm"><I.video className="w-4 h-4" />Abrir Editor</Link> },
     revisao: { t: "Revisar e escrever a legenda", d: "Primeira linha até 125 caracteres, até 5 hashtags." },
     aprovacao: { t: "Enviar para o cliente aprovar", d: "O cliente abre o link sem login.", a: <button type="button" onClick={onShare} className="btn btn-mint btn-sm"><I.link className="w-4 h-4" />{copied ? "Link copiado" : "Copiar link"}</button> },
-    agendado: { t: "Publicar", d: "Depois de postar, cole o link do post para puxar as métricas." },
+    agendado: { t: "Agendar a publicação", d: "O HUB publica no horário marcado e move o card para Publicado. Postou pelo app? Cole o link do post abaixo.", a: <Link href={`/creator/agendar?c=${itemId}`} className="btn btn-mint btn-sm"><I.calendar className="w-4 h-4" />Agendar no HUB</Link> },
     publicado: { t: "Acompanhar os resultados", d: "A análise de 7 dias usa o link do post.", a: f.post_url ? <a href={f.post_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">Ver post ↗</a> : null },
   };
   const m = map[stage || "ideia"];
