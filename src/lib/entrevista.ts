@@ -12,20 +12,26 @@ import { BRIEFING, briefingText } from "@/lib/briefing";
 export type Turno = { r: "e" | "p"; t: string; quem?: string; tema?: number; at?: string; via?: "hub" | "claude" };
 
 export const TEMAS = [
-  "Visão: onde a marca quer estar daqui a 2 ou 3 anos",
+  "Crença: o que a marca acredita que o mercado faz errado",
+  "Problema: o que esse erro custa para o cliente, com um caso real",
+  "Método: como a marca resolve, passo a passo, e se esse jeito tem nome",
+  "Fronteira: o que a marca nunca seria e palavras que não usa",
+  "Visão: onde a marca quer estar daqui a 2 ou 3 anos e como quer ser lembrada",
   "Cliente real: um exemplo de cliente com nome, idade, rotina e o que compra",
   "Personalidade da marca e como ela fala",
-  "O que a marca nunca faria e palavras que não usa",
   "Produtos ou peças-chave do momento, com nome, preço e tamanhos",
   "Próxima campanha ou data forte (ex.: Natal): datas, entrega, frete, troca",
   "Oferta ou condição da campanha, com motivo e prazo",
   "Gravação: quem aparece nos vídeos e quando dá para gravar",
   "Referências: marcas ou perfis que admiram e por quê",
-  "Meta do mês em número e como vão saber que deu certo",
+  "Meta do mês em número e quais sinais mostram que deu certo (salvamentos, mensagens, visitas)",
 ];
 
+/** os 4 primeiros temas formam a corrente do manifesto: crença → problema → método → fronteira */
+export const TEMAS_MANIFESTO = 4;
+
 /** só os campos que a entrevista costuma preencher (o resto do briefing fica como está) */
-export const CAMPOS_ENTREVISTA = ["visao", "persona", "arquetipo", "personalidade", "nao_e", "proibido", "evitar", "gosta", "oferta", "diferencial", "metas", "datas", "rosto", "postura", "matriz_tom", "transformacao", "dores", "desejos", "objecoes"];
+export const CAMPOS_ENTREVISTA = ["frase_mae", "problema", "framework", "territorio", "regras_ouro", "indicadores", "visao", "persona", "arquetipo", "personalidade", "nao_e", "proibido", "evitar", "gosta", "oferta", "diferencial", "metas", "datas", "rosto", "postura", "matriz_tom", "transformacao", "dores", "desejos", "objecoes"];
 
 /** campos que o Dossiê do perfil (prompt do conector) pode propor, além dos da entrevista: saem dos posts reais */
 export const CAMPOS_DOSSIE = ["linguagem", "pilares", "formatos", "provas", "historias", "padrao", "oportunidades"];
@@ -50,7 +56,8 @@ export const REGRAS_CONDUCAO = `Como conduzir:
 - Não pergunte o que o briefing já responde com clareza; use o briefing para checar. Priorize o que está vazio ou marcado "a validar" / "estimativa".
 - Não elogie à toa e não repita a resposta inteira. Aprofunde no máximo 2 vezes no mesmo tema; depois siga.
 - Se a pessoa pedir para pular, siga para o próximo tema.
-- Encerre depois de cobrir os temas (12 a 18 perguntas): agradeça e diga em uma frase o que vai virar briefing.`;
+- Nos 4 primeiros temas (crença, problema, método, fronteira) a pessoa raramente tem a resposta pronta. Ajude a formular: devolva o que ouviu numa frase curta e pergunte se é isso. Crença boa diz o que o mercado erra; problema bom tem um caso real; método bom tem passos e, se possível, um nome; fronteira boa diz o que a marca recusa ser.
+- Encerre depois de cobrir os temas (14 a 22 perguntas): agradeça e diga em uma frase o que vai virar briefing.`;
 
 export const temasTexto = () => TEMAS.map((t, i) => `${i + 1}. ${t}`).join("\n");
 
@@ -84,6 +91,7 @@ export function esquemaBriefing() {
 
 export function promptBriefing(acc: any, turnos: Turno[]) {
   return `Abaixo está a transcrição de uma entrevista de marca. Monte a proposta de atualização do briefing do perfil usando SÓ o que foi dito na entrevista (pode combinar com o briefing atual quando a pessoa confirmou). Não invente números, nomes, preços ou datas. Campo sem resposta na entrevista fica de fora. Frases diretas, em português do Brasil.
+Manifesto: problema junta a crença e o custo para o cliente; framework descreve o método em camadas ou passos, com o nome que a pessoa deu; regras_ouro são 3 a 5 filtros do tipo "só publicar se..." tirados da fronteira; indicadores são os sinais que a pessoa citou na meta. A frase_mae (até 12 palavras: o que a marca faz e para quem muda o quê) pode ser síntese sua da crença e do método: termine com " (proposta)" se a pessoa não disse a frase.
 
 Briefing atual:
 ${contextoPerfil(acc)}

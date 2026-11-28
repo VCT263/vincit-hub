@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { useLite, useNear, usePrintAll } from "./lazy";
 import { grainBg, warmGrain } from "./grain";
 import { ArchetypeSlide, ChannelsSlide, ManifestoSlide, PositioningSlide, RewriteSlide, SituationsSlide, ToneSlide, ValuesSlide, VocabSlide, WeAreSlide, type Verbal } from "./VerbalSlides";
+import { ContentDirSlide, ThinkSlide, temConteudo, temPensa } from "./ThinkSlides";
 import { ExpressionSlide, FeedGridSlide, FeedWhySlide, PhotoMoodSlide, PhotoRulesSlide, RealAppsSlide, type AppReal, type Feed, type FotoMood, FeedCompareSlide, FeedPlanSlide, FeedIdealWhySlide, FeedRefsSlide, type FeedIdeal } from "./RealSlides";
 import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
@@ -322,6 +323,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
     ) });
   }
 
+  if (temPensa(b)) S.push({ key: "pensa", tone: "light", section: "Plataforma · como a marca pensa", body: (x) => <ThinkSlide x={x} b={b} /> });
+
   /* 03 Arquétipos */
   if (mix.length) {
     chapter("Arquétipos", "A personalidade da marca em hierarquia: quem predomina, quem complementa, quem apoia.");
@@ -606,6 +609,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       </div>
     );
   } });
+
+  if (temConteudo(b)) S.push({ key: "direcao-conteudo", tone: "light", section: "Direção de conteúdo", body: (x) => <ContentDirSlide x={x} b={b} /> });
 
   /* direcionamento para a IA: o mesmo texto que vai junto dos pedidos de post e edição */
   const prompt = brandPrompt(d);

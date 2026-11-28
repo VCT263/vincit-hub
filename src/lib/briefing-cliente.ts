@@ -41,6 +41,12 @@ export const ETAPAS: Etapa[] = [
     { k: "diferente", l: "O que você faz diferente deles?", type: "textarea" },
     { k: "admira", l: "Marcas que você admira, de qualquer área, e por quê", type: "textarea", ph: "Ex.: Aesop, pelo jeito calmo e sofisticado. Nike, pela energia." },
   ] },
+  { k: "defende", t: "O que você defende", d: "Marcas fortes acreditam em alguma coisa. Responda do seu jeito, sem medo de soar simples.", qs: [
+    { k: "crenca", l: "O que você acha que muita gente faz errado no seu mercado?", type: "textarea", ph: "Ex.: as lojas vendem para um corpo só e a cliente sai achando que o problema é ela." },
+    { k: "custo", l: "E o que isso custa para o seu cliente? Conte um caso real, se tiver.", type: "textarea", ph: "Ex.: uma cliente comprou três calças pela internet e devolveu todas." },
+    { k: "jeito", l: "Como você resolve isso? Explique o seu jeito, passo a passo.", type: "textarea", help: "Se esse jeito tiver um nome, escreva também.", ph: "Ex.: a gente separa a peça no tamanho certo antes de a cliente chegar e ajusta na hora." },
+    { k: "lembrado", l: "Daqui a 3 anos, que frase você quer ouvir de um cliente sobre a sua marca?", ph: "Ex.: “lá eu sempre acho o meu número e saio me sentindo bonita”." },
+  ] },
   { k: "personalidade", t: "A personalidade", d: "Imagine que a sua marca é uma pessoa. Como ela é?", qs: [
     { k: "arq", l: "Arraste o ponto para onde a sua marca mora", type: "arquetipo", help: "Toda marca forte tem uma personalidade parecida com a de um personagem. Mova o ponto e veja quem a sua marca vai virando." },
     { k: "eixos", l: "Arraste cada linha para o lado que mais combina com a marca", type: "eixos" },
@@ -209,6 +215,9 @@ export function toBrief(a: any = {}) {
     nao_e: a.nao_palavras,
     proibido: a.nao_quer ? [a.nao_quer] : undefined,
     eixos: a.eixos,
+    problema: join(a.crenca, a.custo ? `O que custa para o cliente: ${a.custo}` : ""),
+    framework: a.jeito,
+    visao: a.lembrado ? `Quer ouvir do cliente: ${a.lembrado}` : undefined,
   };
   for (const k of Object.keys(brief)) if (blank(brief[k])) delete brief[k];
   const refs = [
