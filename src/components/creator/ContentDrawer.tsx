@@ -7,6 +7,7 @@ import { FORMAT_LIST, MAX_REVISIONS, blockers, isLate } from "@/lib/content";
 import { estimate, parseScript } from "@/lib/prompter";
 import ScriptSheet from "@/components/creator/ScriptSheet";
 import { apagarComLixeira } from "@/lib/lixeira";
+import { AD_BOTOES, AD_OBJETIVOS, AD_RULES } from "@/lib/anuncio";
 
 type Props = { item: any; statuses: any[]; accounts: any[]; clients: any[]; pillars: string[]; assignees: string[]; onClose: () => void; onSaved: () => void };
 
@@ -28,6 +29,8 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
   const [sheet, setSheet] = useState(false);
   const s = () => createClient();
   const set = (k: string, v: any) => setF((x: any) => ({ ...x, [k]: v }));
+  const ad = (f?.ad_brief || {}) as Record<string, string>;
+  const setAd = (k: string, v: string) => setF((x: any) => ({ ...x, ad_brief: { ...(x.ad_brief || {}), [k]: v } }));
   const stageOf = (id: string) => statuses.find((x) => x.id === id)?.stage;
   const statusFor = (stage: string) => statuses.find((x) => x.stage === stage)?.id;
   const hasApproval = statuses.some((x) => x.stage === "aprovacao");
@@ -38,7 +41,7 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
     s().from("content_events").select("*").eq("idea_id", item.id).order("created_at", { ascending: false }).limit(30).then(({ data }) => setEvents(data || []));
   }, [item?.id]);
 
-  const fields = ["title", "body", "format", "planned_for", "account_id", "client_id", "assignee", "pillar", "hook", "record_date", "final_url", "caption", "post_url", "status_id"];
+  const fields = ["title", "body", "format", "planned_for", "account_id", "client_id", "assignee", "pillar", "hook", "record_date", "final_url", "caption", "post_url", "status_id", "publish_time", "hashtags", "editor_brief", "motion_brief", "is_ad", "ad_brief"];
   async function save(extra: any = {}, close = true) {
     const next = { ...f, ...extra };
     if (next.status_id !== item.status_id) {
@@ -168,6 +171,10 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
             <div><label className="label">Formato</label><select className="input" value={f.format || ""} onChange={(e) => set("format", e.target.value)}><option value="">–</option>{FORMAT_LIST.map((x) => <option key={x}>{x}</option>)}</select></div>
             <div><label className="label">Pilar</label><input className="input" list="cd-pillars" value={f.pillar || ""} onChange={(e) => set("pillar", e.target.value)} /><datalist id="cd-pillars">{pillars.map((x) => <option key={x} value={x} />)}</datalist></div>
           </div>
+          <label className="flex items-center gap-2 text-sm mt-3 cursor-pointer w-fit">
+            <input type="checkbox" checked={!!f.is_ad} onChange={(e) => set("is_ad", e.target.checked)} className="accent-[var(--mint,#18F2B2)]" />
+            É anúncio (usa as regras de anúncio, não as de conteúdo)
+          </label>
         </Section>
 
         <Section title="Roteiro">
@@ -190,6 +197,44 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           <Link href={`/creator/laboratorio?tab=criar${f.card ? `&carta=${f.card}` : ""}${f.format ? `&format=${encodeURIComponent(f.format)}` : ""}`} className="btn btn-ghost btn-sm mt-3"><I.flask className="w-4 h-4" />Desenvolver no Laboratório</Link>
         </Section>
 
+        {f.is_ad ? (
+          <Section title="Anúncio">
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label">Objetivo</label><select className="input" value={ad.objetivo || ""} onChange={(e) => setAd("objetivo", e.target.value)}><option value="">–</option>{AD_OBJETIVOS.map((x) => <option key={x}>{x}</option>)}</select></div>
+              <div><label className="label">Botão</label><select className="input" value={ad.botao || ""} onChange={(e) => setAd("botao", e.target.value)}><option value="">–</option>{AD_BOTOES.map((x) => <option key={x}>{x}</option>)}</select></div>
+              <div className="col-span-2"><label className="label">Público</label><input className="input" value={ad.publico || ""} onChange={(e) => setAd("publico", e.target.value)} placeholder="Ex.: mulheres 30-55, Goiânia + 20 km" /></div>
+              <div className="col-span-2"><label className="label">Oferta e motivo</label><input className="input" value={ad.oferta || ""} onChange={(e) => setAd("oferta", e.target.value)} placeholder="Ex.: frete grátis até 24/12 para a campanha de Natal" /></div>
+              <div className="col-span-2"><label className="label">Variações de gancho (uma por linha)</label><textarea className="input min-h-[70px]" value={ad.ganchos || ""} onChange={(e) => setAd("ganchos", e.target.value)} /></div>
+              <div className="col-span-2"><label className="label">Texto principal</label><textarea className="input min-h-[70px]" value={ad.texto || ""} onChange={(e) => setAd("texto", e.target.value)} placeholder="Até 125 caracteres antes do 'mais'" />{ad.texto && <p className={`text-[11px] mt-1 ${ad.texto.length > 125 ? "text-danger" : "text-fog"}`}>{ad.texto.length}/125</p>}</div>
+              <div className="col-span-2"><label className="label">Título</label><input className="input" value={ad.titulo || ""} onChange={(e) => setAd("titulo", e.target.value)} />{ad.titulo && <p className={`text-[11px] mt-1 ${ad.titulo.length > 40 ? "text-danger" : "text-fog"}`}>{ad.titulo.length}/40</p>}</div>
+            </div>
+            <details className="mt-3"><summary className="text-xs text-fog cursor-pointer">Regras de anúncio</summary><ul className="mt-2 space-y-1 text-xs list-disc pl-4">{AD_RULES.map((r) => <li key={r}>{r}</li>)}</ul></details>
+          </Section>
+        ) : (
+          <Section title="Legenda e publicação">
+            <label className="label">Legenda</label>
+            <textarea className="input min-h-[110px]" value={f.caption || ""} onChange={(e) => set("caption", e.target.value)} placeholder="Primeira linha até 125 caracteres, um pedido de ação no fim" />
+            {f.caption && <p className={`text-[11px] mt-1 ${(f.caption.split("\n")[0] || "").length > 125 ? "text-danger" : "text-fog"}`}>Primeira linha: {(f.caption.split("\n")[0] || "").length}/125</p>}
+            <div className="grid grid-cols-3 gap-3 mt-3">
+              <div className="col-span-2"><label className="label">Hashtags</label><input className="input" value={f.hashtags || ""} onChange={(e) => set("hashtags", e.target.value)} placeholder="#corrida #estrategia" />{(() => { const n = tagCount(f); return n ? <p className={`text-[11px] mt-1 ${n > 5 ? "text-danger" : "text-fog"}`}>{n}/5 hashtags (somando as da legenda)</p> : null; })()}</div>
+              <div><label className="label">Horário</label><input type="time" className="input" value={(f.publish_time || "").slice(0, 5)} onChange={(e) => set("publish_time", e.target.value)} /></div>
+            </div>
+            <p className="text-xs text-fog mt-2">Data, horário, legenda e hashtags vão juntos para o agendamento quando o card for aprovado.</p>
+          </Section>
+        )}
+
+        <Section title="Direção para edição e Motion">
+          <label className="label">Para o editor</label>
+          <textarea className="input min-h-[80px]" value={f.editor_brief || ""} onChange={(e) => set("editor_brief", e.target.value)} placeholder="Ritmo, cortes, legenda na tela, trilha, onde entra cada B-roll" />
+          <label className="label mt-3">Para o Motion</label>
+          <textarea className="input min-h-[60px]" value={f.motion_brief || ""} onChange={(e) => set("motion_brief", e.target.value)} placeholder="O que animar, quanto tempo e em que momento do vídeo" />
+          {item?.id && <div className="flex flex-wrap gap-2 mt-3">
+            <Link href={`/audiovisual/editor?c=${item.id}`} className="btn btn-ghost btn-sm"><I.video className="w-4 h-4" />Abrir no Editor</Link>
+            {f.motion_brief && <Link href={`/audiovisual/motion?c=${item.id}`} className="btn btn-ghost btn-sm">Pedir o Motion</Link>}
+          </div>}
+          <p className="text-xs text-fog mt-2">O Editor e o Motion abrem com esta direção já no pedido ao Claude.</p>
+        </Section>
+
         {reached("producao") && (
           <Section title="Produção e edição">
             <div className="grid grid-cols-2 gap-3">
@@ -200,12 +245,6 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           </Section>
         )}
 
-        {reached("revisao") && (
-          <Section title="Legenda final">
-            <textarea className="input min-h-[110px]" value={f.caption || ""} onChange={(e) => set("caption", e.target.value)} placeholder="Primeira linha até 125 caracteres, até 5 hashtags" />
-            {f.caption && <p className={`text-[11px] mt-1 ${(f.caption.split("\n")[0] || "").length > 125 ? "text-danger" : "text-fog"}`}>Primeira linha: {(f.caption.split("\n")[0] || "").length}/125 · {(f.caption.match(/#\w+/g) || []).length}/5 hashtags</p>}
-          </Section>
-        )}
 
         {hasApproval && reached("aprovacao") && (
           <Section title="Aprovação do cliente (opcional)">
@@ -308,4 +347,9 @@ function NextStep({ stage, f, itemId, onSheet, onShare, copied, next, onAdvance,
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (<div className="border-t border-line pt-4 mt-4"><p className="font-mono text-[11px] text-mint tracking-widest uppercase mb-3">{title}</p>{children}</div>);
+}
+
+/** hashtags do card: as do campo próprio mais as que ficaram na legenda */
+function tagCount(f: any) {
+  return `${f.caption || ""} ${f.hashtags || ""}`.match(/#[\p{L}\d_]+/gu)?.length || 0;
 }

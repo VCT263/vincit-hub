@@ -84,11 +84,16 @@ export default function Editor() {
   useEffect(() => {
     const s = createClient();
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(async ({ data }) => setKits((await kitsComMarca(s, (data as any) || [])) as any));
-    s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url,ec_action_id").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
+    s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url,ec_action_id,editor_brief").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
       setContents(data || []);
       // veio do card do Quadro (?c=): o conteúdo já entra escolhido
       const c = new URLSearchParams(window.location.search).get("c");
-      if (c && (data || []).some((x: any) => x.id === c)) setContentId(c);
+      const card = c && (data || []).find((x: any) => x.id === c);
+      if (card) {
+        setContentId(c!);
+        // a direção do editor escrita no card vira o pedido ao Claude
+        if (card.editor_brief) setAsk((a) => a || card.editor_brief);
+      }
     });
     if (document.fonts) FONTS_LOAD.forEach((f) => document.fonts.load(f).catch(() => {}));
     loadMotions().then((list) => {

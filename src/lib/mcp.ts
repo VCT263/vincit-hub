@@ -9,6 +9,7 @@ import { porMes } from "@/lib/igHistorico";
 import { NOVIDADES, VERSAO_IA, novidadesDesde } from "@/lib/novidades";
 import { briefingProgress } from "@/lib/briefing";
 import { FORMATO_ROTEIRO, rowsFromScript } from "@/lib/roteiro";
+import { AD_RULES_TEXT } from "@/lib/anuncio";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 import { kitsComMarca } from "./kitMarca";
 
@@ -323,7 +324,13 @@ export const TOOLS: Tool[] = [
             texto_tela: { type: "string", description: "texto que aparece na tela, se houver" },
           } },
         },
-        roteiro: { type: "string", description: "Para carrossel, foto ou texto: o conteúdo slide a slide. Em vídeo, prefira 'cenas'; se mandar roteiro de vídeo aqui, use a tabela: " + FORMATO_ROTEIRO }, legenda: { type: "string" }, data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
+        roteiro: { type: "string", description: "Para carrossel, foto ou texto: o conteúdo slide a slide. Em vídeo, prefira 'cenas'; se mandar roteiro de vídeo aqui, use a tabela: " + FORMATO_ROTEIRO }, legenda: { type: "string", description: "Legenda sem as hashtags (vão em 'hashtags'). Não use em anúncio: o texto do anúncio vai em 'anuncio.texto'" },
+        hashtags: { type: "string", description: "Até 5 hashtags separadas por espaço, de acordo com o conteúdo. Não use em anúncio" },
+        horario: { type: "string", description: "Horário sugerido de publicação, HH:MM (veja horarios_mais_online em ler_desempenho e o formato). Não use em anúncio" },
+        direcao_editor: { type: "string", description: "Direção para o editor: ritmo, cortes, legenda na tela, trilha, zooms e onde entra cada B-roll. O Editor do HUB abre com ela no pedido" },
+        direcao_motion: { type: "string", description: "Pedido para o Motion, se a peça precisar: o que animar, duração e em que momento entra. Vazio se não precisar" },
+        anuncio: { type: "object", description: "Só quando a peça for anúncio (segue as regras de anúncio, não as de conteúdo).", properties: { objetivo: { type: "string", description: "Mensagens no WhatsApp, Vendas no site, Tráfego para o perfil ou Reconhecimento" }, publico: { type: "string" }, oferta: { type: "string", description: "oferta e motivo, com prazo" }, botao: { type: "string", description: "Enviar mensagem, Comprar agora, Saiba mais, Ver mais ou Cadastre-se" }, ganchos: { type: "string", description: "3 variações de gancho, uma por linha" }, texto: { type: "string", description: "texto principal, até 125 caracteres antes do 'mais'" }, titulo: { type: "string", description: "até 40 caracteres" } } },
+        data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
     },
     needs: "creator:producao",
     run: async (ctx, a) => {
@@ -333,6 +340,8 @@ export const TOOLS: Tool[] = [
       const cenas: any[] = Array.isArray(a.cenas) ? a.cenas.slice(0, 40) : [];
       if (!cenas.length && !a.roteiro) fail("Mande as cenas (vídeo) ou o roteiro (carrossel, foto).");
       const roteiro = cenas.length ? tabelaRoteiro(cenas) : a.roteiro;
+      // o que o post precisa para ir ao ar e a direção de quem edita e anima
+      const extras = camposDoCard(a);
       const body = `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}${est ? `\n\n**Estilo de edição:** ${est.num} · ${est.nome}` : ""}\n\n_${ORIGIN}_`;
       if (a.conteudo_id) {
         const { data: atual } = await ctx.sb.from("content_ideas").select("id, account_id, format, planned_for, pillar, hook").eq("id", a.conteudo_id).maybeSingle();
@@ -343,6 +352,7 @@ export const TOOLS: Tool[] = [
           planned_for: a.data || atual!.planned_for, pillar: clip(a.pilar, 80) || atual!.pillar,
         };
         if (a.legenda) patch.caption = a.legenda;
+        Object.assign(patch, extras);
         if (a.perfil_id) patch.account_id = a.perfil_id;
         if (status_id) patch.status_id = status_id;
         const { error } = await ctx.sb.from("content_ideas").update(patch).eq("id", a.conteudo_id);
@@ -352,7 +362,7 @@ export const TOOLS: Tool[] = [
       }
       const { data, error } = await ctx.sb.from("content_ideas").insert({
         account_id: a.perfil_id || null, kind: "copy", status_id, title: clip(a.titulo, 120), format: a.formato || "Reels", hook: clip(a.gancho, 300), planned_for: a.data || null, pillar: clip(a.pilar, 80),
-        body, caption: a.legenda || null,
+        body, caption: a.legenda || null, ...extras,
       }).select("id").single();
       if (error) fail(error.message);
       const folha = data?.id ? await refazerFolha(ctx, data.id, roteiro) : 0;
@@ -451,14 +461,14 @@ export const TOOLS: Tool[] = [
       const out = [];
       for (const s of data || []) {
         const [{ data: ci }, { data: shots }, { data: kit }] = await Promise.all([
-          s.content_id ? ctx.sb.from("content_ideas").select("title, hook, body, format").eq("id", s.content_id).maybeSingle() : Promise.resolve({ data: null }),
+          s.content_id ? ctx.sb.from("content_ideas").select("title, hook, body, format, editor_brief, motion_brief, is_ad, ad_brief").eq("id", s.content_id).maybeSingle() : Promise.resolve({ data: null }),
           s.content_id ? ctx.sb.from("av_shots").select("position, description, framing, audio").eq("content_id", s.content_id).order("position") : Promise.resolve({ data: [] }),
           s.kit_id ? ctx.sb.from("av_style_kits").select("id, name, data").eq("id", s.kit_id).maybeSingle().then(async (r: any) => ({ data: r.data ? (await kitsComMarca(ctx.sb, [r.data]))[0] : null })) : Promise.resolve({ data: null }),
         ]);
         out.push({
           id: s.id, status: s.status, projeto: s.project_name, sequencia: s.sequence_name, fps: s.fps, duracao_s: s.duration_sec,
           pedido_do_editor: s.request, clipes: s.timeline, transcricao: s.transcript,
-          conteudo: ci ? { titulo: ci.title, gancho: ci.hook, formato: ci.format, roteiro: clip(ci.body, 6000) } : null,
+          conteudo: ci ? { titulo: ci.title, gancho: ci.hook, formato: ci.format, roteiro: clip(ci.body, 6000), direcao_editor: ci.editor_brief || null, direcao_motion: ci.motion_brief || null, anuncio: ci.is_ad ? { ...(ci.ad_brief || {}), regras: AD_RULES_TEXT } : null } : null,
           decupagem: shots || [], kit_de_estilo: kit,
         });
       }
@@ -611,4 +621,22 @@ export function listTools(acc: Access) {
     inputSchema: t.inputSchema,
     annotations: { title: t.title, readOnlyHint: !!t.readOnly, destructiveHint: false, idempotentHint: !!t.readOnly, openWorldHint: false },
   }));
+}
+
+/** campos novos do card (28/11): publicação, direção de edição e Motion, anúncio */
+function camposDoCard(a: any) {
+  const out: Record<string, any> = {};
+  const hhmm = String(a.horario || "").match(/^(\d{1,2})[:h](\d{2})?/);
+  if (hhmm && Number(hhmm[1]) < 24) out.publish_time = `${hhmm[1].padStart(2, "0")}:${hhmm[2] || "00"}`;
+  const tags = String(a.hashtags || "").match(/#?[\p{L}\d_]+/gu)?.map((t) => (t.startsWith("#") ? t : "#" + t)).slice(0, 5);
+  if (tags?.length) out.hashtags = tags.join(" ");
+  if (a.direcao_editor) out.editor_brief = clip(a.direcao_editor, 4000);
+  if (a.direcao_motion) out.motion_brief = clip(a.direcao_motion, 2000);
+  if (a.anuncio && typeof a.anuncio === "object") {
+    const keys = ["objetivo", "publico", "oferta", "botao", "ganchos", "texto", "titulo"];
+    const ad: Record<string, string> = {};
+    for (const k of keys) if (a.anuncio[k]) ad[k] = clip(String(a.anuncio[k]), 1000) as string;
+    out.is_ad = true; out.ad_brief = ad;
+  }
+  return out;
 }
