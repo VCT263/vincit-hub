@@ -17,7 +17,7 @@ export const maxDuration = 60;
    monta o motion com as cores e letras escolhidas na tela e grava em av_motions. */
 async function handle(req: Request) {
   try {
-    const { motion_id, pedido, formato, base, account_id, etapa, ajuste } = await req.json();
+    const { motion_id, pedido, formato, base, account_id, etapa, ajuste, variacao } = await req.json();
     if (!motion_id || !String(pedido || "").trim()) return NextResponse.json({ error: "Descreva o motion que você quer." }, { status: 400 });
     const sb = await createClient();
     const { data: row } = await sb.from("av_motions").select("id,spec,kit_id,ec_action_id").eq("id", motion_id).maybeSingle();
@@ -71,12 +71,14 @@ async function handle(req: Request) {
     if (etapa === "html") {
       const brief = normalizeBrief(base?.brief || row.spec?.brief, "motion");
       if (!brief.cenas.length) return NextResponse.json({ error: "Falta o brief aprovado." }, { status: 400 });
-      const text = await callClaude({ maxTokens: 16000, prompt: promptProduzirHtml({ brief, contexto: ctx, ajuste, htmlAnterior: ajuste ? row.spec?.html : undefined }) });
+      // variacao (biblioteca de animações, 28/11): versão nova do mesmo brief, feita do zero numa direção de movimento
+      const dir = variacao ? `Esta é uma VERSÃO ALTERNATIVA para uma biblioteca de animações: mantenha os textos, as cores, as fontes e a duração do brief, e mude o movimento seguindo esta direção: ${String(variacao).slice(0, 600)}` : "";
+      const text = await callClaude({ maxTokens: 16000, prompt: promptProduzirHtml({ brief, contexto: ctx, ajuste: [dir, ajuste].filter(Boolean).join("\n") || undefined, htmlAnterior: ajuste && !variacao ? row.spec?.html : undefined }) });
       const html = extrairHtml(text);
       const problemas = conferirHtml(html);
       if (problemas.length) return NextResponse.json({ error: `A composição veio com problema: ${problemas.join("; ")}.` }, { status: 500 });
       const { pendente: _p2, ...sem2 } = row.spec || {};
-      const spec = { ...sem2, motor: "html", etapa: "pronto", brief, html, valores: ajuste ? sem2.valores || {} : {} };
+      const spec = { ...sem2, motor: "html", etapa: "pronto", brief, html, valores: ajuste && !variacao ? sem2.valores || {} : {} };
       await sb.from("av_motions").update({ spec, titulo: brief.titulo.slice(0, 80), status: "pronto", updated_at: new Date().toISOString() }).eq("id", motion_id);
       return NextResponse.json({ ok: true, titulo: brief.titulo });
     }
