@@ -60,7 +60,8 @@ export default function Producao() {
         <button onClick={() => setCfg(true)} className="btn btn-ghost btn-sm">Editar status</button>
       </PageHead>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      {/* no celular os filtros ficam numa linha só, que rola para o lado, e o quadro sobe na tela */}
+      <div className="flex flex-nowrap md:flex-wrap items-center gap-2 mb-4 overflow-x-auto md:overflow-visible pb-1 md:pb-0 [scrollbar-width:none] [&>*]:shrink-0">
         <div className="flex bg-panel2 rounded-lg p-0.5">
           {(["quadro", "lista"] as const).map((v) => <button key={v} onClick={() => setView(v)} className={`px-3 py-1 text-sm rounded-md ${view === v ? "bg-ink text-mint" : "text-fog"}`}>{v === "quadro" ? "Quadro" : "Lista"}</button>)}
           <Link href={`/creator/pauta${f.account ? `?perfil=${f.account}` : ""}`} className="px-3 py-1 text-sm rounded-md text-fog hover:text-paper">Calendário</Link>
@@ -72,7 +73,7 @@ export default function Producao() {
         {pillars.length > 0 && <select className="input !w-auto" value={f.pillar} onChange={(e) => setF({ ...f, pillar: e.target.value })}><option value="">Todos os pilares</option>{pillars.map((x) => <option key={x}>{x}</option>)}</select>}
         <select className="input !w-auto" value={f.format} onChange={(e) => setF({ ...f, format: e.target.value })}><option value="">Todos os formatos</option>{FORMAT_LIST.map((x) => <option key={x}>{x}</option>)}</select>
         <button onClick={() => setF({ ...f, archived: !f.archived })} className={`btn btn-sm ${f.archived ? "btn-mint" : "btn-ghost"}`}>Arquivados</button>
-        <span className="text-sm text-fog ml-auto">{shown.length} conteúdo{shown.length === 1 ? "" : "s"}{late > 0 && <span className="text-danger"> · {late} atrasado{late > 1 ? "s" : ""}</span>}</span>
+        <span className="text-sm text-fog md:ml-auto whitespace-nowrap">{shown.length} conteúdo{shown.length === 1 ? "" : "s"}{late > 0 && <span className="text-danger"> · {late} atrasado{late > 1 ? "s" : ""}</span>}</span>
       </div>
 
       {!f.archived && <form onSubmit={add} className="flex gap-2 mb-5"><input className="input" value={nw} onChange={(e) => setNw(e.target.value)} placeholder="Nova ideia rápida…" /><button className="btn btn-mint"><I.plus className="w-4 h-4" />Adicionar</button></form>}
@@ -129,21 +130,24 @@ export default function Producao() {
                     return (
                       <div key={it.id} draggable onDragStart={() => setDrag(it.id)} onDragEnd={() => setDrag(null)} onClick={() => setSel(it)}
                         className={`bg-panel2 border rounded-xl p-3 cursor-grab hover:border-mint-dim active:cursor-grabbing ${lt ? "border-danger/50" : "border-line"}`}>
-                        {c.stage === "ideia" && origin(it) && <p className="text-[10px] text-mint mb-1">{origin(it)}</p>}
+                        {c.stage === "ideia" && origin(it) && <p className="text-[10px] text-fog mb-1">{origin(it)}</p>}
                         <p className="text-sm leading-snug">{it.title}</p>
                         <p className="text-[11px] text-fog mt-1 truncate">{acc ? `@${acc.username}` : "Sem perfil"}{cl ? ` · ${cl.company || cl.name}` : ""}</p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {it.format && <span className="chip">{it.format}</span>}
-                          {it.pillar && <span className="chip">{it.pillar}</span>}
-                          {it.planned_for && <span className="chip" style={lt ? { color: "#ff6b6b" } : undefined}>{lt ? "Atrasado · " : ""}{shortDate(it.planned_for)}</span>}
-                          {it.approval === "pendente" && <span className="chip" style={{ color: "#f5c84c" }}>Com o cliente</span>}
-                          {it.approval === "ajuste" && <span className="chip" style={{ color: "#ff6b6b" }}>Ajuste</span>}
-                          {it.revisions > 0 && <span className="chip" style={it.revisions > MAX_REVISIONS ? { color: "#ff6b6b" } : undefined}>Rev. {it.revisions}/{MAX_REVISIONS}</span>}
-                          {it.publish_error && <span className="chip" style={{ color: "#ff6b6b" }}>Falha ao publicar</span>}
-                          {/^https?:\/\//i.test(it.post_url || "") && <a href={it.post_url} target="_blank" onClick={(e) => e.stopPropagation()} className="chip chip-mint">Ver post ↗</a>}
-                        </div>
+                        {/* metadados numa linha de texto, sem pílulas; a cor só onde há algo a resolver */}
+                        <p className="text-xs text-fog mt-2 leading-snug">
+                          {([
+                            it.format && <span key="f">{it.format}</span>,
+                            it.pillar && <span key="p">{it.pillar}</span>,
+                            it.planned_for && <span key="d" className={lt ? "text-danger" : ""}>{lt ? "atrasado · " : ""}{shortDate(it.planned_for)}</span>,
+                            it.approval === "pendente" && <span key="a" className="text-[#f5c84c]">com o cliente</span>,
+                            it.approval === "ajuste" && <span key="j" className="text-danger">ajuste</span>,
+                            it.revisions > 0 && <span key="r" className={it.revisions > MAX_REVISIONS ? "text-danger" : ""}>rev. {it.revisions}/{MAX_REVISIONS}</span>,
+                            it.publish_error && <span key="e" className="text-danger">falha ao publicar</span>,
+                            /^https?:\/\//i.test(it.post_url || "") && <a key="u" href={it.post_url} target="_blank" onClick={(e) => e.stopPropagation()} className="text-mint hover:underline">ver post ↗</a>,
+                          ].filter(Boolean) as React.ReactNode[]).map((x, k) => <span key={k}>{k > 0 && " · "}{x}</span>)}
+                        </p>
                         <div className="flex items-center justify-between gap-2 mt-2">
-                          {next && !f.archived ? <button onClick={(e) => { e.stopPropagation(); move(it.id, next.id); }} className="text-[10px] text-fog border border-line rounded px-1.5 py-0.5 hover:text-mint truncate">→ {next.name}</button> : <span />}
+                          {next && !f.archived ? <button onClick={(e) => { e.stopPropagation(); move(it.id, next.id); }} className="text-[11px] text-fog hover:text-mint truncate">→ {next.name}</button> : <span />}
                           {it.assignee && <span title={it.assignee} className="w-6 h-6 shrink-0 rounded-full bg-ink border border-line grid place-items-center text-[10px] font-semibold text-fog">{it.assignee.split(/\s+/).map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}</span>}
                         </div>
                       </div>

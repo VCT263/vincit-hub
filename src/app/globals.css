@@ -41,7 +41,7 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 
 .label { display: block; font-size: 12px; color: var(--color-fog); margin-bottom: 6px; letter-spacing: .02em; }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600; transition: all .15s; cursor: pointer; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600; transition: background-color .15s, border-color .15s, color .15s, opacity .15s; cursor: pointer; white-space: nowrap; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-mint { background: var(--color-mint); color: var(--color-on-mint, #06140e); }
 .btn-mint:hover:not(:disabled) { background: var(--color-mint-hover, #8ff5c8); }

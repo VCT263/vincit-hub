@@ -6,7 +6,7 @@ export default function PageHead({ kicker, title, desc, children }: { kicker?: s
       <div>
         {kicker && <p className="font-mono text-[11px] text-mint tracking-widest uppercase">{kicker}</p>}
         <h1 className="font-display text-3xl md:text-4xl font-extrabold tracking-tight mt-1">{title} <Ajuda tela className="relative -top-1 ml-1" /></h1>
-        {desc && <p className="text-fog mt-2 max-w-xl text-[15px]">{desc}</p>}
+        {desc && <p className="text-fog mt-2 max-w-xl text-[15px] hidden md:block">{desc}</p>}
       </div>
       {children && <div className="flex gap-2 flex-wrap">{children}</div>}
     </div>
