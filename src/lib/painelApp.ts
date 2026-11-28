@@ -62,6 +62,8 @@ function atualizar(){ if(busy) return; busy=true; erro=""; draw();
 function pedir(t){ req("ui/message",{role:"user",content:[{type:"text",text:t}]}).catch(function(){ erro="Copie e mande ao Claude: "+t; draw(); }); }
 function abrir(u){ req("ui/open-link",{url:u}).catch(function(){ window.open(u,"_blank"); }); }
 window.__v={atualizar:atualizar,pedir:pedir,abrir:abrir};
+/* selo Novo também para o que saiu ontem ou hoje (a 1a chamada já marca como visto) */
+function recente(d){ if(!d) return false; var t=new Date(); t.setDate(t.getDate()-1); return String(d)>=t.toISOString().slice(0,10); }
 function draw(){
   var el=document.getElementById("app");
   if(!data){ el.innerHTML='<p class="muted">Carregando o painel da VINCIT…</p>'; return; }
@@ -78,7 +80,7 @@ function draw(){
     '<div class="row"><span>Pedidos de IA na fila</span><span class="acts" style="align-items:center"><span class="tag '+(fila?'wa':'ok')+'">'+fila+'</span>'+(fila?'<button onclick="__v.pedir(\\'Responda os pedidos de IA do HUB\\')">Responder</button>':'')+'</span></div>'+
     ents.map(function(e){ return '<div class="row"><span>Entrevista '+esc(e.perfil)+'</span><span class="tag wa">'+esc(e.status)+'</span></div>'; }).join("")+'</div>';
   var lista=nv.length?nv:ul;
-  h+='<h2>Novidades de IA</h2><div class="card">'+(lista.length?lista.slice(0,4).map(function(n){ return '<div class="nv"><b>'+(nv.length?'<span class="tag novo">Novo</span> ':'')+esc(n.titulo)+'</b><p>'+esc(n.texto)+'</p></div>'; }).join(""):'<p class="muted">Sem novidades.</p>')+
+  h+='<h2>Novidades de IA</h2><div class="card">'+(lista.length?lista.slice(0,4).map(function(n){ return '<div class="nv"><b>'+(nv.length||recente(n.data)?'<span class="tag novo">Novo</span> ':'')+esc(n.titulo)+'</b><p>'+esc(n.texto)+'</p></div>'; }).join(""):'<p class="muted">Sem novidades.</p>')+
     (nv.length?'':'<p class="sub" style="margin:6px 0 0">Nada novo desde a sua última visita.</p>')+'</div>';
   h+='<h2>O que fazer agora</h2><div class="acts">'+
     '<button onclick="__v.pedir(\\'Monte o pacote da semana\\')">Pacote da semana</button>'+
