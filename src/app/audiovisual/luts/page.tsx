@@ -9,8 +9,15 @@ import { LOGS, MARCAS, type Lut } from "@/lib/luts/catalog";
 /* Biblioteca de LUTs: só a prévia de como cada LUT deixa o vídeo, separada por marca.
  * O HUB não hospeda os arquivos: cada LUT leva ao site oficial, e a LUT baixada pode ser testada aqui. */
 
-const SUPA = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const FOTOS = ["De9sLhLx4cR", "Dc9KD-UiXYv", "DfVHDGRpYci", "DfnAO7gCXGW", "DgDiG6Pj_3i", "DfC1VppkYs8"].map((c) => `${SUPA}/storage/v1/object/public/design-mockups/brand/isys/ig/${c}.jpg`);
+/* quadros de exemplo: pessoas gravando em ambiente aberto, do Pexels (licença livre, uso comercial, sem crédito obrigatório) */
+const FOTOS: { url: string; nome: string; pagina: string }[] = [
+  ["34974304", "Avenida", "confident-woman-holding-smartphone-in-palm-avenue-34974304"],
+  ["2866284", "Montanha", "man-holding-phone-with-stabilizer-2866284"],
+  ["40382014", "Praia", "smiling-woman-enjoying-a-day-out-in-izmir-40382014"],
+  ["31094230", "Floresta", "young-man-filmmaker-using-gimbal-outdoors-31094230"],
+  ["29917130", "Entrevista", "young-woman-interview-at-seaside-with-camera-29917130"],
+  ["20412368", "Sol", "woman-in-shirt-and-shorts-20412368"],
+].map(([id, nome, slug]) => ({ url: `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=1080`, nome, pagina: `https://www.pexels.com/photo/${slug}/` }));
 const MAXW = 900;
 const NOME_LOG = Object.fromEntries(LOGS);
 
@@ -83,12 +90,12 @@ export default function Luts() {
 
   const carregarFoto = useCallback((i: number) => {
     setFotoIdx(i); setMeuLog("");
-    if (i < 0 || !SUPA) { setQuadro({ img: cartela(), nome: "Cartela de teste", doUsuario: false }); return; }
+    if (i < 0) { setQuadro({ img: cartela(), nome: "Cartela de teste", doUsuario: false }); return; }
     const el = new Image();
     el.crossOrigin = "anonymous";
-    el.onload = () => { setAviso(""); setQuadro({ img: deImagem(el, el.naturalWidth, el.naturalHeight), nome: `Foto ISYS ${i + 1}`, doUsuario: false }); };
+    el.onload = () => { setAviso(""); setQuadro({ img: deImagem(el, el.naturalWidth, el.naturalHeight), nome: FOTOS[i].nome, doUsuario: false }); };
     el.onerror = () => { setAviso("A foto não carregou; usando a cartela de teste."); setQuadro({ img: cartela(), nome: "Cartela de teste", doUsuario: false }); };
-    el.src = FOTOS[i];
+    el.src = FOTOS[i].url;
   }, []);
   useEffect(() => { carregarFoto(0); }, [carregarFoto]);
 
@@ -198,9 +205,10 @@ export default function Luts() {
             <div className="pt-3 border-t border-line">
               <p className="text-xs text-fog">Quadro da prévia</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
-                {FOTOS.map((_, i) => <button key={i} onClick={() => carregarFoto(i)} className={`chip text-xs ${fotoIdx === i ? "!border-mint !text-mint" : ""}`}>ISYS {i + 1}</button>)}
+                {FOTOS.map((f, i) => <button key={i} onClick={() => carregarFoto(i)} className={`chip text-xs ${fotoIdx === i ? "!border-mint !text-mint" : ""}`}>{f.nome}</button>)}
                 <button onClick={() => carregarFoto(-1)} className={`chip text-xs ${fotoIdx === -1 ? "!border-mint !text-mint" : ""}`}>Cartela</button>
               </div>
+              {fotoIdx >= 0 && <p className="text-[11px] text-fog mt-1">Foto: <a href={FOTOS[fotoIdx].pagina} target="_blank" rel="noreferrer" className="underline">Pexels</a> (uso livre).</p>}
               <label className="chip text-xs mt-2 cursor-pointer w-full justify-center"><I.video className="w-3.5 h-3.5" />Quadro do meu vídeo
                 <input type="file" accept="video/*,image/*" className="hidden" onChange={(e) => abrirArquivo(e.target.files?.[0])} />
               </label>
