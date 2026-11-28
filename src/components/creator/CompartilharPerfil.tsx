@@ -34,7 +34,7 @@ export default function CompartilharPerfil({ accountId, ownerId }: { accountId: 
   async function remove(p: Pessoa) {
     const saindo = p.user_id === me;
     if (await apagarComLixeira({ tabela: "ig_account_members", filtro: { account_id: accountId, user_id: p.user_id }, oque: saindo ? "o seu acesso a este perfil" : "o acesso desta pessoa ao perfil", rotulo: "Acesso ao perfil removido", link: "/creator/desempenho" })) {
-      if (saindo) window.location.href = "/creator/desempenho"; else load();
+      if (saindo) window.location.href = "/creator/perfis"; else load();
     }
   }
 
