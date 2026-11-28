@@ -86,6 +86,33 @@ export default function Editor() {
   }
 
   /* ---------- importar arquivos ---------- */
+  /** duração e tamanho do vídeo. No celular (Safari do iPhone) um <video> fora da tela com preload "metadata" às vezes
+   *  nunca responde: vai mudo, inline e com load(), espera no máximo 8 s e, se não vier, lê o arquivo pelo Mediabunny. */
+  async function videoMeta(file: File, url: string): Promise<{ d: number; w: number; h: number }> {
+    const viaTag = await new Promise<{ d: number; w: number; h: number }>((res) => {
+      const v = document.createElement("video");
+      let done = false;
+      const end = (r: { d: number; w: number; h: number }) => { if (done) return; done = true; clearTimeout(timer); res(r); };
+      const timer = setTimeout(() => end({ d: 0, w: 0, h: 0 }), 8000);
+      v.muted = true; v.playsInline = true; v.preload = "auto";
+      v.setAttribute("playsinline", ""); v.setAttribute("muted", "");
+      v.onloadedmetadata = () => { if (Number.isFinite(v.duration) && v.duration > 0) end({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); };
+      v.ondurationchange = () => { if (Number.isFinite(v.duration) && v.duration > 0) end({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); };
+      v.onerror = () => end({ d: 0, w: 0, h: 0 });
+      v.src = url;
+      v.load();
+    });
+    if (viaTag.d && viaTag.w) return viaTag;
+    try {
+      const { Input, BlobSource, ALL_FORMATS } = await import("mediabunny");
+      const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+      const d = await input.computeDuration();
+      const vt = await input.getPrimaryVideoTrack();
+      if (d > 0 && vt) return { d, w: vt.displayWidth, h: vt.displayHeight };
+    } catch { /* cai na mensagem de erro de sempre */ }
+    return viaTag;
+  }
+
   async function addFiles(files: FileList | null, as: "fala" | "broll" = addAs) {
     if (!files?.length) return;
     const added: Media[] = [];
@@ -96,12 +123,7 @@ export default function Editor() {
       const url = URL.createObjectURL(file);
       const meta = isImg
         ? await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; })
-        : await new Promise<{ d: number; w: number; h: number }>((res) => {
-          const v = document.createElement("video");
-          v.preload = "metadata"; v.src = url;
-          v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight });
-          v.onerror = () => res({ d: 0, w: 0, h: 0 });
-        });
+        : await videoMeta(file, url);
       if (!meta.d) { setMsg(`Não consegui abrir ${file.name}. Use MP4 ou MOV em H.264/H.265, ou JPG/PNG.`); continue; }
       added.push({ id: uid(), name: file.name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: isImg, broll: as === "broll" });
     }
@@ -568,7 +590,7 @@ export default function Editor() {
               </div>
               <label className="block border border-dashed border-line rounded-xl p-4 text-center text-sm text-fog cursor-pointer hover:border-mint-dim">
                 <input type="file" accept={addAs === "broll" ? "video/*,image/*,.mov,.mp4" : "video/*,.mov,.mp4"} multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos do computador"}
+                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos (computador ou celular)"}
               </label>
               {selSeg && selMedia ? (
                 <div className="rounded-xl border border-line p-3 space-y-2">
