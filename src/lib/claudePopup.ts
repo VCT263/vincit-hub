@@ -1,9 +1,10 @@
 "use client";
-import { CLAUDE_PANEL_URL } from "@/components/ClaudeSettings";
+import { CLAUDE_QUEUE_URL } from "@/lib/painelApp";
 
 /**
- * Janela pop-up do painel do HUB no Claude, aberta por cima do site enquanto há pedidos de IA.
- * O painel responde sozinho (modo automático) e o resultado volta para a tela do site.
+ * Janela pop-up com uma conversa nova no Claude de quem está logado, já com o pedido
+ * "responda os pedidos do HUB". O Claude responde pelo conector VINCIT HUB e o resultado volta
+ * para a tela do site.
  * Abre no clique do botão de IA (senão o navegador bloqueia) e fecha quando a fila esvazia.
  */
 const NAME = "vincit-claude";
@@ -27,12 +28,12 @@ export function popupOpen() { return !!win && !win.closed; }
 
 /** chame de forma síncrona dentro do clique; devolve false se o navegador bloqueou */
 export function openClaudePopup(): boolean {
-  if (!CLAUDE_PANEL_URL || typeof window === "undefined") return false;
+  if (typeof window === "undefined") return false;
   if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
   if (popupOpen()) return true;
   const w = 440, h = Math.min(820, (window.screen?.availHeight || 900) - 80);
   const left = Math.max(0, (window.screen?.availWidth || 1400) - w - 24);
-  win = window.open(CLAUDE_PANEL_URL, NAME, `popup=yes,width=${w},height=${h},left=${left},top=40`);
+  win = window.open(CLAUDE_QUEUE_URL, NAME, `popup=yes,width=${w},height=${h},left=${left},top=40`);
   return !!win;
 }
 

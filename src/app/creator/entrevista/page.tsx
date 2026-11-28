@@ -6,6 +6,7 @@ import { useAccounts } from "@/lib/useAccounts";
 import { aiFetch } from "@/lib/aiFetch";
 import { openClaudePopup, popupEnabled } from "@/lib/claudePopup";
 import PageHead from "@/components/PageHead";
+import TesteSom from "@/components/TesteSom";
 import { I } from "@/components/icons";
 import { TEMAS, rotuloCampo, type Turno } from "@/lib/entrevista";
 
@@ -208,9 +209,12 @@ export default function Entrevista() {
             <p className="font-display text-xl sm:text-2xl leading-snug max-w-[34ch] text-balance">{fala || "Uns 20 minutos de conversa para fechar o que falta da marca. Ela pergunta em voz alta, vocês respondem falando."}</p>
             <div className="w-full max-w-xs h-1 bg-panel2 rounded-full overflow-hidden"><div className="h-full bg-mint transition-all" style={{ width: `${ent?.status === "andamento" ? Math.round(((tema - 1) / TEMAS.length) * 100) : ent ? 100 : 0}%` }} /></div>
             {(!ent || ent.status !== "andamento") && (
+              <>
+              <TesteSom voz={voz} />
               <div className="flex flex-wrap gap-2 justify-center">
                 <button type="button" disabled={busy} onClick={() => comecar(!!ent)} className="btn btn-mint">{ent ? "Começar outra entrevista" : "Começar entrevista"}</button>
               </div>
+              </>
             )}
             {ent?.status === "andamento" && !turnos.length && !busy && <button type="button" onClick={() => comecar(false)} className="btn btn-mint">Ouvir a primeira pergunta</button>}
             {estado === "pensando" && <p className="text-xs text-fog max-w-sm">A pergunta seguinte leva uns 10 a 30 segundos. Ela é feita pelo Claude de quem está respondendo, na janela do painel do HUB.</p>}

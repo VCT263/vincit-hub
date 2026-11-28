@@ -8,6 +8,7 @@ import { AXES, axisLabel } from "@/lib/diagnostico";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { apagarComLixeira } from "@/lib/lixeira";
+import { openClaudePopup } from "@/lib/claudePopup";
 
 const STEPS = [
   { n: "1", t: "Diagnóstico", d: "Onde o perfil está hoje", href: "" },
@@ -117,7 +118,7 @@ export default function Diagnostico() {
         <p className="label text-mint mb-3">Raio-X na fila do Claude{queued ? ` desde ${new Date(queued.since).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}</p>
         <div className="grid sm:grid-cols-3 gap-2 text-sm">
           <div className="bg-panel2 rounded-lg p-3"><p className="font-mono text-[11px] text-mint">1 · ENVIADO</p><p>O HUB juntou métricas, briefing e referências e mandou o pedido.</p></div>
-          <div className="rounded-lg p-3 border border-mint/40"><p className="font-mono text-[11px] text-mint">2 · VOCÊ</p><p>Abra o Claude e peça: <b>“responda os pedidos do HUB”</b>. Leva de 2 a 5 minutos, com pesquisa de mercado.</p></div>
+          <div className="rounded-lg p-3 border border-mint/40"><p className="font-mono text-[11px] text-mint">2 · VOCÊ</p><p>Toque em <b>Abrir o Claude</b> e envie a mensagem que já vem escrita (“responda os pedidos do HUB”). Leva de 2 a 5 minutos, com pesquisa de mercado.</p><button type="button" onClick={() => openClaudePopup()} className="btn btn-mint btn-sm mt-2 w-full sm:w-auto">Abrir o Claude</button><p className="text-xs text-fog mt-2">Use o Claude da conta que tem o conector VINCIT HUB ligado a este login do HUB.</p></div>
           <div className="bg-panel2 rounded-lg p-3"><p className="font-mono text-[11px] text-fog">3 · PRONTO</p><p className="text-fog">O resultado aparece aqui sozinho. Pode sair desta tela: ao voltar, ele é retomado.</p></div>
         </div>
       </section>}

@@ -22,7 +22,7 @@ export const PROMPTS: McpPrompt[] = [
     name: "comecar_no_hub", title: "Começar no HUB",
     description: "Carrega sua conta, perfis, manual da marca, pendências e as novidades de IA do VINCIT HUB.",
     arguments: [],
-    text: () => `Vamos trabalhar no VINCIT HUB. Chame comecar_no_hub (o resultado aparece como o painel da VINCIT aqui na conversa, com o botão Atualizar; se o painel não aparecer, me passe o link painel.completo) e me mostre, em poucas linhas: quem sou eu no HUB, meus perfis (com o quanto do briefing está pronto e se há manual da marca), o que está pendente e as novidades de IA desde a última vez. Depois sugira o próximo passo mais útil para esta semana e pergunte o que eu quero fazer.`,
+    text: () => `Vamos trabalhar no VINCIT HUB. Chame comecar_no_hub (o resultado aparece como o painel da VINCIT aqui na conversa, com o botão Atualizar; se o painel não aparecer, me passe o link painel.hub) e me mostre, em poucas linhas: quem sou eu no HUB, meus perfis (com o quanto do briefing está pronto e se há manual da marca), o que está pendente e as novidades de IA desde a última vez. Depois sugira o próximo passo mais útil para esta semana e pergunte o que eu quero fazer.`,
   },
   {
     name: "dossie_do_perfil", title: "Dossiê do perfil",

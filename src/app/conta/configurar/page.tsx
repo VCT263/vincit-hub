@@ -169,7 +169,7 @@ export default function Configurar() {
                         {x.acao && (x.acao.externo
                           ? <a href={x.acao.href} target="_blank" rel="noreferrer" className="btn btn-mint btn-sm w-full sm:w-auto">{x.acao.label}</a>
                           : <Link href={x.acao.href} className="btn btn-mint btn-sm w-full sm:w-auto">{x.acao.label}</Link>)}
-                        {x.id === "claude" && CLAUDE_PANEL_URL && <a href={CLAUDE_PANEL_URL} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm w-full sm:w-auto sm:ml-2">Abrir o painel do HUB no Claude</a>}
+                        {x.id === "claude" && CLAUDE_PANEL_URL && <a href={CLAUDE_PANEL_URL} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm w-full sm:w-auto sm:ml-2">Começar no HUB pelo Claude</a>}
                       </div>
                     )}
                   </div>
