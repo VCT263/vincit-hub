@@ -48,7 +48,7 @@ const I = {
 function Btn({ on, title, onClick, disabled, children, wide }: { on?: boolean; title: string; onClick: () => void; disabled?: boolean; children: ReactNode; wide?: boolean }) {
   return (
     <button type="button" title={title} aria-label={title} aria-pressed={on} onClick={onClick} disabled={disabled}
-      className={`h-9 ${wide ? "px-2.5" : "w-[30px] sm:w-9"} grid place-items-center rounded-lg text-sm font-semibold transition disabled:opacity-35 ${on ? "bg-mint text-[#06140e]" : "text-paper hover:bg-white/10 active:bg-white/15"}`}>
+      className={`h-9 ${wide ? "px-2.5" : "w-[29px] sm:w-9"} grid place-items-center rounded-lg text-sm font-semibold transition disabled:opacity-35 ${on ? "bg-mint text-[#06140e]" : "text-paper hover:bg-white/10 active:bg-white/15"}`}>
       {children}
     </button>
   );
@@ -193,7 +193,7 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
                 onChange={(e) => setTyped(e.target.value.replace(/\D/g, "").slice(0, 3))}
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setTyped(null); (e.target as HTMLInputElement).blur(); } }}
                 onBlur={jump}
-                className="w-7 sm:w-9 h-8 text-center rounded-md bg-panel2 text-paper text-[13px] outline-none focus:ring-1 focus:ring-mint" />
+                enterKeyHint="go" className="w-8 sm:w-9 h-8 text-center rounded-md bg-panel2 text-paper text-[16px] sm:text-[13px] outline-none focus:ring-1 focus:ring-mint" />
               <span className="pl-0.5 sm:pl-1 pr-0.5">/{total}</span>
             </span>
             <Btn title="Próxima página" onClick={next} disabled={cur >= total - 1}>›</Btn>
