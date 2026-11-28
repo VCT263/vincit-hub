@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, hubAllowed, type Access } from "@/lib/access";
 import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
 import { igTokenForOwner } from "@/lib/tokens";
+import { gget } from "@/lib/meta";
 import { contaInsights } from "@/lib/igInsights";
 import { porMes } from "@/lib/igHistorico";
 import { NOVIDADES, VERSAO_IA, novidadesDesde } from "@/lib/novidades";
@@ -108,7 +109,7 @@ export const TOOLS: Tool[] = [
         versao_ia: VERSAO_IA,
         novidades: novas,
         dica: novas.length ? "Conte as novidades em 2 ou 3 linhas antes de seguir." : "Sem novidades desde a última visita.",
-        prompts_prontos: ["Começar no HUB", "Pacote da semana", "Análise do perfil", "Responder pedidos de IA", "Entrevista de marca"],
+        prompts_prontos: ["Começar no HUB", "Dossiê do perfil", "Plano do mês", "Pacote da semana", "Análise do perfil", "Refazer aberturas", "Responder pedidos de IA", "Entrevista de marca"],
       };
     },
   },
@@ -403,6 +404,66 @@ export const TOOLS: Tool[] = [
       const { data, error } = await ctx.sb.from("content_ideas").insert({ account_id: a.perfil_id, kind: "diagnostico", title, body: `${a.texto}\n\n_${ORIGIN}_` }).select("id").single();
       if (error) fail(error.message);
       return { ok: true, id: data?.id, onde: "CREATOR › Perfis & marca (desempenho do perfil)" };
+    },
+  },
+  {
+    name: "ler_comentarios",
+    title: "Ler comentários do perfil",
+    description: "Lê ao vivo, na Meta, os comentários dos posts mais recentes de um perfil (nada é guardado no HUB) e separa as perguntas que o perfil ainda não respondeu. Use para tirar pauta do que o público pergunta (Plano do mês) e para achar dúvidas de produto. Cite as perguntas como estão; não invente.",
+    inputSchema: { type: "object", required: ["perfil_id"], properties: { perfil_id: { type: "string", description: "id do perfil (de listar_perfis)" }, posts: { type: "integer", minimum: 1, maximum: 30, default: 15, description: "Quantos posts recentes com comentário ler" }, dias: { type: "integer", minimum: 7, maximum: 365, default: 90 } } },
+    readOnly: true,
+    needs: "creator",
+    run: async (ctx, a) => {
+      const acc: any = await account(ctx, a.perfil_id);
+      const { data: full } = await ctx.sb.from("ig_accounts").select("ig_user_id").eq("id", a.perfil_id).maybeSingle();
+      const token = full?.ig_user_id ? await igTokenForOwner(a.perfil_id, ctx.userId) : null;
+      if (!token) fail("Este perfil não está conectado à Meta no HUB. Conecte o Instagram em Perfis & marca e tente de novo.");
+      const dias = Math.min(365, Math.max(7, Number(a.dias) || 90));
+      const { data: posts, error } = await ctx.sb.from("ig_posts").select("ig_media_id, permalink, caption, posted_at, comments_count")
+        .eq("account_id", a.perfil_id).gt("comments_count", 0).gte("posted_at", new Date(Date.now() - dias * 864e5).toISOString())
+        .order("posted_at", { ascending: false }).limit(Math.min(30, Math.max(1, Number(a.posts) || 15)));
+      if (error) fail(error.message);
+      const eu = String(acc?.username || "").toLowerCase();
+      const pergunta = (t: string) => /\?/.test(t) || /^(como|qual|quais|quanto|quando|onde|tem |vocês|voces|serve|vende|entrega|aceita|posso|dá pra|da pra)/i.test(t.trim());
+      const lidos = await Promise.all((posts || []).map(async (p: any) => {
+        try {
+          const j: any = await gget(`${p.ig_media_id}/comments`, { access_token: token as string, fields: "text,username,timestamp,like_count,replies{username}", limit: "50" });
+          const cs = (j.data || []).filter((c: any) => String(c.username || "").toLowerCase() !== eu && String(c.text || "").trim());
+          return {
+            post: { permalink: p.permalink, data: p.posted_at?.slice(0, 10), legenda: clip(p.caption, 120) },
+            comentarios: cs.map((c: any) => ({ texto: clip(c.text, 400), curtidas: c.like_count || 0, pergunta: pergunta(String(c.text)), respondido: (c.replies?.data || []).some((r: any) => String(r.username || "").toLowerCase() === eu) })),
+          };
+        } catch (e: any) { return { post: { permalink: p.permalink, data: p.posted_at?.slice(0, 10) }, comentarios: [], erro: String(e?.message || e).slice(0, 160) }; }
+      }));
+      const semResposta = lidos.flatMap((l: any) => l.comentarios.filter((c: any) => c.pergunta && !c.respondido).map((c: any) => ({ pergunta: c.texto, curtidas: c.curtidas, post: l.post.permalink })));
+      return {
+        perfil: `@${acc?.username}`, posts_lidos: lidos.length,
+        perguntas_sem_resposta: semResposta.sort((x: any, y: any) => y.curtidas - x.curtidas).slice(0, 60),
+        por_post: lidos.map((l: any) => ({ ...l, comentarios: l.comentarios.slice(0, 25) })),
+        aviso: lidos.length ? undefined : "Nenhum post com comentário nesse período. Sincronize o perfil em Desempenho.",
+      };
+    },
+  },
+  {
+    name: "registrar_aprendizado",
+    title: "Registrar aprendizado",
+    description: "Guarda no briefing do perfil (campo Aprendizados) uma regra que saiu de uma correção da pessoa, para nunca repetir o erro. Toda IA do HUB e este conector passam a seguir. Uma regra por chamada, em 1 frase curta e acionável. Mostre a regra e confirme antes de chamar.",
+    inputSchema: { type: "object", required: ["perfil_id", "regra"], properties: { perfil_id: { type: "string", description: "id do perfil (de listar_perfis)" }, regra: { type: "string", description: "Ex.: Não reescrever um gancho que já foi aprovado." } } },
+    needs: "creator",
+    run: async (ctx, a) => {
+      const regra = String(a.regra || "").replace(/\s+/g, " ").trim().slice(0, 240);
+      if (regra.length < 5) fail("Escreva a regra numa frase.");
+      const { data: acc, error: e1 } = await ctx.sb.from("ig_accounts").select("id, username, briefing").eq("id", a.perfil_id).maybeSingle();
+      if (e1) fail(e1.message);
+      if (!acc) fail("Perfil não encontrado. Use listar_perfis para ver os ids dos seus perfis.");
+      const b: any = acc!.briefing || {};
+      const atuais: string[] = Array.isArray(b.aprendizados) ? b.aprendizados : [];
+      const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\d]+/gu, " ").trim();
+      if (atuais.some((x) => norm(x) === norm(regra))) return { ok: true, ja_existia: true, total: atuais.length };
+      const lista = [...atuais, regra].slice(-80);
+      const { error } = await ctx.sb.from("ig_accounts").update({ briefing: { ...b, aprendizados: lista }, briefing_updated_at: new Date().toISOString() }).eq("id", a.perfil_id);
+      if (error) fail(error.message);
+      return { ok: true, total: lista.length, onde: "CREATOR › Perfis & marca › Briefing (Marca & estilo › Aprendizados)" };
     },
   },
   {
