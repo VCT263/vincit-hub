@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { STATUS_TYPES, TEMPLATES, Swatches, PALETTE } from "./shared";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Props = { open: boolean; onClose: () => void; space: any | null; statuses: any[]; lists: any[]; tags: any[]; tasks: any[]; onChanged: (newSpaceId?: string) => void };
 
@@ -54,19 +55,19 @@ export default function SpaceSettings({ open, onClose, space, statuses, lists, t
     if (!others.length) return alert("O espaço precisa ter ao menos uma etapa.");
     const target = others.find((y) => y.type === x.type) || others[0];
     const n = tasks.filter((t) => t.status_id === x.id).length;
-    if (!confirm(`Excluir a etapa "${x.name}"?${n ? ` ${n} tarefa(s) vão para "${target.name}".` : ""}`)) return;
+    if (n && !confirm(`${n} tarefa(s) da etapa "${x.name}" vão para "${target.name}". Continuar?`)) return;
     if (n) await s().from("ag_tasks").update({ status_id: target.id }).eq("status_id", x.id);
-    await s().from("ag_space_statuses").delete().eq("id", x.id); onChanged();
+    await apagarComLixeira({ tabela: "ag_space_statuses", filtro: { id: x.id }, oque: `a etapa "${x.name}"`, rotulo: `Etapa: ${x.name} (${space.name})` }); onChanged();
   }
   async function addList() { if (!newList.trim()) return; await s().from("ag_lists").insert({ space_id: space.id, name: newList.trim(), position: ls.length }); setNewList(""); onChanged(); }
-  async function delList(x: any) { if (!confirm(`Excluir a lista "${x.name}"? As tarefas continuam no espaço.`)) return; await s().from("ag_lists").delete().eq("id", x.id); onChanged(); }
+  async function delList(x: any) { if (await apagarComLixeira({ tabela: "ag_lists", filtro: { id: x.id }, oque: `a lista "${x.name}" (as tarefas continuam no espaço)`, rotulo: `Lista: ${x.name} (${space.name})` })) onChanged(); }
   async function addTag() { if (!newTag.name.trim()) return; await s().from("ag_tags").insert({ space_id: space.id, name: newTag.name.trim(), color: newTag.color }); setNewTag({ ...newTag, name: "" }); onChanged(); }
-  async function delTag(x: any) { await s().from("ag_tags").delete().eq("id", x.id); onChanged(); }
+  async function delTag(x: any) { if (await apagarComLixeira({ tabela: "ag_tags", filtro: { id: x.id }, oque: `a etiqueta "${x.name}"`, rotulo: `Etiqueta: ${x.name}` })) onChanged(); }
   async function delSpace() {
     const n = tasks.filter((t) => t.space_id === space.id).length;
-    if (!confirm(`Excluir o espaço "${space.name}"${n ? ` e as ${n} tarefa(s) dele` : ""}? Não dá para desfazer.`)) return;
-    await s().from("ag_tasks").delete().eq("space_id", space.id);
-    await s().from("ag_spaces").delete().eq("id", space.id); onChanged(""); onClose();
+    const ok = await apagarComLixeira({ passos: [{ tabela: "ag_tasks", filtro: { space_id: space.id } }, { tabela: "ag_spaces", filtro: { id: space.id } }],
+      oque: `o espaço "${space.name}"${n ? ` e as ${n} tarefa(s) dele` : ""}`, rotulo: `Espaço: ${space.name}`, link: "/tarefas" });
+    if (ok) { onChanged(""); onClose(); }
   }
 
   return (

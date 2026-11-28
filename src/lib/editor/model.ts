@@ -3,6 +3,7 @@
  * Tudo roda no navegador de quem edita; nada vai para servidor.
  */
 
+import { drawMotion as drawMotionSpec, motionDuration, type MotionSpec } from "@/lib/motion/engine";
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
@@ -51,7 +52,13 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   grao?: boolean;
   /** número do estilo do catálogo aplicado (ex.: "03") */
   estilo?: string;
+  /** motion graphics por cima do vídeo (vinheta, nome na tela, número, transição), feitos em /audiovisual/motion */
+  motions?: MotionClip[];
 };
+/** motion por cima: transparente deixa o vídeo aparecer onde o motion não desenha; senão cobre a tela */
+export type MotionClip = { id: string; start: number; spec: MotionSpec; nome: string; motionId?: string; transparente?: boolean };
+export const motionEnd = (m: MotionClip) => m.start + motionDuration(m.spec);
+export const activeMotions = (p: Project, t: number) => (p.motions || []).filter((m) => t >= m.start && t < motionEnd(m));
 /** B-roll por cima da fala: o vídeo/imagem cobre a tela (cheia) ou entra num cartão do lado; o som continua o da fala */
 export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade" | "pagina";
 export const OVERLAY_MODES: [OverlayMode, string][] = [["cheia", "Tela cheia"], ["esquerda", "Cartão à esquerda"], ["direita", "Cartão à direita"], ["polaroid", "Polaroid inclinada"], ["circulo", "Círculo"], ["metade", "Metade de cima"], ["pagina", "Página branca (foto em cartão, fundo claro)"]];
@@ -115,9 +122,9 @@ export function mergeKit(k?: Kit | null): Kit {
 }
 
 /** fontes do Google que o editor carrega; o kit pode citar qualquer uma delas */
-export const FONTS = ["Anton", "Inter", "Archivo Black", "Instrument Serif", "Bebas Neue", "Montserrat", "Poppins", "Bricolage Grotesque", "Playfair Display", "Cinzel", "JetBrains Mono"];
+export const FONTS = ["Anton", "Inter", "Archivo Black", "Instrument Serif", "Bebas Neue", "Montserrat", "Poppins", "Bricolage Grotesque", "Playfair Display", "Bodoni Moda", "Cinzel", "JetBrains Mono"];
 export const FONTS_CSS =
-  "https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Cinzel:wght@700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Serif:ital@0;1&family=Inter:wght@500;700;800;900&family=JetBrains+Mono:wght@500&family=Montserrat:wght@700;900&family=Poppins:wght@700;900&display=block";
+  "https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Bodoni+Moda:ital,wght@0,700;0,900;1,700&family=Cinzel:wght@700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Instrument+Serif:ital@0;1&family=Inter:wght@500;700;800;900&family=JetBrains+Mono:wght@500&family=Montserrat:wght@700;900&family=Poppins:wght@700;900&display=block";
 
 /** "Inter Black" → { family: "Inter", weight: 900 } */
 export function parseFont(name?: string) {
@@ -387,13 +394,20 @@ export const CAPTION_STYLES: [string, string][] = [
   ["maquina", "Máquina de escrever (letra a letra, monoespaçada)"],
   ["revelar", "Revelar (a frase inteira aparece apagada e acende conforme é dita)"],
   ["brilho", "Brilho (branca grande com brilho suave, uma ideia por tela)"],
+  ["chave", "Palavra-chave (uma palavra por vez, pequena; a palavra forte aparece gigante no meio da tela)"],
 ];
 export const CAPTION_ANIMS: [string, string][] = [["pop", "Pop (cresce e assenta)"], ["sobe", "Sobe (entra de baixo)"], ["desfoque", "Desfoque (entra nítida)"], ["flash", "Flash (cada palavra pisca numa caixa branca ao entrar)"], ["nenhuma", "Sem animação"]];
 
 /** legenda da tela atual no estilo do kit */
 export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[number] | undefined, t: number, kit: Kit) {
   if (!screen) return;
-  const st = kit.legenda?.estilo || "impacto";
+  let st = kit.legenda?.estilo || "impacto";
+  if (st === "chave") {
+    // palavra-chave: a palavra forte da frase (a última dita) fica gigante e translúcida no meio; a legenda segue pequena, uma por vez
+    const hot = screen.words.filter((w) => t >= w.start && isHot(w.t)).pop();
+    if (hot) drawKeyword(ctx, hot.t, t - hot.start, Math.max(0, screen.end - t), kit);
+    st = "palavra";
+  }
   if (st === "palavra") {
     // só a palavra que está sendo dita (ou a última dita)
     const said = screen.words.filter((w) => t >= w.start);
@@ -417,6 +431,28 @@ export function drawCaption(ctx: Ctx, screen: ReturnType<typeof captionScreens>[
   if (st === "mix") { drawMixCaption(ctx, screen, t, kit, idx); ctx.restore(); return; }
   if (st === "maquina") { drawTypewriter(ctx, screen, t, kit); ctx.restore(); return; }
   drawCaptionInner(ctx, screen, t, kit, st, idx);
+  ctx.restore();
+}
+
+/** palavra gigante da legenda "chave": entra crescendo e some no fim da frase */
+function drawKeyword(ctx: Ctx, word: string, since: number, left: number, kit: Kit) {
+  const txt = word.replace(/[^\p{L}\p{N}%$]/gu, "").toLowerCase();
+  if (!txt) return;
+  const e = Math.max(0, Math.min(1, since / 0.25)), out = Math.max(0, Math.min(1, left / 0.2));
+  const font = (kit.fontes?.titulo || "Anton");
+  ctx.save();
+  let size = (isWide() ? 260 : 230) * U;
+  ctx.font = css(font, size);
+  const w0 = ctx.measureText(txt).width, maxW = W * 0.92;
+  if (w0 > maxW) { size *= maxW / w0; ctx.font = css(font, size); }
+  const y = H * (isWide() ? 0.42 : 0.4);
+  const sc = 0.86 + 0.14 * (1 - Math.pow(1 - e, 3));
+  ctx.translate(W / 2, y); ctx.scale(sc, sc);
+  ctx.globalAlpha = 0.82 * e * out;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 30;
+  ctx.fillStyle = "rgba(235,235,235,1)";
+  ctx.fillText(txt, 0, 0);
   ctx.restore();
 }
 
@@ -1080,7 +1116,10 @@ export function drawOverlays(ctx: Ctx, p: Project, screens: ReturnType<typeof ca
   // na página branca a legenda fica escura para continuar legível
   const pagina = (p.overlays || []).some((o) => o.mode === "pagina" && t >= o.start && t < o.end);
   const kitLeg = pagina ? { ...kit, cores: { ...kit.cores, texto: "#141414" } } : kit;
-  if (p.captionsOn && !full) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kitLeg);
+  const mo = activeMotions(p, t);
+  // motion que cobre a tela também tira a legenda
+  if (p.captionsOn && !full && !mo.some((m) => !m.transparente)) drawCaption(ctx, screens.find((s) => t >= s.start && t < s.end), t, kitLeg);
+  for (const m of mo) drawMotionSpec(ctx, m.spec, t - m.start, W, H, { transparente: m.transparente });
   drawFade(ctx, p, t);
 }
 

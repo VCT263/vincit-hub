@@ -5,6 +5,7 @@ import PageHead from "@/components/PageHead";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const DEFAULT_CHECKLIST = [
   "Baterias carregadas (câmera, lapela e luz)",
@@ -142,8 +143,7 @@ export default function OrdemDoDia() {
   }
   async function unshare(sh: any) { await createClient().from("av_shoots").update({ share_token: null }).eq("id", sh.id); setMsg("Link desativado."); load(); }
   async function remove(sh: any) {
-    if (armed !== sh.id) { setArmed(sh.id); setTimeout(() => setArmed(null), 5000); return; }
-    await createClient().from("av_shoots").delete().eq("id", sh.id);
+    if (!(await apagarComLixeira({ tabela: "av_shoots", filtro: { id: sh.id }, oque: `a ordem do dia "${sh.title || "sem título"}"`, rotulo: `Ordem do dia: ${sh.title || "sem título"}`, link: "/audiovisual/ordem-do-dia" }))) return;
     setArmed(null); load();
   }
   async function toggleCheck(sh: any, i: number) {

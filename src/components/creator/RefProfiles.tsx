@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAccounts, fmt } from "@/lib/useAccounts";
 import { FORMATS } from "@/lib/formats";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const ESTILO: Record<string, string> = { tom: "Tom", estetica: "Estética", ritmo_edicao: "Edição", persona: "Persona", frequencia: "Frequência" };
 const typeName = (t?: string) => (t === "CAROUSEL_ALBUM" ? "Carrossel" : t === "IMAGE" ? "Foto" : t === "VIDEO" ? "Vídeo" : t || "Post");
@@ -20,7 +21,7 @@ function Stat({ n, l }: { n: string; l: string }) {
 function Thumb({ it }: { it: any }) {
   const [bad, setBad] = useState(false);
   const src = it?.thumb || (it?.media && !/\.mp4/.test(it.media) ? it.media : null);
-  if (src && !bad) return <img src={src} alt="" onError={() => setBad(true)} className="w-16 h-20 rounded-lg object-cover shrink-0" />;
+  if (src && !bad) return <img loading="lazy" decoding="async" src={src} alt="" onError={() => setBad(true)} className="w-16 h-20 rounded-lg object-cover shrink-0" />;
   return <div className="w-16 h-20 rounded-lg shrink-0 grid place-items-center" style={{ background: `color-mix(in srgb, ${typeColor(it?.type || "")} 22%, transparent)` }}>{it?.type === "Reels" || it?.type === "Vídeo" || it?.type === "Shorts" ? <I.play className="w-5 h-5 opacity-70" /> : <I.cards className="w-5 h-5 opacity-70" />}</div>;
 }
 
@@ -67,7 +68,7 @@ export default function RefProfiles() {
     })));
     await saveSel(); setMsg(`${items.length} ideia(s) no Quadro, na coluna Ideia.`);
   }
-  async function del(r: any) { if (!confirm(`Excluir a análise de ${r.handle}?`)) return; await createClient().from("ref_profiles").delete().eq("id", r.id); setOpen(null); load(); }
+  async function del(r: any) { if (!(await apagarComLixeira({ tabela: "ref_profiles", filtro: { id: r.id }, oque: `a análise de ${r.handle}`, rotulo: `Perfil de referência: ${r.handle}`, link: "/creator/referencias" }))) return; setOpen(null); load(); }
 
   const a = open?.analysis || {};
   const items: any[] = a.itens || [];
@@ -104,7 +105,7 @@ export default function RefProfiles() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {list.map((r) => (
             <button key={r.id} onClick={() => openRow(r)} className={`card p-4 text-left flex items-center gap-3 hover:border-slate ${open?.id === r.id ? "border-mint-dim" : ""}`}>
-              {r.avatar_url ? <img src={r.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover" /> : <div className="w-11 h-11 rounded-full bg-panel2 grid place-items-center text-mint font-bold">{(r.title || r.handle)[0]?.toUpperCase()}</div>}
+              {r.avatar_url ? <img loading="lazy" decoding="async" src={r.avatar_url} alt="" className="w-11 h-11 rounded-full object-cover" /> : <div className="w-11 h-11 rounded-full bg-panel2 grid place-items-center text-mint font-bold">{(r.title || r.handle)[0]?.toUpperCase()}</div>}
               <div className="min-w-0 flex-1"><p className="font-semibold truncate">{r.title}</p><p className="text-xs text-fog">{r.platform === "youtube" ? "YouTube" : "Instagram"} · {r.followers ? `${fmt(r.followers)} seg. · ` : ""}{(r.selected || []).length} selecionado(s)</p></div>
             </button>
           ))}
@@ -115,7 +116,7 @@ export default function RefProfiles() {
         <section className="card p-5 md:p-6 border-mint-dim rise">
           {/* cabeçalho: quem é, em números */}
           <div className="flex flex-wrap items-center gap-4">
-            {open.avatar_url ? <img src={open.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-mint/40" /> : <div className="w-16 h-16 rounded-full bg-panel2 grid place-items-center text-mint text-2xl font-bold">{(open.title || open.handle)[0]?.toUpperCase()}</div>}
+            {open.avatar_url ? <img loading="lazy" decoding="async" src={open.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-mint/40" /> : <div className="w-16 h-16 rounded-full bg-panel2 grid place-items-center text-mint text-2xl font-bold">{(open.title || open.handle)[0]?.toUpperCase()}</div>}
             <div className="min-w-0 flex-1">
               <p className="font-display font-bold text-2xl leading-tight">{open.title}</p>
               <a href={open.url} target="_blank" rel="noopener noreferrer" className="text-xs text-fog hover:text-mint">@{open.handle.replace(/^@/, "")} ↗</a>

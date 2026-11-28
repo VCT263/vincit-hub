@@ -1,11 +1,19 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { AXES, LOCKUPS, cmyk, hexToRgb, loadFonts, lockupSvg, patternSvg, primaryLogo, readableOn, svgParts, type Pattern, type Swatch } from "@/lib/design";
+import { AXES, LOCKUPS, cmyk, contrast, hexToRgb, loadFonts, lockupSvg, patternSvg, primaryLogo, readableOn, svgParts, type Pattern, type Swatch } from "@/lib/design";
 import { ARCHETYPES, MAP_AXES, NICHES, SCALES, archetypeMix } from "@/lib/brand-strategy";
 import { SvgView } from "../ui";
 import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
-import { MockupCover, type Mockup } from "./MockupView";
+import { MockupCover, byGroup, type Mockup } from "./MockupView";
+import { brandVoice } from "./MockupArt";
+import { brandPrompt } from "@/lib/brandPrompt";
+import { createPortal } from "react-dom";
+import { useLite, useNear, usePrintAll } from "./lazy";
+import { grainBg, warmGrain } from "./grain";
+import { ArchetypeSlide, ChannelsSlide, ManifestoSlide, PositioningSlide, RewriteSlide, SituationsSlide, ToneSlide, ValuesSlide, VocabSlide, WeAreSlide, type Verbal } from "./VerbalSlides";
+import { ExpressionSlide, FeedGridSlide, FeedWhySlide, PhotoMoodSlide, PhotoRulesSlide, RealAppsSlide, type AppReal, type Feed, type FotoMood, FeedCompareSlide, FeedPlanSlide, FeedIdealWhySlide, FeedRefsSlide, type FeedIdeal } from "./RealSlides";
+import { FeedSlide, PostsSlide, SiteDesktopSlide, SiteFullSlide } from "./BrandShowcase";
 
 /* Apresentação de marca no formato de estúdio: grade editorial fixa (faixa lateral com cliente,
    seção e página), divisores de capítulo com número gigante, um acento só, filetes finos.
@@ -14,8 +22,25 @@ import { MockupCover, type Mockup } from "./MockupView";
 export const FORMATS = { "16:9": { w: 1600, h: 900, l: "16:9 · tela e PDF padrão" }, "3:2": { w: 1600, h: 1067, l: "3:2 · Behance" }, "4:3": { w: 1600, h: 1200, l: "4:3 · tablet" } } as const;
 export type Format = keyof typeof FORMATS;
 
-type Ctx = { W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
-type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; body: (x: Ctx) => ReactNode; bare?: boolean };
+/** estilos de apresentação (como cases diferentes no Behance): a grade e os divisores mudam com o nicho */
+export const STYLES = {
+  estudio: { l: "Estúdio", d: "Faixa lateral com o nome, número gigante nos capítulos." },
+  editorial: { l: "Editorial", d: "Revista de moda: muito respiro, títulos em itálico, capítulos centralizados." },
+  cinema: { l: "Cinema", d: "Tarjas de filme em cima e embaixo, capítulos como cartela de título." },
+  suico: { l: "Suíço", d: "Grade rigorosa, índice no alto, números finos, sem enfeite." },
+} as const;
+export type DeckStyle = keyof typeof STYLES;
+export function styleFor(d: any): DeckStyle {
+  if (d.deck_style && d.deck_style in STYLES) return d.deck_style;
+  const n = d.strategy?.nicho;
+  if (n === "moda" || n === "beleza") return "editorial";
+  if (n === "audiovisual") return "cinema";
+  if (["tecnologia", "servicos", "saude", "educacao", "imobiliario"].includes(n)) return "suico";
+  return "estudio";
+}
+
+export type Ctx = { style: DeckStyle; W: number; H: number; C: Record<string, string>; ink: string; paper: string; acc: string; T: (s?: CSSProperties) => CSSProperties; B: (s?: CSSProperties) => CSSProperties; G: (s?: CSSProperties) => CSSProperties; hasG: boolean; name: string; year: number };
+export type SlideDef = { key: string; tone: "dark" | "light" | "acc"; section: string; body: (x: Ctx) => ReactNode; bare?: boolean };
 
 const arr = (v: any): string[] => (Array.isArray(v) ? v : v ? [v] : []);
 
@@ -26,7 +51,7 @@ export function useDeck(d: any, format: Format, mockups: Mockup[] = []) {
   useEffect(() => { loadFonts([t.title, t.body, t.accent || ""].filter(Boolean)); }, [t.title, t.body, t.accent]);
   const { w: W, h: H } = FORMATS[format];
   const x: Ctx = {
-    W, H, C, ink: C["Escuro"], paper: C["Claro"], acc: C["Primária"], name: d.brief?.nome || "Marca", year: new Date().getFullYear(),
+    style: styleFor(d), W, H, C, ink: C["Escuro"], paper: C["Claro"], acc: C["Primária"], name: d.brief?.nome || "Marca", year: new Date().getFullYear(),
     T: (s = {}) => ({ fontFamily: `"${t.title}"`, fontWeight: t.tw || 700, fontStyle: t.ti ? "italic" : "normal", lineHeight: .92, letterSpacing: "-.015em", ...s }),
     G: (s = {}) => ({ fontFamily: `"${t.accent || t.title}"`, fontWeight: 400, lineHeight: 1, ...s }), hasG: !!t.accent,
     B: (s = {}) => ({ fontFamily: `"${t.body}"`, ...s }),
@@ -36,59 +61,142 @@ export function useDeck(d: any, format: Format, mockups: Mockup[] = []) {
 
 /* grão de papel: tira a cara de tela lisa (como nos cases impressos do Behance) */
 const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>')}")`;
+warmGrain(GRAIN);
+
+/** palavra grande que diminui até caber (nome longo, como "Alanis Gomes", saía cortado pela esquerda).
+   Mede com canvas: no deck de impressão os slides ficam ocultos até imprimir, sem largura para medir. */
+let measureCtx: CanvasRenderingContext2D | null = null;
+function textWidth(text: string, st: CSSProperties, size: number) {
+  if (typeof document === "undefined") return 0;
+  measureCtx = measureCtx || document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return 0;
+  measureCtx.font = `${st.fontStyle || "normal"} ${st.fontWeight || 400} ${size}px ${st.fontFamily || "serif"}`;
+  const ls = typeof st.letterSpacing === "string" && st.letterSpacing.endsWith("em") ? parseFloat(st.letterSpacing) * size : typeof st.letterSpacing === "number" ? st.letterSpacing : 0;
+  return measureCtx.measureText(text).width + ls * Math.max(text.length - 1, 0);
+}
+function FitWord({ style, max, children }: { style: CSSProperties; max: number; children: string }) {
+  const base = typeof style.fontSize === "number" ? style.fontSize : 0;
+  const calc = () => { const w = base ? textWidth(children, style, base) : 0; return w > max ? max / w : 1; };
+  const [k, setK] = useState(1);
+  useEffect(() => { setK(calc()); document.fonts?.ready.then(() => setK(calc())); }, [base, max, children, style.fontFamily]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <p style={{ ...style, fontSize: base ? base * k : style.fontSize }}>{children}</p>;
+}
 
 /* ───────── peças de layout ───────── */
 const Label = ({ x, children, style }: { x: Ctx; children: ReactNode; style?: CSSProperties }) => <p style={x.B({ fontSize: 13, letterSpacing: ".28em", textTransform: "uppercase", fontWeight: 600, ...style })}>{children}</p>;
 const Rule = ({ c, style }: { c: string; style?: CSSProperties }) => <div style={{ height: 1, background: c, opacity: .35, ...style }} />;
 
-function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: number; total: number; children: ReactNode }) {
+export function Frame({ x, s, n, total, children }: { x: Ctx; s: SlideDef; n: number; total: number; children: ReactNode }) {
   const bg = s.tone === "dark" ? x.ink : s.tone === "acc" ? x.acc : x.paper;
   const fg = readableOn(bg) === "#ffffff" ? (s.tone === "dark" ? x.paper : "#ffffff") : x.ink;
-  const strip = 72;
-  return (
-    <div className="deck-slide" style={{ width: x.W, height: x.H, background: bg, color: fg, position: "relative", overflow: "hidden" }}>
-      {s.bare ? children : (
-        <>
-          <div style={{ position: "absolute", inset: `0 ${strip}px 0 0`, padding: "0 72px" }}>
-            <div style={{ position: "absolute", left: 72, right: 56, top: 44, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{s.section}</Label>
-              <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{x.name} · {x.year}</Label>
-            </div>
-            <Rule c={fg} style={{ position: "absolute", left: 0, right: 0, top: 76 }} />
-            <div style={{ position: "absolute", left: 72, right: 56, top: 112, bottom: 64 }}>{children}</div>
-          </div>
-          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: strip, borderLeft: `1px solid ${fg}33`, display: "flex", flexDirection: "column" }}>
-            <div style={{ height: "30%", background: s.tone === "acc" ? x.ink : x.acc, color: readableOn(s.tone === "acc" ? x.ink : x.acc), display: "grid", placeItems: "center" }}>
-              <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 700 })}>{x.name}</span>
-            </div>
-            <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
-              <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", opacity: .6 })}>Identidade de marca</span>
-            </div>
-            <div style={{ height: strip, borderTop: `1px solid ${fg}33`, display: "grid", placeItems: "center" }}>
-              <span style={x.B({ fontSize: 15, fontWeight: 700 })}>{String(n).padStart(2, "0")}</span>
-            </div>
-          </div>
-        </>
-      )}
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: GRAIN, opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />
-      <span style={{ display: "none" }}>{total}</span>
+  const nn = String(n).padStart(2, "0");
+  const grain = <div aria-hidden className="deck-grain" style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: grainBg(GRAIN), opacity: s.tone === "dark" ? .16 : .1, mixBlendMode: s.tone === "dark" ? "screen" : "multiply" }} />;
+  const wrap = (inner: ReactNode) => <div className="deck-slide" data-style={x.style} style={{ width: x.W, height: x.H, background: bg, color: fg, position: "relative", overflow: "hidden" }}>{inner}{grain}<span style={{ display: "none" }}>{total}</span></div>;
+  if (s.bare) return wrap(children);
+  const small = (t: ReactNode, st: CSSProperties = {}) => <Label x={x} style={{ fontSize: 11, opacity: .65, ...st }}>{t}</Label>;
+  if (x.style === "editorial") return wrap(<>
+    <div style={{ position: "absolute", left: 100, right: 100, top: 40, display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
+      {small(s.section)}<span style={x.T({ fontSize: 22, fontStyle: "italic", fontWeight: 400, letterSpacing: 0 })}>{x.name}</span>{small(`${nn} / ${String(total).padStart(2, "0")}`, { textAlign: "right" })}
     </div>
-  );
-}
-
-/** divisor de capítulo: número gigante sangrando a margem, título enorme ao lado */
-const divider = (num: number, title: string, sub: string): SlideDef => ({
-  key: `div-${num}`, tone: "dark", section: title, body: (x) => (
-    <div style={{ position: "absolute", inset: 0 }}>
-      <span style={x.T({ position: "absolute", left: -110, bottom: -x.H * .14, fontSize: x.H * .78, color: x.acc, lineHeight: 1, letterSpacing: "-.06em" })}>{String(num).padStart(2, "0")}.</span>
-      <div style={{ position: "absolute", left: "50%", right: 40, top: "34%" }}>
-        <h2 style={x.T({ fontSize: 118, textTransform: "uppercase" })}>{title}</h2>
-        <Rule c={x.paper} style={{ margin: "28px 0 18px", opacity: .5 }} />
-        <p style={x.B({ fontSize: 22, opacity: .75, maxWidth: 520, lineHeight: 1.4 })}>{sub}</p>
+    <div style={{ position: "absolute", left: 100, right: 100, top: 120, bottom: 84 }}>{children}</div>
+    <div style={{ position: "absolute", left: 100, right: 100, bottom: 36, display: "flex", justifyContent: "space-between" }}>{small("Identidade de marca", { opacity: .4 })}{small(x.year, { opacity: .4 })}</div>
+  </>);
+  if (x.style === "cinema") return wrap(<>
+    <Letterbox x={x} left={`SC ${nn}`} mid={s.section} right={x.name} n={`${nn} / ${String(total).padStart(2, "0")}`} />
+    {[[0, 0], [1, 0], [0, 1], [1, 1]].map(([r, b]) => <span key={`${r}${b}`} style={{ position: "absolute", [r ? "right" : "left"]: 40, [b ? "bottom" : "top"]: 72, width: 22, height: 22, borderColor: `${fg}55`, borderStyle: "solid", borderWidth: 0, [r ? "borderRightWidth" : "borderLeftWidth"]: 1, [b ? "borderBottomWidth" : "borderTopWidth"]: 1 } as CSSProperties} />)}
+    <div style={{ position: "absolute", left: 100, right: 100, top: 108, bottom: 100 }}>{children}</div>
+  </>);
+  if (x.style === "suico") return wrap(<>
+    <div style={{ position: "absolute", left: 80, right: 80, top: 36, display: "grid", gridTemplateColumns: "1fr 2fr 1fr", alignItems: "end" }}>
+      <span style={x.B({ fontSize: 13, fontWeight: 700 })}>{x.name}</span>{small(s.section, { opacity: .55 })}<span style={x.B({ fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" })}>{nn}<span style={{ opacity: .4 }}> / {String(total).padStart(2, "0")}</span></span>
+    </div>
+    <div style={{ position: "absolute", left: 80, right: 80, top: 64, height: 2, background: fg }} />
+    <div style={{ position: "absolute", left: 80, right: 80, top: 104, bottom: 64 }}>{children}</div>
+    <span style={{ position: "absolute", left: 80, bottom: 30, width: 10, height: 10, background: x.acc }} />
+  </>);
+  const strip = 72;
+  return wrap(<>
+    <div style={{ position: "absolute", inset: `0 ${strip}px 0 0`, padding: "0 72px" }}>
+      <div style={{ position: "absolute", left: 72, right: 56, top: 44, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{s.section}</Label>
+        <Label x={x} style={{ fontSize: 11, opacity: .7 }}>{x.name} · {x.year}</Label>
+      </div>
+      <Rule c={fg} style={{ position: "absolute", left: 0, right: 0, top: 76 }} />
+      <div style={{ position: "absolute", left: 72, right: 56, top: 112, bottom: 64 }}>{children}</div>
+    </div>
+    <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: strip, borderLeft: `1px solid ${fg}33`, display: "flex", flexDirection: "column" }}>
+      <div style={{ height: "30%", background: s.tone === "acc" ? x.ink : x.acc, color: readableOn(s.tone === "acc" ? x.ink : x.acc), display: "grid", placeItems: "center" }}>
+        <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 700 })}>{x.name}</span>
+      </div>
+      <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
+        <span style={x.B({ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", opacity: .6 })}>Identidade de marca</span>
+      </div>
+      <div style={{ height: strip, borderTop: `1px solid ${fg}33`, display: "grid", placeItems: "center" }}>
+        <span style={x.B({ fontSize: 15, fontWeight: 700 })}>{nn}</span>
       </div>
     </div>
-  ),
+  </>);
+}
+
+/** divisor de capítulo, conforme o estilo: número gigante sangrando a margem (estúdio), cartela centralizada
+   em itálico (editorial), cartela de filme com moldura (cinema) ou número fino na grade (suíço) */
+const divider = (num: number, title: string, sub: string, style: DeckStyle = "estudio"): SlideDef => ({
+  key: `div-${num}`, tone: style === "editorial" || style === "suico" ? "light" : "dark", section: title, bare: style !== "estudio", body: (x) => {
+    const nn = String(num).padStart(2, "0");
+    if (style === "editorial") return (
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 160px" }}>
+        <Label x={x} style={{ fontSize: 13, opacity: .6 }}>Capítulo {nn}</Label>
+        <h2 style={x.T({ fontSize: 150, fontStyle: "italic", fontWeight: 400, letterSpacing: "-.03em", marginTop: 26, lineHeight: .95 })}>{title}</h2>
+        <div style={{ width: 80, height: 2, background: x.acc, margin: "34px 0 26px" }} />
+        <p style={x.B({ fontSize: 21, opacity: .7, maxWidth: 620, lineHeight: 1.5 })}>{sub}</p>
+        <p style={x.B({ position: "absolute", bottom: 44, fontSize: 12, letterSpacing: ".3em", textTransform: "uppercase", opacity: .5 })}>{x.name}</p>
+      </div>
+    );
+    if (style === "cinema") return (
+      <div style={{ position: "absolute", inset: 0 }}>
+        <Letterbox x={x} left={`CAP. ${nn}`} mid={title} right={x.name} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", border: `1px solid ${x.paper}55`, padding: "54px 90px", textAlign: "center", minWidth: 760 }}>
+          <Label x={x} style={{ fontSize: 12, color: x.acc }}>Capítulo {nn}</Label>
+          <h2 style={x.T({ fontSize: 104, textTransform: "uppercase", marginTop: 20 })}>{title}</h2>
+          <p style={x.B({ fontSize: 19, opacity: .7, maxWidth: 560, lineHeight: 1.5, margin: "22px auto 0" })}>{sub}</p>
+        </div>
+      </div>
+    );
+    if (style === "suico") return (
+      <div style={{ position: "absolute", inset: 0, padding: "56px 80px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", position: "absolute", inset: "0 80px", pointerEvents: "none" }}>{Array.from({ length: 12 }, (_, i) => <div key={i} style={{ borderLeft: `1px solid ${x.ink}12`, height: "100%" }} />)}</div>
+        <p style={x.T({ fontSize: 300, fontWeight: 200, letterSpacing: "-.06em", lineHeight: .8, color: x.ink })}>{nn}</p>
+        <div style={{ position: "absolute", left: 80, right: 80, bottom: 70, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 60, alignItems: "end", borderTop: `2px solid ${x.ink}`, paddingTop: 22 }}>
+          <h2 style={x.T({ fontSize: 96, letterSpacing: "-.03em" })}>{title}</h2>
+          <p style={x.B({ fontSize: 18, lineHeight: 1.5, opacity: .7 })}>{sub}</p>
+        </div>
+        <span style={{ position: "absolute", top: 70, right: 80, width: 18, height: 18, background: x.acc }} />
+      </div>
+    );
+    return (
+      <div style={{ position: "absolute", inset: 0 }}>
+        <span style={x.T({ position: "absolute", left: -110, bottom: -x.H * .14, fontSize: x.H * .78, color: x.acc, lineHeight: 1, letterSpacing: "-.06em" })}>{nn}.</span>
+        <div style={{ position: "absolute", left: "50%", right: 40, top: "34%" }}>
+          <h2 style={x.T({ fontSize: 118, textTransform: "uppercase" })}>{title}</h2>
+          <Rule c={x.paper} style={{ margin: "28px 0 18px", opacity: .5 }} />
+          <p style={x.B({ fontSize: 22, opacity: .75, maxWidth: 520, lineHeight: 1.4 })}>{sub}</p>
+        </div>
+      </div>
+    );
+  },
 });
+
+/** tarjas de cinema em cima e embaixo, com rótulos de claquete */
+function Letterbox({ x, left, mid, right, n }: { x: Ctx; left: string; mid: string; right: string; n?: string }) {
+  const bar: CSSProperties = { position: "absolute", left: 0, right: 0, height: 56, background: "#000", color: "#ffffffaa", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 48px" };
+  const t = (s: string) => <span style={x.B({ fontSize: 11, letterSpacing: ".3em", textTransform: "uppercase", fontWeight: 600 })}>{s}</span>;
+  return (
+    <>
+      <div style={{ ...bar, top: 0 }}>{t(left)}{t(mid)}{t(right)}</div>
+      <div style={{ ...bar, bottom: 0 }}>{t("Identidade de marca")}<span style={{ display: "flex", gap: 6 }}>{[0, 1, 2, 3, 4, 5].map((i) => <span key={i} style={{ width: 14, height: 8, borderRadius: 2, background: "#ffffff22" }} />)}</span>{t(n || String(x.year))}</div>
+    </>
+  );
+}
 
 function Logo({ svg, x, style, color }: { svg: string; x: Ctx; style: CSSProperties; color?: string }) {
   return svg ? <div style={style}><SvgView svg={svg} className="w-full h-full" /></div> : <div style={{ ...style, display: "grid", placeItems: "center" }}><span style={x.T({ fontSize: 120, color })}>{x.name}</span></div>;
@@ -117,7 +225,10 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   const ratio = t.scale || 1.25, base = t.base || 16;
   const S: SlideDef[] = [];
   const chapters: string[] = [];
-  const chapter = (title: string, sub: string) => { chapters.push(title); S.push(divider(chapters.length, title, sub)); };
+  const chapter = (title: string, sub: string) => { chapters.push(title); S.push(divider(chapters.length, title, sub, x0.style)); };
+  const vb: Verbal = d.verbal || {};
+  const hasExpr = !!vb.expressao && Object.values(vb.expressao).some(Boolean);
+  const manifesto: string = vb.manifesto || b.manifesto || "";
 
   // capa
   S.push({ key: "capa", tone: "dark", section: "", bare: true, body: (x) => (
@@ -127,7 +238,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       <div style={{ flex: 1, display: "grid", placeItems: "center" }}><Logo svg={primaryLogo(d, x.paper)} x={x} color={x.paper} style={{ width: "62%", height: x.H * .36 }} /></div>
       <Rule c={x.paper} style={{ margin: "0 -72px 22px" }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-        <h1 style={x.T({ fontSize: 64, textTransform: "uppercase", color: x.acc, position: "relative" })}>Apresentação<br />de marca{x.hasG && <span style={x.G({ position: "absolute", left: "62%", top: "-38%", fontSize: 72, color: x.paper, textTransform: "none", transform: "rotate(-7deg)", whiteSpace: "nowrap" })}>{x.name.toLowerCase()}</span>}</h1>
+        <h1 style={x.T({ fontSize: 64, textTransform: "uppercase", color: contrast(x.acc, x.ink) >= 3 ? x.acc : x.paper })}>Apresentação<br />de marca{x.hasG && <span style={x.G({ display: "inline-block", marginLeft: 18, fontSize: 64, color: x.paper, textTransform: "none", transform: "rotate(-7deg)", whiteSpace: "nowrap", verticalAlign: "-0.15em" })}>{x.name.toLowerCase()}</span>}</h1>
         <div style={x.B({ fontSize: 16, textAlign: "right", lineHeight: 1.7, opacity: .8 })}><p>Cliente: <b>{x.name}</b></p><p>Projeto: VINCIT</p></div>
       </div>
     </div>
@@ -196,6 +307,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
         </div>
       </div>
     ) });
+    if (vb.posicionamento?.categoria || st.posicao) S.push({ key: "posicionamento", tone: "light", section: "Plataforma · posicionamento", body: (x) => <PositioningSlide x={x} v={vb} posicao={st.posicao} /> });
+    if (vb.valores?.length) S.push({ key: "valores", tone: "light", section: "Plataforma · valores", body: (x) => <ValuesSlide x={x} v={vb} /> });
     if (b.eixos) S.push({ key: "personalidade", tone: "light", section: "Plataforma · personalidade", body: (x) => (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 72, height: "100%", alignItems: "center" }}>
         <div><h2 style={x.T({ fontSize: 88, textTransform: "uppercase" })}>Persona&shy;lidade</h2>{arr(b.palavras).length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 30 }}>{arr(b.palavras).map((p) => <span key={p} style={x.B({ padding: "8px 18px", background: x.ink, color: x.paper, borderRadius: 99, fontSize: 15, fontWeight: 600 })}>{p}</span>)}</div>}</div>
@@ -225,7 +338,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
         <Wheel x={x} mix={mix} />
       </div>
     ) });
-    S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => (
+    if (hasExpr) S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => <ExpressionSlide x={x} ex={vb.expressao!} mix={mix} /> });
+    else S.push({ key: "matriz", tone: "light", section: "Arquétipos · expressão", body: (x) => (
       <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "grid", gridTemplateColumns: `200px repeat(${mix.length}, 1fr)`, borderBottom: `2px solid ${x.ink}` }}>
           <span />{mix.map((m) => <div key={m.a.k} style={{ padding: "0 0 14px 20px" }}><span style={x.B({ background: x.ink, color: x.paper, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>{m.a.l} {m.pct}%</span></div>)}
@@ -239,6 +353,8 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
       </div>
     ) });
   }
+
+  mix.forEach((m, i) => S.push({ key: `arq-${m.a.k}`, tone: "light", section: `Arquétipos · ${m.a.l}`, body: (x) => <ArchetypeSlide x={x} a={m.a} pct={m.pct} role={m.role} pratica={vb.arquetipos?.[m.a.k]} n={i + 1} /> }));
 
   /* 04 Conceito */
   if (terr) {
@@ -353,7 +469,7 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
             <div style={x.B({ position: "absolute", left: 56, right: 56, top: 22, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontSize: 11, letterSpacing: ".18em", textTransform: "uppercase", fontWeight: 600 })}>
               <span>{i === 0 ? "Tipografias" : bd.role}</span><span style={{ textAlign: "center" }}>{bd.font}</span><span style={{ textAlign: "right", opacity: .7 }}>{bd.why}</span>
             </div>
-            <p style={{ ...bd.st, position: "absolute", right: 56, bottom: -x.H * .05, whiteSpace: "nowrap" }}>{bd.word}</p>
+            <FitWord style={{ ...bd.st, position: "absolute", right: 56, bottom: -x.H * .05, whiteSpace: "nowrap" }} max={x.W - 56 - (i === 0 ? 300 : 56)}>{bd.word}</FitWord>
             {i === 0 && <p style={x.B({ position: "absolute", left: 56, bottom: 22, fontSize: 12, opacity: .6 })}>escala {[4, 3, 2, 1, 0].map((n) => Math.round(base * ratio ** n)).join(" · ")} px</p>}
           </div>
         ); })}
@@ -371,12 +487,42 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
     </div>
   ) });
 
+  /* fotografia: moodboard e regras, quando a marca tem direção própria */
+  const fm: FotoMood = d.foto_moodboard || {};
+  if ((fm.imgs || []).filter((i) => i.url).length >= 3) S.push({ key: "foto-mood", tone: "light", section: "Identidade visual · fotografia", bare: true, body: (x) => <PhotoMoodSlide x={x} m={fm} /> });
+  if (fm.luz || fm.faca?.length) S.push({ key: "foto-regras", tone: "light", section: "Identidade visual · fotografia", body: (x) => <PhotoRulesSlide x={x} m={fm} /> });
+
   /* 06 Aplicações */
   chapter("Aplicações", "A marca no mundo real: redes, papelaria, embalagem e ponto de venda.");
+  /* o que a marca já usa vem primeiro: cada coleção numa página, o resto em grupos de 5 */
+  const reais = ((d.aplicacoes_reais || []) as AppReal[]).filter((a) => a.img);
+  const cols = [...new Set(reais.map((a) => a.colecao).filter(Boolean))] as string[];
+  cols.forEach((c) => { const it = reais.filter((a) => a.colecao === c); S.push({ key: `real-col-${c}`, tone: "dark", section: `Aplicações · coleção ${c}`, bare: true, body: (x) => <RealAppsSlide x={x} items={it} title={`Coleção ${c}`} sub="Aplicações reais · lançamento" /> }); });
+  const soltas = reais.filter((a) => !a.colecao);
+  for (let i = 0; i < soltas.length; i += 5) { const it = soltas.slice(i, i + 5); S.push({ key: `real-${i}`, tone: "dark", section: "Aplicações · em uso", bare: true, body: (x) => <RealAppsSlide x={x} items={it} title="A marca em uso" /> }); }
   /* mockups fotográficos (PSD do mockups-design.com): um por página, sangrando, como nos cases do Behance */
   const chosen: string[] | undefined = Array.isArray(d.mockups) ? d.mockups : undefined;
   const arts: Record<string, string[]> = d.mockup_arts || {};
-  (chosen ? chosen.map((id) => mockups.find((m) => m.id === id)).filter(Boolean) as Mockup[] : mockups.slice(0, 12)).forEach((m) => S.push({ key: `mk-${m.id}`, tone: "dark", section: `Aplicações · ${m.title}`, bare: true, body: (x) => <MockupCover d={d} m={m} arts={arts[m.id]} W={x.W} H={x.H} /> }));
+  byGroup(chosen ? chosen.map((id) => mockups.find((m) => m.id === id)).filter(Boolean) as Mockup[] : mockups.slice(0, 12)).flatMap((x) => x.items).forEach((m) => S.push({ key: `mk-${m.id}`, tone: "dark", section: `Aplicações · ${m.title}`, bare: true, body: (x) => <MockupCover d={d} m={m} arts={arts[m.id]} W={x.W} H={x.H} caption /> }));
+  /* a marca em uso: site e Instagram */
+  const voz = brandVoice(d);
+  S.push({ key: "site-hero", tone: "dark", section: "Aplicações · site", bare: true, body: (x) => <SiteDesktopSlide v={voz} W={x.W} H={x.H} label="Site · primeira dobra" /> });
+  S.push({ key: "site-meio", tone: "dark", section: "Aplicações · site", bare: true, body: (x) => <SiteDesktopSlide v={voz} W={x.W} H={x.H} offset={1660} label="Site · o que a marca oferece e como trabalha" /> });
+  S.push({ key: "site-inteiro", tone: "dark", section: "Aplicações · site", bare: true, body: (x) => <SiteFullSlide v={voz} W={x.W} H={x.H} /> });
+  const feed: Feed = d.feed || {};
+  if ((feed.posts || []).length >= 6) {
+    S.push({ key: "feed-grid", tone: "light", section: "Aplicações · Instagram", bare: true, body: (x) => <FeedGridSlide x={x} feed={feed} /> });
+    S.push({ key: "feed-porque", tone: "light", section: "Aplicações · Instagram · cada post", body: (x) => <FeedWhySlide x={x} feed={feed} /> });
+  }
+  const fi: FeedIdeal = d.feed_ideal || {};
+  if ((fi.posts || []).length >= 6) {
+    S.push({ key: "feed-ideal", tone: "light", section: "Aplicações · Instagram · feed ideal", bare: true, body: (x) => <FeedCompareSlide x={x} atual={feed} ideal={fi} /> });
+    if (fi.manter?.length || fi.melhorar?.length || fi.fazer?.length) S.push({ key: "feed-plano", tone: "light", section: "Aplicações · Instagram · plano", body: (x) => <FeedPlanSlide x={x} ideal={fi} /> });
+    S.push({ key: "feed-ideal-posts", tone: "light", section: "Aplicações · Instagram · feed ideal, post a post", body: (x) => <FeedIdealWhySlide x={x} ideal={fi} atual={feed} /> });
+    if ((fi.referencias || []).filter((r) => r.url).length >= 3) S.push({ key: "feed-refs", tone: "light", section: "Aplicações · Instagram · referências", bare: true, body: (x) => <FeedRefsSlide x={x} ideal={fi} /> });
+  }
+  S.push({ key: "insta-feed", tone: "light", section: "Aplicações · Instagram", bare: true, body: (x) => <FeedSlide v={voz} W={x.W} H={x.H} /> });
+  S.push({ key: "insta-posts", tone: "dark", section: "Aplicações · Instagram", bare: true, body: (x) => <PostsSlide v={voz} W={x.W} H={x.H} /> });
   S.push({ key: "mockups", tone: "light", section: "Aplicações · redes e peças", body: () => <div style={{ height: "100%" }}><Mockups d={d} compact /></div> });
   /* cenas desenhadas (opcionais) e fotos reais com o logo aplicado */
   const kit = sceneKit(d);
@@ -385,11 +531,18 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
   ((d.fotos || []) as Foto[]).filter((f) => f.url).forEach((f) => S.push({ key: `foto-${f.id}`, tone: "dark", section: "Aplicações · foto", bare: true, body: (x) => <PhotoScene k={kit} f={f} W={x.W} H={x.H} /> }));
 
   /* 07 Expressão verbal */
-  if (arr(b.fala).length || arr(b.nunca).length || mix.length) {
+  if (arr(b.fala).length || arr(b.nunca).length || mix.length || manifesto || vb.tom) {
     chapter("Expressão verbal", "Como a marca fala, as palavras que são dela e as que ela nunca usa.");
+    if (manifesto) S.push({ key: "manifesto", tone: "dark", section: "Expressão verbal · manifesto", body: (x) => <ManifestoSlide x={x} text={manifesto} /> });
+    if (vb.tom || b.matriz_tom) S.push({ key: "tom", tone: "light", section: "Expressão verbal · tom de voz", body: (x) => <ToneSlide x={x} v={vb} matriz={b.matriz_tom} /> });
+    if (vb.somos?.length) S.push({ key: "somos", tone: "light", section: "Expressão verbal · somos, mas não somos", body: (x) => <WeAreSlide x={x} v={vb} /> });
+    if (vb.usamos?.length || vb.trocas?.length) S.push({ key: "vocab", tone: "light", section: "Expressão verbal · vocabulário", body: (x) => <VocabSlide x={x} v={vb} /> });
+    if (vb.situacoes?.length) S.push({ key: "situacoes", tone: "light", section: "Expressão verbal · tom por situação", body: (x) => <SituationsSlide x={x} v={vb} /> });
+    if (vb.canais?.length) S.push({ key: "canais", tone: "light", section: "Expressão verbal · canais", body: (x) => <ChannelsSlide x={x} v={vb} /> });
+    if (vb.reescritas?.length) S.push({ key: "reescritas", tone: "light", section: "Expressão verbal · reescrita", body: (x) => <RewriteSlide x={x} v={vb} /> });
     const fala = arr(b.fala).length ? arr(b.fala) : mix[0]?.a.palavras || [];
     const nunca = arr(b.nunca).length ? arr(b.nunca) : mix.map((m) => m.a.nunca);
-    S.push({ key: "verbal", tone: "light", section: "Expressão verbal · tom de voz", body: (x) => (
+    S.push({ key: "verbal", tone: "light", section: "Expressão verbal · frases", body: (x) => (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: "100%", borderTop: `2px solid ${x.ink}` }}>
         <div style={{ paddingTop: 28, paddingRight: 48, borderRight: `1px solid ${x.ink}30` }}>
           <span style={x.B({ background: x.ink, color: x.paper, padding: "6px 14px", borderRadius: 99, fontSize: 13, fontWeight: 700, letterSpacing: ".15em", textTransform: "uppercase" })}>A marca fala</span>
@@ -454,6 +607,19 @@ function buildSlides(d: any, x0: Ctx, t: any, mockups: Mockup[] = []): SlideDef[
     );
   } });
 
+  /* direcionamento para a IA: o mesmo texto que vai junto dos pedidos de post e edição */
+  const prompt = brandPrompt(d);
+  S.push({ key: "ia", tone: "dark", section: "Direcionamento para IA", body: (x) => (
+    <div style={{ position: "absolute", inset: 0, padding: "56px 64px", display: "grid", gridTemplateColumns: "1fr 2.4fr", gap: 48 }}>
+      <div>
+        <Label x={x} style={{ color: x.acc }}>Direcionamento para IA</Label>
+        <p style={x.T({ fontSize: x.H * .07, color: x.paper, marginTop: 18, lineHeight: 1 })}>A marca explicada para a máquina.</p>
+        <p style={x.B({ fontSize: 15, lineHeight: 1.6, color: x.paper, opacity: .7, marginTop: 22 })}>Este texto vai junto de todo pedido de post, carrossel, roteiro e edição de vídeo no HUB e no Claude. Copie na etapa Manual para usar em qualquer IA.</p>
+      </div>
+      <div style={x.B({ columnCount: 3, columnGap: 28, fontSize: 9.5, lineHeight: 1.45, color: x.paper, opacity: .85, whiteSpace: "pre-wrap", overflow: "hidden" })}>{prompt.replace(/^# .*\n\n/, "")}</div>
+    </div>
+  ) });
+
   // encerramento
   S.push({ key: "fim", tone: "dark", section: "", bare: true, body: (x) => (
     <div style={{ position: "absolute", inset: 0, padding: "56px 72px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
@@ -514,13 +680,34 @@ export function ScaledSlide({ x, s, n, total }: { x: Ctx; s: SlideDef; n: number
     const ro = new ResizeObserver(() => setK(el.clientWidth / x.W)); ro.observe(el); setK(el.clientWidth / x.W);
     return () => ro.disconnect();
   }, [x.W]);
+  const near = useNear(ref, useLite() ? "40% 0px" : "100% 0px");
   return (
-    <div ref={ref} className="deck-wrap w-full relative overflow-hidden rounded-lg shadow-2xl" style={{ height: x.H * k }}>
-      <div className="deck-scale" style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>
+    <div ref={ref} className="deck-wrap w-full relative overflow-hidden rounded-lg shadow-2xl bg-panel2" style={{ height: x.H * k }}>
+      {near && <div className="deck-scale" style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}>
         <Frame x={x} s={s} n={n} total={total}>{s.body(x)}</Frame>
-      </div>
+      </div>}
     </div>
   );
+}
+
+/** o PDF: na hora de imprimir, os slides vão para uma camada própria no body, no tamanho real
+   (sem escala, sem o layout do HUB em volta), uma página por slide no tamanho do formato */
+export function PrintDeck({ x, slides }: { x: Ctx; slides: SlideDef[] }) {
+  const on = usePrintAll();
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!on) return;
+    const root = document.createElement("div"); root.className = "print-deck-root";
+    const st = document.createElement("style");
+    st.textContent = `@media print { @page { size: ${x.W}px ${x.H}px; margin: 0; } }`;
+    document.body.appendChild(root); document.head.appendChild(st); document.documentElement.classList.add("print-deck");
+    setEl(root);
+    return () => { root.remove(); st.remove(); document.documentElement.classList.remove("print-deck"); setEl(null); };
+  }, [on, x.W, x.H]);
+  if (!el) return null;
+  return createPortal(slides.map((s, i) => (
+    <div key={s.key} className="print-deck-page" style={{ width: x.W, height: x.H }}><Frame x={x} s={s} n={i + 1} total={slides.length}>{s.body(x)}</Frame></div>
+  )), el);
 }
 
 /** apresentação em tela cheia: setas para navegar, Esc para sair */
@@ -534,10 +721,17 @@ export function Presenter({ x, slides, start, onClose }: { x: Ctx; slides: Slide
     document.documentElement.requestFullscreen?.().catch(() => {});
     return () => { window.removeEventListener("resize", fit); window.removeEventListener("keydown", key); if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); };
   }, []); // eslint-disable-line
-  const k = Math.min(vp.w / x.W, vp.h / x.H);
+  // celular em pé com slide deitado: gira o slide para ocupar a tela inteira (como virar o aparelho)
+  const rot = vp.h > vp.w && x.W > x.H;
+  const k = rot ? Math.min(vp.h / x.W, vp.w / x.H) : Math.min(vp.w / x.W, vp.h / x.H);
+  const swipe = useRef<number | null>(null);
+  const go = (fwd: boolean) => setI((v) => (fwd ? Math.min(slides.length - 1, v + 1) : Math.max(0, v - 1)));
   return (
-    <div className="fixed inset-0 z-[100] bg-black grid place-items-center print:hidden" onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setI((v) => (e.clientX - r.left > r.width / 2 ? Math.min(slides.length - 1, v + 1) : Math.max(0, v - 1))); }}>
-      <div style={{ width: x.W * k, height: x.H * k }}><div style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}><Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame></div></div>
+    <div className="fixed inset-0 z-[100] bg-black grid place-items-center print:hidden touch-none"
+      onTouchStart={(e) => { swipe.current = rot ? e.touches[0].clientY : e.touches[0].clientX; }}
+      onTouchEnd={(e) => { const a = swipe.current; swipe.current = null; if (a == null) return; const b = rot ? e.changedTouches[0].clientY : e.changedTouches[0].clientX; if (Math.abs(b - a) > 40) { e.preventDefault(); go(b < a); } }}
+      onClick={(e) => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); go(rot ? e.clientY - r.top > r.height / 2 : e.clientX - r.left > r.width / 2); }}>
+      <div style={{ width: (rot ? x.H : x.W) * k, height: (rot ? x.W : x.H) * k }}><div style={{ transform: rot ? `translateX(${x.H * k}px) rotate(90deg) scale(${k})` : `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H }}><Frame x={x} s={slides[i]} n={i + 1} total={slides.length}>{slides[i].body(x)}</Frame></div></div>
       <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white/60 hover:text-white text-sm font-mono">Esc · sair</button>
       <span className="absolute bottom-4 right-4 text-white/50 text-xs font-mono">{i + 1} / {slides.length}</span>
     </div>

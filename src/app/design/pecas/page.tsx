@@ -6,14 +6,17 @@ import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { CAROUSEL_TEMPLATES, STATIC_TEMPLATES, timeAgo, uid } from "@/lib/design";
+import { confirmarExclusao } from "@/lib/lixeira";
+import Lixeira from "@/components/lixeira/Lixeira";
 
 export default function Pecas() {
   const router = useRouter();
   const [rows, setRows] = useState<any[] | null>(null);
   const [busy, setBusy] = useState("");
+  const [trash, setTrash] = useState<any[]>([]);
   useEffect(() => {
-    createClient().from("design_projects").select("id,kind,title,preview,updated_at,data").in("kind", ["carrossel", "peca"]).is("archived_at", null).order("updated_at", { ascending: false })
-      .then(({ data }) => setRows(data || []));
+    createClient().from("design_projects").select("id,kind,title,preview,updated_at,data,archived_at").in("kind", ["carrossel", "peca"]).order("updated_at", { ascending: false })
+      .then(({ data }) => { setRows((data || []).filter((r) => !r.archived_at)); setTrash((data || []).filter((r) => r.archived_at)); });
   }, []);
 
   async function start(kind: "carrossel" | "peca", key: string) {
@@ -27,9 +30,21 @@ export default function Pecas() {
     if (data) router.push(`/design/pecas/${data.id}`); else setBusy("");
   }
 
-  async function remove(id: string) {
-    await createClient().from("design_projects").update({ archived_at: new Date().toISOString() }).eq("id", id);
-    setRows((r) => r && r.filter((x) => x.id !== id));
+  // excluir: senha + lixeira por 15 dias (o cron hub-lixeira apaga de vez depois)
+  async function remove(r: any) {
+    if (!(await confirmarExclusao(`a peça "${r.title}"`))) return;
+    const at = new Date().toISOString();
+    const { error } = await createClient().from("design_projects").update({ archived_at: at }).eq("id", r.id);
+    if (error) return;
+    setRows((x) => x && x.filter((y) => y.id !== r.id));
+    setTrash((t) => [{ ...r, archived_at: at }, ...t]);
+  }
+  async function recuperar(id: string) {
+    const { error } = await createClient().from("design_projects").update({ archived_at: null }).eq("id", id);
+    if (error) return;
+    const r = trash.find((x) => x.id === id);
+    setTrash((t) => t.filter((x) => x.id !== id));
+    if (r) setRows((x) => [{ ...r, archived_at: null }, ...(x || [])]);
   }
 
   return (
@@ -68,14 +83,15 @@ export default function Pecas() {
           {rows.map((r) => (
             <div key={r.id} className="card overflow-hidden group relative">
               <Link href={`/design/pecas/${r.id}`} className="block">
-                <div className="aspect-[4/5] bg-panel2">{r.preview && <img src={r.preview} alt="" className="w-full h-full object-cover" />}</div>
+                <div className="aspect-[4/5] bg-panel2">{r.preview && <img loading="lazy" decoding="async" src={r.preview} alt="" className="w-full h-full object-cover" />}</div>
                 <div className="p-3"><p className="font-semibold text-sm truncate">{r.title}</p><p className="text-[11px] text-fog">{r.kind === "carrossel" ? `${(r.data?.slides || []).length} páginas` : "estática"} · {timeAgo(r.updated_at)}</p></div>
               </Link>
-              <button onClick={() => remove(r.id)} className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-ink/80 text-fog hover:text-danger grid place-items-center opacity-0 group-hover:opacity-100" aria-label="Arquivar"><I.trash className="w-3.5 h-3.5" /></button>
+              <button onClick={() => remove(r)} className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-ink/80 text-fog hover:text-danger grid place-items-center sm:opacity-0 group-hover:opacity-100 focus:opacity-100" aria-label="Excluir peça"><I.trash className="w-3.5 h-3.5" /></button>
             </div>
           ))}
         </div>
       )}
+      <Lixeira nome="Peças" itens={trash.map((r) => ({ id: r.id, titulo: r.title, sub: r.kind === "carrossel" ? "Carrossel" : "Peça", at: r.archived_at }))} onRecuperar={recuperar} />
     </>
   );
 }

@@ -7,6 +7,7 @@ import { useAI } from "@/lib/useAI";
 import { briefingProgress } from "@/lib/briefing";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const LV: Record<string, string> = { alto: "#6eefb6", medio: "#f5c84c", baixo: "#8a8f94" };
 
@@ -44,7 +45,7 @@ export default function Estrategia() {
     setCur({ ...cur, done });
     await createClient().from("growth_plans").update({ done }).eq("id", cur.id);
   }
-  async function del() { if (!confirm("Excluir esta estratégia?")) return; await createClient().from("growth_plans").delete().eq("id", cur.id); load(); }
+  async function del() { if (!(await apagarComLixeira({ tabela: "growth_plans", filtro: { id: cur.id }, oque: "esta estratégia", rotulo: "Estratégia: " + (cur.goal || cur.horizon || "sem título"), link: "/creator/estrategia" }))) return; load(); }
 
   const p = cur?.plan || {};
   const allActions: any[] = (p.fases || []).flatMap((x: any) => x.acoes || []);

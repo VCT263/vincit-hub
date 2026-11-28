@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Ajuda from "@/components/ajuda/Ajuda";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/server";
 import { brl, brlShort } from "@/lib/agency";
@@ -19,6 +20,11 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
   const supabase = await createClient();
   const { data: accData } = await supabase.rpc("my_access");
   const acc = (accData || { role: "user", tools: [] }) as Access;
+  // conta de cliente (ex.: ISYS) vê o nome da própria empresa; a equipe da VINCIT vê VINCIT
+  const { data: { user: eu } } = await supabase.auth.getUser();
+  const { data: perfil } = eu ? await supabase.from("profiles").select("company,brand_name").eq("id", eu.id).maybeSingle() : { data: null };
+  const ehEquipe = acc.role === "superadmin";
+  const casa = (!ehEquipe && (perfil?.company?.trim() || perfil?.brand_name?.trim())) || "VINCIT";
   const hasAgency = hubAllowed(acc.tools, "agency");
   const hasCreator = hubAllowed(acc.tools, "creator");
   const h = parseInt(new Date().toLocaleString("pt-BR", { hour: "numeric", hour12: false, timeZone: "America/Sao_Paulo" }));
@@ -118,7 +124,7 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 rise">
         <div>
           <p className="font-mono text-[11px] text-mint tracking-widest uppercase">{greet} · {dateLabel}</p>
-          <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight mt-2">Seu dia na VINCIT</h1>
+          <h1 className="font-display text-3xl md:text-5xl font-extrabold tracking-tight mt-2">Seu dia na {casa} <Ajuda tela className="relative -top-1.5 ml-1" /></h1>
           <p className="mt-3 text-[15px] md:text-base">
             {agora.length ? agora.map((a, i) => <span key={i}>{i > 0 && <span className="text-fog"> · </span>}<span className={a.red ? "text-danger" : ""}>{a.t}</span></span>) : <span className="text-fog">Nada pedindo atenção agora. Bom momento para planejar.</span>}
           </p>

@@ -68,10 +68,10 @@ export default function StrategyStep({ d, set }: StepProps) {
           {ARCH_GROUPS.map((g) => (
             <div key={g.k}>
               <p className="text-[11px] text-fog mb-1.5"><b className="text-paper">{g.l}</b> · {g.d}</p>
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-1.5">
                 {ARCHETYPES.filter((a) => a.grupo === g.k).map((a) => { const i = arch.indexOf(a.k); return (
                   <button key={a.k} onClick={() => toggle(a.k)} className={`w-full rounded-xl border p-3 text-left ${i >= 0 ? "border-mint bg-mint/10" : "border-line hover:border-fog"}`}>
-                    <div className="flex items-center justify-between gap-2"><p className="font-semibold text-sm">{a.l}</p>{i >= 0 && <span className="chip chip-mint !text-[10px]">{ARCH_ROLES[i].toLowerCase()} · {mix[i]?.pct}%</span>}</div>
+                    <div className="flex flex-wrap items-center justify-between gap-1"><p className="font-semibold text-sm">{a.l}</p>{i >= 0 && <span className="chip chip-mint !text-[10px]">{ARCH_ROLES[i].toLowerCase()} · {mix[i]?.pct}%</span>}</div>
                     <p className="text-xs text-fog mt-0.5">{a.d}</p>
                   </button>
                 ); })}
@@ -121,9 +121,9 @@ export default function StrategyStep({ d, set }: StepProps) {
       <section className="card p-5 rise">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <p className="font-mono text-[10px] uppercase tracking-widest text-fog">03 · Mapa de posicionamento</p>
-          <div className="flex gap-2 items-center text-xs text-fog">
+          <div className="flex flex-wrap gap-2 items-center text-xs text-fog min-w-0">
             Eixos
-            {[0, 1].map((i) => <select key={i} value={ax[i]} onChange={(e) => { const n: [string, string] = [...ax] as any; n[i] = e.target.value; up({ eixos: n }); }} className="input !w-auto !py-1 text-xs">{MAP_AXES.map(([k, a, z]) => <option key={k} value={k}>{a} ↔ {z}</option>)}</select>)}
+            {[0, 1].map((i) => <select key={i} value={ax[i]} onChange={(e) => { const n: [string, string] = [...ax] as any; n[i] = e.target.value; up({ eixos: n }); }} className="input !w-auto max-w-full !py-1 text-xs">{MAP_AXES.map(([k, a, z]) => <option key={k} value={k}>{a} ↔ {z}</option>)}</select>)}
           </div>
         </div>
         <div className="grid lg:grid-cols-[1fr_240px] gap-4">

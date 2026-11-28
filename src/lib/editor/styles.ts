@@ -173,6 +173,15 @@ export const ESTILOS: Estilo[] = [
     captions: true, cut: 0.6, camera: 1, zoom: false, transicao: "blur", look: "quente", fade: true,
     textos: { frase: true },
   },
+  {
+    num: "15", nome: "Explicativo editorial", formato: "ambos",
+    resumo: "Fala com páginas editoriais por cima (papel claro, título serifado, foto da peça em cartão) montadas pelo Claude a partir do roteiro. Legenda uma palavra por vez com a palavra forte gigante no meio.",
+    referencia: "Reels de vídeo explicativo montado pelo Claude e de plugin de legenda no Premiere (referências do Vinícius, 27/11).",
+    uso: "Educativo (tecido, caimento, jeitos de usar), história da peça pela fundadora, bastidores com explicação.",
+    legenda: { estilo: "chave", caixa_alta: false, palavras_por_tela: 4, animacao: "pop" }, fontes: { titulo: "Inter Black", legenda: "Inter Bold" },
+    captions: true, cut: 0, camera: 1, zoom: true, transicao: "corte", look: "natural", fade: true,
+    textos: {},
+  },
 ];
 
 export const estiloByNum = (n?: string | null) => ESTILOS.find((e) => e.num === String(n || "").padStart(2, "0"));

@@ -7,6 +7,7 @@ import { hubAllowed } from "@/lib/access";
 import { I } from "@/components/icons";
 import { RECUR, TEMPLATES, recurLabel } from "./shared";
 import { syncTask } from "@/lib/gsync";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 export const ROUTINE_SPACE = "Rotina";
 const WEEKDAY = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -67,7 +68,10 @@ export function RoutinesPanel({ spaces, statuses, tasks, today, onChanged, wide 
   }
   async function toggle(p: (typeof PRESETS)[number]) {
     setBusy(p.k);
-    if (active(p.title)) await s().from("ag_tasks").delete().eq("space_id", space.id).eq("title", p.title).eq("done", false).not("recurrence", "is", null);
+    if (active(p.title)) {
+      const { data: ids } = await s().from("ag_tasks").select("id").eq("space_id", space.id).eq("title", p.title).eq("done", false).not("recurrence", "is", null);
+      if (ids?.length) await apagarComLixeira({ tabela: "ag_tasks", filtro: { id: ids.map((x: any) => x.id) }, oque: `a rotina "${p.title}"`, rotulo: `Rotina: ${p.title}`, link: "/tarefas" });
+    }
     else await add(p.title, p.rule, firstDate(p, today), p.desc);
     setBusy(null); onChanged();
   }
@@ -76,7 +80,7 @@ export function RoutinesPanel({ spaces, statuses, tasks, today, onChanged, wide 
     setBusy("own"); await add(own.title.trim(), own.recurrence, own.due_date || today);
     setOwn({ ...own, title: "" }); setBusy(null); onChanged();
   }
-  async function stop(t: any) { await s().from("ag_tasks").delete().eq("id", t.id); onChanged(); }
+  async function stop(t: any) { if (await apagarComLixeira({ tabela: "ag_tasks", filtro: { id: t.id }, oque: `a rotina "${t.title}"`, rotulo: `Rotina: ${t.title}`, link: "/tarefas" })) onChanged(); }
 
   return (
     <>

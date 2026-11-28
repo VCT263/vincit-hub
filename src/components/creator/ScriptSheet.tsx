@@ -9,6 +9,7 @@ import { FRAMINGS } from "@/lib/shots";
 import { MOVES, PARTS, mmss, rowsFromScript, scriptExtras, speechSeconds } from "@/lib/roteiro";
 import { kitFrom } from "@/lib/design";
 import { parseFont } from "@/lib/editor/model";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Props = {
   item: any;
@@ -162,7 +163,7 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
 
   async function insertRows(list: any[], replace: boolean) {
     const c = s();
-    if (replace) await c.from("av_shots").delete().eq("content_id", id);
+    if (replace && shots?.length) await apagarComLixeira({ tabela: "av_shots", filtro: { content_id: id }, oque: "a tabela anterior", rotulo: "Roteiro técnico substituído", link: "/creator/producao", semSenha: true });
     const base = replace ? 0 : (shots?.[shots.length - 1]?.position || 0) + 1;
     if (list.length) {
       const { error } = await c.from("av_shots").insert(list.map((x, i) => ({ content_id: id, position: base + i, ...x })));
@@ -190,8 +191,9 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
     }
   }
   async function removeShot(sid: string) {
+    const sh = shots?.find((x) => x.id === sid);
+    if (!(await apagarComLixeira({ tabela: "av_shots", filtro: { id: sid }, oque: "esta linha do roteiro técnico", rotulo: `Linha do roteiro: ${(sh?.line || sh?.description || "sem texto").slice(0, 60)}` }))) return;
     setShots((l) => (l || []).filter((x) => x.id !== sid));
-    await s().from("av_shots").delete().eq("id", sid);
   }
   async function moveShot(i: number, d: -1 | 1) {
     if (!shots) return;
@@ -285,7 +287,7 @@ export default function ScriptSheet({ item, accountName, clientName, statusName,
           {/* cabeçalho */}
           <header className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5 min-w-0">
-              {brand.logo ? <img src={brand.logo} alt="" className="h-8 max-w-[140px] object-contain" /> : (
+              {brand.logo ? <img loading="lazy" decoding="async" src={brand.logo} alt="" className="h-8 max-w-[140px] object-contain" /> : (
                 <span className="w-8 h-8 rounded-[7px] grid place-items-center text-[15px] font-black sheet-ink shrink-0" style={{ ...chip, ...bf }}>{(brand.name || "V").slice(0, 1).toUpperCase()}</span>
               )}
               <span className="text-[15px] font-extrabold tracking-tight truncate" style={bf}>{brand.name}</span>

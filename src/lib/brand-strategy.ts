@@ -1,3 +1,4 @@
+import { tasteText } from "./brand-knowledge";
 /** Estratégia de marca: nichos, arquétipos e posicionamento (base para a criação ser intencional). */
 
 export type Niche = { k: string; l: string; codigos: string; quebrar: string; cores: string[]; fontes: string; formas: string; busca: string[]; evitar: string };
@@ -107,5 +108,32 @@ export function strategyText(d: any = {}) {
     arr(s.fala).length && `A marca fala: ${arr(s.fala).join("; ")}`,
     arr(s.nunca).length && `A marca nunca fala: ${arr(s.nunca).join("; ")}`,
     t && `Território criativo escolhido: ${t.nome}. ${t.ideia} Forma: ${t.forma}. Cor: ${t.cor}. Tipografia: ${t.tipo}.`,
+    tasteText(d.gosto),
   ].filter(Boolean).join("\n");
 }
+
+/** o arquétipo por dentro (Mark & Pearson, "O herói e o fora da lei"): o que ele deseja, o que teme,
+   como age, o dom que oferece e a armadilha em que a marca cai quando exagera. Vai no manual,
+   uma página por arquétipo da hierarquia. */
+export const ARCH_DEPTH: Record<string, { lema: string; desejo: string; medo: string; estrategia: string; talento: string; armadilha: string }> = {
+  inocente: { lema: "Livre para ser você mesmo", desejo: "Viver em paz, com simplicidade e bem-estar.", medo: "Errar, ser punido, perder a pureza.", estrategia: "Fazer o certo, do jeito simples.", talento: "Fé, otimismo, confiança.", armadilha: "Ingenuidade e discurso açucarado que ninguém acredita." },
+  sabio: { lema: "A verdade liberta", desejo: "Entender o mundo e encontrar a verdade.", medo: "Ser enganado, parecer ignorante.", estrategia: "Buscar informação, analisar, ensinar.", talento: "Sabedoria, clareza, critério.", armadilha: "Falar de cima, virar aula chata e não agir." },
+  explorador: { lema: "Não me prenda", desejo: "Liberdade para descobrir e viver o autêntico.", medo: "Ficar preso, vazio, igual a todos.", estrategia: "Viajar, experimentar, sair do roteiro.", talento: "Autonomia, ambição, ser fiel à própria alma.", armadilha: "Não pertencer a lugar nenhum e não entregar o básico." },
+  rebelde: { lema: "Regras foram feitas para ser quebradas", desejo: "Revolução: derrubar o que não funciona.", medo: "Ser impotente, irrelevante, domesticado.", estrategia: "Romper, chocar, propor o oposto.", talento: "Coragem, liberdade radical, ousadia.", armadilha: "Brigar por brigar e soar só do contra." },
+  mago: { lema: "Faço as coisas acontecerem", desejo: "Transformar: entender as leis do mundo e mudá-lo.", medo: "Consequências não previstas, perder o encanto.", estrategia: "Criar uma visão e vivê-la até ela virar real.", talento: "Encontrar soluções que parecem mágica.", armadilha: "Prometer milagre e manipular." },
+  heroi: { lema: "Onde há vontade, há caminho", desejo: "Provar valor com atos corajosos.", medo: "Fraqueza, vulnerabilidade, desistir.", estrategia: "Ficar mais forte e competente, encarar o desafio.", talento: "Competência, coragem, disciplina.", armadilha: "Arrogância, precisar sempre de um inimigo." },
+  amante: { lema: "Só tenho olhos para você", desejo: "Intimidade, beleza e prazer dos sentidos.", medo: "Ficar só, ser indesejado, invisível.", estrategia: "Ficar mais atraente física e emocionalmente.", talento: "Paixão, gratidão, compromisso, cuidado estético.", armadilha: "Agradar a todos e perder a própria identidade." },
+  bobo: { lema: "Se não posso dançar, não é minha revolução", desejo: "Viver o momento com alegria.", medo: "Tédio, ser chato.", estrategia: "Brincar, fazer piada, ser leve.", talento: "Alegria, humor que aproxima.", armadilha: "Frivolidade, perder a seriedade quando ela é preciso." },
+  cara_comum: { lema: "Todo mundo é igual", desejo: "Pertencer, se conectar com os outros.", medo: "Ficar de fora, se destacar demais.", estrategia: "Ser gente como a gente, sem pose.", talento: "Realismo, empatia, falta de pretensão.", armadilha: "Sumir no meio, virar comum demais." },
+  cuidador: { lema: "Ama o próximo como a ti mesmo", desejo: "Proteger e cuidar das pessoas.", medo: "Egoísmo, ingratidão, não poder ajudar.", estrategia: "Fazer pelos outros, antecipar a necessidade.", talento: "Compaixão, generosidade, acolhimento.", armadilha: "Sufocar, se anular, soar maternal demais." },
+  governante: { lema: "Poder não é tudo, é a única coisa", desejo: "Controle e estabilidade.", medo: "Caos, ser derrubado.", estrategia: "Exercer liderança, criar padrão.", talento: "Responsabilidade, liderança, ordem.", armadilha: "Ser autoritário e distante." },
+  criador: { lema: "Se pode ser imaginado, pode ser feito", desejo: "Criar algo de valor duradouro.", medo: "Mediocridade, visão mal executada.", estrategia: "Dominar o ofício e dar forma à ideia.", talento: "Criatividade, imaginação, acabamento.", armadilha: "Perfeccionismo que nunca entrega." },
+};
+
+/** tom de voz em 4 dimensões (Nielsen Norman Group): 0 = esquerda, 100 = direita */
+export const TONE_AXES: [string, string, string][] = [
+  ["formal", "Formal", "Casual"],
+  ["serio", "Sério", "Divertido"],
+  ["respeito", "Respeitoso", "Irreverente"],
+  ["energia", "Entusiasmado", "Objetivo"],
+];

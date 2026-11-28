@@ -1,6 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { apagarComLixeira } from "@/lib/lixeira";
+
+const TIPOS: Record<string, string> = { ag_clients: "Cliente", ag_deals: "Negócio do funil", ag_equipment: "Equipamento", ag_team: "Pessoa da equipe", ag_price_items: "Item de preço", ag_events: "Evento" };
 
 /** CRUD genérico para as tabelas do GESTOR (RLS garante que só o dono vê). */
 export function useTable<T = any>(table: string, opts: { select?: string; order?: string; asc?: boolean; filter?: [string, any] } = {}) {
@@ -34,9 +37,12 @@ export function useTable<T = any>(table: string, opts: { select?: string; order?
     const { error } = await createClient().from(table).update(values).eq("id", id);
     if (error) { setError(error.message); load(); }
   }
-  async function remove(id: string) {
-    const { error } = await createClient().from(table).delete().eq("id", id);
-    if (error) setError(error.message); else load();
+  /** excluir = pedir a senha e mandar para a lixeira (15 dias para recuperar). nome aparece no aviso e na Lixeira. */
+  async function remove(id: string, nome?: string, link?: string) {
+    const tipo = TIPOS[table] || "Item";
+    const ok = await apagarComLixeira({ tabela: table, filtro: { id }, oque: nome ? `"${nome}"` : "este item", rotulo: nome ? `${tipo}: ${nome}` : tipo, link });
+    if (ok) await load();
+    return ok;
   }
   return { rows, loading, error, reload: load, save, patch, remove, setRows };
 }

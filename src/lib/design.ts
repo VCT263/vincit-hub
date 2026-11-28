@@ -2,12 +2,13 @@ import { FONT_LIB, fontCssUrl, fontDef } from "./fonts";
 /** Seção Design: criação de marca (briefing → referências → logo → cores → tipografia → manual) e peças (carrossel e estático). */
 
 export type Kind = "marca" | "carrossel" | "peca";
-export type Step = "estrategia" | "briefing" | "conceito" | "referencias" | "simbolo" | "logotipo" | "construcao" | "cores" | "tipografia" | "grafismos" | "aplicacoes" | "manual";
+export type Step = "estrategia" | "briefing" | "preprojeto" | "conceito" | "referencias" | "simbolo" | "logotipo" | "construcao" | "cores" | "tipografia" | "grafismos" | "aplicacoes" | "manual";
 
 export const PHASES = ["Estratégia", "Conceito", "Construção", "Sistema", "Entrega"];
 export const STEPS: { k: Step; l: string; fase: string; d: string; dica: string }[] = [
   { k: "estrategia", fase: "Estratégia", l: "Nicho e posição", d: "Em que mercado a marca joga, que arquétipo ela veste e onde fica no mapa contra os concorrentes.", dica: "Os melhores cases do Behance começam pelo sentido, não pela logo: pesquisa de público, mapa de concorrentes e o código visual do nicho, para decidir o que seguir e o que quebrar." },
   { k: "briefing", fase: "Estratégia", l: "Plataforma", d: "Propósito, missão, pilares, personalidade e identidade verbal.", dica: "Cada elemento (nome, fonte, composição, texto) precisa carregar o mesmo significado. A plataforma é o filtro de todas as decisões de forma." },
+  { k: "preprojeto", fase: "Estratégia", l: "Pré-projeto", d: "O mostruário do gosto: tipos de letra, letras por estilo, pesos e o mapa do que o cliente gosta e não gosta.", dica: "Como um arquiteto com amostras de piso e tinta: antes de desenhar, mostre muitas opções e deixe o cliente apontar. Cada amostra tem código, e o resultado guia território, logotipo e tipografia." },
   { k: "conceito", fase: "Conceito", l: "Território criativo", d: "A grande ideia: uma metáfora que vira forma, cor e tipografia.", dica: "Explore 3 territórios bem diferentes antes de desenhar. O escolhido guia símbolo, cores e fontes, e é o que dá intenção ao design." },
   { k: "referencias", fase: "Conceito", l: "Referências", d: "Moodboard do território: o que inspira e o que evitar.", dica: "Junte marcas do nicho e de fora dele. Anote o porquê de cada uma: é a nota que ensina o Claude e o seu olho." },
   { k: "simbolo", fase: "Construção", l: "Símbolo e monograma", d: "Exploração do símbolo e das iniciais, com vários caminhos lado a lado.", dica: "Desenhe largo: símbolo abstrato, figurativo, monograma, selo. Funciona pequeno? Funciona em uma cor? Tem uma ideia por trás?" },
@@ -286,8 +287,8 @@ export const SIZES = [
   { k: "1x1", l: "Quadrado 1:1", w: 1080, h: 1080 },
   { k: "9x16", l: "Stories 9:16", w: 1080, h: 1920 },
 ];
-export type Slide = { id: string; layout: "capa" | "texto" | "lista" | "citacao" | "cta"; kicker?: string; title: string; body?: string; img?: string; bg: "primaria" | "escuro" | "claro" | "imagem" | "destaque" };
-export type Kit = { colors: Record<string, string>; title: string; body: string; tw: number; logo?: string; name?: string };
+export type Slide = { id: string; layout: "capa" | "texto" | "lista" | "citacao" | "cta"; kicker?: string; title: string; body?: string; img?: string; bg: "primaria" | "escuro" | "claro" | "imagem" | "destaque"; grafismo?: boolean };
+export type Kit = { colors: Record<string, string>; title: string; body: string; tw: number; logo?: string; logoSvg?: string; name?: string; pattern?: { d: any; p: Pattern } };
 
 export const DEFAULT_KIT: Kit = { colors: { Primária: "#6eefb6", Apoio: "#3d525a", Destaque: "#f5c84c", Escuro: "#0c0c0d", Claro: "#f1f1f1" }, title: "Bricolage Grotesque", body: "Inter", tw: 800, name: "VINCIT" };
 
@@ -297,7 +298,11 @@ export function kitFrom(brand: any): Kit {
   for (const s of (d.palette || []) as Swatch[]) colors[s.role] = s.hex;
   const pair = d.type || {};
   const fav = ((d.logos || []) as Logo[]).find((l) => l.id === d.logo_id) || ((d.logos || []) as Logo[]).find((l) => l.fav);
-  return { colors, title: pair.title || DEFAULT_KIT.title, body: pair.body || DEFAULT_KIT.body, tw: pair.tw || 800, logo: fav?.svg ? svgUrl(fav.svg) : fav?.img, name: d.brief?.nome || brand?.title };
+  // logotipo da v2 (vetor desenhado) vale mais que o logo antigo da v1; nas peças ele ganha a cor do texto
+  const lt = d.logotype?.svg as string | undefined;
+  return { colors, title: pair.title || DEFAULT_KIT.title, body: pair.body || DEFAULT_KIT.body, tw: pair.tw || 800, logo: lt ? svgUrl(lt) : fav?.svg ? svgUrl(fav.svg) : fav?.img, logoSvg: lt || fav?.svg, name: d.brief?.nome || brand?.title,
+    // grafismo da etapa Grafismos (ex.: losango do i da ISYS): vai nas peças como textura
+    pattern: d.pattern ? { d, p: { source: d.monogram ? "monograma" : "simbolo", scale: 120, gap: 60, rotate: 0, offset: true, opacity: 1, bg: "#000", fg: "#000", ...d.pattern } } : undefined };
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -368,6 +373,15 @@ export async function drawSlide(cv: HTMLCanvasElement, s: Slide, kit: Kit, size:
     } catch {}
   }
   const accent = s.bg === "primaria" || s.bg === "destaque" ? fg : C["Primária"] === bg ? C["Destaque"] : C["Primária"];
+  // grafismo da marca: ligado por padrão na capa e na chamada final, desligável por página
+  if (kit.pattern && s.bg !== "imagem" && (s.grafismo ?? (s.layout === "capa" || s.layout === "cta"))) {
+    try {
+      const sc = W / 1080;
+      const svg = patternSvg(kit.pattern.d, { ...kit.pattern.p, bg: "none", fg, scale: kit.pattern.p.scale * sc, gap: kit.pattern.p.gap * sc }, W, H);
+      const pi = await loadImg(svgUrl(svg));
+      ctx.globalAlpha = .13; ctx.drawImage(pi, 0, 0, W, H); ctx.globalAlpha = 1;
+    } catch {}
+  }
   ctx.textBaseline = "alphabetic";
   const maxW = W - P * 2;
   const tSize = s.layout === "capa" ? W * .1 : s.layout === "citacao" ? W * .075 : W * .078;
@@ -396,7 +410,7 @@ export async function drawSlide(cv: HTMLCanvasElement, s: Slide, kit: Kit, size:
   // rodapé: logo ou nome + paginação
   const fy = H - P * .6;
   if (kit.logo) {
-    try { const lg = await loadImg(kit.logo); const lh = W * .045, lw = Math.min(W * .3, (lg.width / lg.height) * lh); ctx.drawImage(lg, P, fy - lh, lw, lh); } catch {}
+    try { const lg = await loadImg(kit.logoSvg ? svgUrl(monoSvg(kit.logoSvg, fg)) : kit.logo); const lh = W * .045, lw = Math.min(W * .3, (lg.width / lg.height) * lh); ctx.drawImage(lg, P, fy - lh, lw, lh); } catch {}
   } else if (kit.name) { ctx.fillStyle = fg; ctx.globalAlpha = .7; ctx.font = `700 ${W * .026}px "${kit.title}"`; ctx.fillText(kit.name, P, fy); ctx.globalAlpha = 1; }
   if (total > 1) { ctx.fillStyle = fg; ctx.globalAlpha = .6; ctx.font = `600 ${W * .026}px "${kit.body}"`; const t = `${n}/${total}`; ctx.fillText(t, W - P - ctx.measureText(t).width, fy); ctx.globalAlpha = 1; }
   if (s.layout === "capa" && total > 1) { ctx.fillStyle = accent; ctx.font = `700 ${W * .028}px "${kit.body}"`; const t = "arraste →"; ctx.fillText(t, W - P - ctx.measureText(t).width, P + W * .02); }

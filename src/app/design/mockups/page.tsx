@@ -2,9 +2,11 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PageHead from "@/components/PageHead";
+import { I } from "@/components/icons";
 import { processPsd } from "@/lib/mockupPsd";
 import { layerPixels, maskPixels, prepareLayer, readPsd } from "@/lib/psdRead";
-import { CATS, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
+import { CATS, MockupCover, byGroup, refreshMockups, type Mockup } from "@/components/design/brand/MockupView";
+import { useRef } from "react";
 
 /* Biblioteca de mockups fotográficos. Importar: cola o link de um mockup grátis do mockups-design.com;
    o Supabase baixa o .zip (função mockup-fetch), o navegador lê cada PSD, separa foto e mapa de luz da área
@@ -45,6 +47,10 @@ export default function MockupsPage() {
   const [title, setTitle] = useState("");
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [brandId, setBrandId] = useState("");
+  const brand = brands.find((b) => b.id === brandId);
+  useEffect(() => { createClient().from("design_projects").select("id,title,data").eq("kind", "marca").is("archived_at", null).order("updated_at", { ascending: false }).then(({ data }) => setBrands(data || [])); }, []);
   const load = () => createClient().from("design_mockups").select("*").order("category").order("sort").then(({ data }) => setRows((data as Mockup[]) || []));
   useEffect(() => { load(); }, []);
   const say = (m: string) => setLog((l) => [...l.slice(-12), m]);
@@ -89,23 +95,38 @@ export default function MockupsPage() {
   return (
     <>
       <PageHead kicker="Design · Mockups" title="Mockups fotográficos" desc="Fotos profissionais em que o logo, as cores e o grafismo de cada marca entram sozinhos, com a perspectiva, a luz e a sombra originais. Vêm dos PSD grátis do mockups-design.com." />
-      <div className="card p-4 space-y-3 mb-6">
-        <p className="font-semibold text-sm">Importar do mockups-design.com</p>
+      <details className="card p-4 mb-6 group" open={busy || !!log.length || undefined}>
+        <summary className="font-semibold text-sm cursor-pointer list-none flex items-center gap-2"><I.plus className="w-4 h-4 text-mint" />Importar novo mockup do mockups-design.com</summary>
+        <div className="space-y-3 mt-3">
         <div className="flex flex-wrap gap-2">
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mockups-design.com/…-mockup/" className="input flex-1 min-w-64 !py-1.5 text-sm" />
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://mockups-design.com/…-mockup/" className="input flex-1 min-w-0 sm:min-w-64 !py-1.5 text-sm" />
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nome (opcional)" className="input w-48 !py-1.5 text-sm" />
           <select value={cat} onChange={(e) => setCat(e.target.value)} className="input w-44 !py-1.5 text-sm">{Object.entries(CATS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           <button onClick={importar} disabled={busy || !url} className="btn btn-mint !py-1.5 text-sm">{busy ? "Importando…" : "Importar"}</button>
         </div>
         <p className="text-[11px] text-fog">Leva de 20 segundos a 2 minutos por pacote (o arquivo tem de 50 a 300 MB e é processado aqui no navegador). Funciona melhor com mockups de objeto inteligente plano ou em perspectiva; efeitos 3D de camada (chanfro, relevo) não são lidos. Licença do site: uso comercial liberado; o PSD não é guardado nem repassado.</p>
         {!!log.length && <div className="font-mono text-[11px] text-fog space-y-0.5">{log.map((l, i) => <p key={i}>{l}</p>)}</div>}
-      </div>
+        </div>
+      </details>
+      {!!brands.length && <div className="flex flex-wrap items-center gap-2 mb-5">
+        <span className="text-sm text-fog">Ver com a marca</span>
+        <button onClick={() => setBrandId("")} className={`chip !px-3 !py-1 ${!brandId ? "chip-mint" : ""}`}>Em branco</button>
+        {brands.map((b) => <button key={b.id} onClick={() => setBrandId(b.id)} className={`chip !px-3 !py-1 ${brandId === b.id ? "chip-mint" : ""}`}>{b.title}</button>)}
+      </div>}
       {rows === null ? <div className="card h-40 animate-pulse" /> : (
+        <div className="space-y-8">
+        {byGroup(rows).map(({ g, items }) => (
+        <section key={g.k} className="space-y-3">
+          <div className="flex items-baseline gap-3 border-b border-line pb-2">
+            <h2 className="font-semibold">{g.l}</h2>
+            <p className="text-xs text-fog">{g.d} · {items.length} {items.length === 1 ? "mockup" : "mockups"}</p>
+          </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {rows.map((m) => (
+          {items.map((m) => (
             <div key={m.id} className={`card overflow-hidden ${m.active ? "" : "opacity-50"}`}>
+              {brand ? <Preview d={brand.data || {}} m={m} /> : <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" />
+              <img loading="lazy" decoding="async" src={m.thumb_url || m.base_url} alt="" className="w-full aspect-[4/3] object-cover" /></>}
               <div className="p-3 space-y-1.5">
                 <p className="text-sm font-semibold truncate">{m.title}</p>
                 <p className="text-[11px] text-fog">{m.slots.length} {m.slots.length === 1 ? "área" : "áreas"} · {m.width}×{m.height}</p>
@@ -117,9 +138,26 @@ export default function MockupsPage() {
             </div>
           ))}
         </div>
+        </section>
+        ))}
+        </div>
       )}
     </>
   );
+}
+
+/** prévia do mockup com a marca escolhida; só monta quando chega perto da tela (memória do celular) */
+function Preview({ d, m }: { d: any; m: Mockup }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth)); ro.observe(el);
+    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { rootMargin: "300px" }); io.observe(el);
+    return () => { ro.disconnect(); io.disconnect(); };
+  }, []);
+  return <div ref={ref} className="relative w-full aspect-[4/3] bg-panel2 overflow-hidden">{on && w > 0 && <MockupCover d={d} m={m} W={w} H={w * .75} />}</div>;
 }
 
 function flatten(list: any[]): any[] { return list.flatMap((l) => (l.children ? [l, ...flatten(l.children)] : [l])); }

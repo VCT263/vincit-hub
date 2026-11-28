@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { PAIRS, loadFonts, type Pair } from "@/lib/design";
 import { FONT_CATS, fontDef, fontsOfCat, type FontCat } from "@/lib/fonts";
 import { archetypeMix } from "@/lib/brand-strategy";
-import { VOICES, systemsFor, type TypeSystem } from "@/lib/brand-knowledge";
+import { VOICES, systemsFor, TYPE_GROUPS, TYPE_GUIDE, TYPE_AXES, tasteText, type TypeSystem } from "@/lib/brand-knowledge";
 import { SCALES } from "@/lib/brand-strategy";
 import { FontSelect } from "../ui";
 import type { StepProps } from "./types";
@@ -31,6 +31,10 @@ export default function TypeStep({ d, set }: StepProps) {
   useEffect(() => { loadFonts(PAIRS.flatMap((p) => [p.title, p.body])); }, []);
   const mix = archetypeMix(d.strategy);
   const [cat, setCat] = useState<FontCat>((fontDef(mix[0]?.a.fontes[0] || "")?.cat) || "grotesca");
+  const [guide, setGuide] = useState(!d.gosto?.fontes);
+  const taste = Object.entries(d.gosto?.fontes || {}).filter(([, v]) => v === 1).map(([f]) => f);
+  useEffect(() => { loadFonts(taste); }, [taste.length]); // eslint-disable-line
+  useEffect(() => { loadFonts(TYPE_GUIDE.map((c) => c.ex)); }, []);
   useEffect(() => { loadFonts([...fontsOfCat(cat).map((x) => x.f), ...mix.flatMap((m) => m.a.fontes)]); }, [cat, mix.length]); // eslint-disable-line
   const ranked = systemsFor(mix.map((m) => m.a.k), d.strategy?.nicho);
   useEffect(() => { loadFonts(ranked.flatMap(({ s }) => [s.estrutura, s.editorial, s.gesto || ""]).filter(Boolean)); }, []); // eslint-disable-line
@@ -110,6 +114,20 @@ export default function TypeStep({ d, set }: StepProps) {
         )}
       </section>
 
+      {taste.length > 0 && (
+        <section className="card p-5">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-1">Do pré-projeto · letras que o cliente gostou</p>
+          <p className="text-xs text-fog mb-3 whitespace-pre-line">{tasteText(d.gosto)}</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{taste.map((f) => (
+            <div key={f} className="flex items-center gap-2 rounded-xl border border-line p-3">
+              <span className="flex-1 text-2xl truncate" style={{ fontFamily: `"${f}"` }}>{name}</span>
+              <button onClick={() => useAs(f, "title")} className={`chip !px-2 !py-0.5 ${t.title === f ? "chip-mint" : ""}`}>Título</button>
+              <button onClick={() => useAs(f, "body")} className={`chip !px-2 !py-0.5 ${t.body === f ? "chip-mint" : ""}`}>Texto</button>
+            </div>
+          ))}</div>
+        </section>
+      )}
+
       {mix.length > 0 && (
         <section className="card p-5">
           <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Pelos arquétipos</p>
@@ -129,6 +147,37 @@ export default function TypeStep({ d, set }: StepProps) {
           </div>
         </section>
       )}
+
+      <section className="card p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1"><p className="font-mono text-[10px] uppercase tracking-widest text-fog">Guia · tipos de letra</p><button onClick={() => setGuide(!guide)} className="chip !px-3 !py-1">{guide ? "Recolher" : "Abrir guia"}</button></div>
+        <p className="text-xs text-fog max-w-3xl">Antes de escolher a fonte, descubra com o cliente o tipo de letra que combina com ele. Toque num tipo para ver as fontes dele no acervo.</p>
+        {guide && (
+          <div className="mt-4 space-y-5">
+            {TYPE_GROUPS.map((g) => (
+              <div key={g.k}>
+                <p className="text-sm font-semibold">{g.l}</p>
+                <p className="text-xs text-fog mb-2 max-w-3xl">{g.d}</p>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {TYPE_GUIDE.filter((c) => c.grupo === g.k).map((c) => (
+                    <button key={c.k} onClick={() => setCat(c.cat)} className={`text-left rounded-xl border p-3 transition-colors ${cat === c.cat ? "border-mint" : "border-line hover:border-fog"}`}>
+                      <div className="rounded-lg bg-[#f4f1ea] text-[#161616] px-3 py-2 overflow-hidden"><p className="text-3xl truncate leading-tight" style={{ fontFamily: `"${c.ex}"`, fontWeight: c.w || 400 }}>{name}</p><p className="text-[10px] opacity-60 mt-0.5">{c.ex}</p></div>
+                      <p className="font-semibold text-sm mt-2">{c.l}</p>
+                      <p className="text-xs text-fog mt-1">{c.oque}</p>
+                      <p className="text-xs mt-1.5"><span className="text-fog">Passa:</span> {c.sente}</p>
+                      <p className="text-xs mt-0.5"><span className="text-fog">Use em:</span> {c.usar}</p>
+                      <p className="text-xs mt-0.5"><span className="text-fog">Evite:</span> {c.evitar}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div>
+              <p className="text-sm font-semibold">Dentro do mesmo tipo, o que muda</p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2 mt-2">{TYPE_AXES.map((a) => <div key={a.l} className="rounded-xl bg-panel2 p-3"><p className="text-sm font-semibold">{a.l}</p><p className="text-xs text-fog mt-1">{a.d}</p></div>)}</div>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="card p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3"><p className="font-mono text-[10px] uppercase tracking-widest text-fog">Acervo · Google Fonts e Fontshare, grátis para uso comercial</p><p className="text-xs text-fog">{FONT_CATS.find((c) => c.k === cat)?.d}</p></div>

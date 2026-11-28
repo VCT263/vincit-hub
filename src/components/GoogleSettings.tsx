@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Ajuda from "@/components/ajuda/Ajuda";
 
 function GIcon({ className = "w-5 h-5" }: { className?: string }) {
   // ícone genérico de calendário
@@ -65,7 +66,7 @@ export default function GoogleSettings() {
       <div className="flex items-start gap-3">
         <span className="w-10 h-10 rounded-xl bg-panel2 grid place-items-center text-mint shrink-0"><GIcon /></span>
         <div className="flex-1 min-w-0">
-          <p className="font-display font-bold">Google Agenda</p>
+          <p className="font-display font-bold flex items-center gap-2">Google Agenda <Ajuda id="google" /></p>
           <p className="text-xs text-fog mt-0.5">Sincronize a Agenda e as tarefas com prazo de Seu dia com o seu Google Agenda.</p>
         </div>
       </div>

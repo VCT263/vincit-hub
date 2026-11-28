@@ -151,7 +151,7 @@ export function SignalColumns({ posts, onPick }: { posts: { id: string; date: st
       {h && (
         <div className="absolute top-0 pointer-events-none card p-2.5 text-xs shadow-xl w-56" style={{ left: `${((L + slot * hover! + slot / 2) / W) * 100}%`, transform: `translateX(${hover! > n / 2 ? "-105%" : "5%"})` }}>
           <div className="flex gap-2">
-            {h.thumb ? <img src={h.thumb} alt="" className="w-10 h-10 rounded object-cover" /> : null}
+            {h.thumb ? <img loading="lazy" decoding="async" src={h.thumb} alt="" className="w-10 h-10 rounded object-cover" /> : null}
             <div className="min-w-0"><p className="text-fog">{diaCurto(h.date)} · {h.tipo}</p><p className="truncate text-paper">{h.caption || "(sem legenda)"}</p></div>
           </div>
           <p className="mt-2 flex justify-between"><span><span className="inline-block w-2 h-2 rounded-sm bg-mint mr-1.5" />Compartilhamentos</span><b className="text-paper">{(h.a * 100).toFixed(2)}%</b></p>

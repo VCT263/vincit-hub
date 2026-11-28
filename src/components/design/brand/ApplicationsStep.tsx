@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/client";
 import { shrink, uid } from "@/lib/design";
 import Mockups from "./Mockups";
 import { PhotoScene, SCENES, Scene, SceneStyle, sceneKit, type Foto } from "./Scenes";
-import { ARTS, CATS, MockupStage, useMockups } from "./MockupView";
+import { useLite, useNear } from "./lazy";
+import { ARTS, MockupStage, byGroup, groupOf, useMockups, type Mockup } from "./MockupView";
 import type { StepProps } from "./types";
 
 /* mockups-design.com: licença permite uso comercial e para clientes, sem crédito; só não pode redistribuir os PSD */
@@ -25,9 +26,10 @@ function Fit({ children, w = W, h = H }: { children: ReactNode; w?: number; h?: 
     const ro = new ResizeObserver(() => setK(el.clientWidth / w)); ro.observe(el); setK(el.clientWidth / w);
     return () => ro.disconnect();
   }, [w]);
+  const near = useNear(ref, useLite() ? "40% 0px" : "100% 0px");
   return (
-    <div ref={ref} className="relative w-full overflow-hidden rounded-lg" style={{ height: h * k }}>
-      <div style={{ position: "absolute", left: 0, top: 0, width: w, height: h, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+    <div ref={ref} className="relative w-full overflow-hidden rounded-lg bg-panel2" style={{ height: h * k }}>
+      {near && <div style={{ position: "absolute", left: 0, top: 0, width: w, height: h, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>}
     </div>
   );
 }
@@ -75,7 +77,7 @@ export default function ApplicationsStep({ d, set, go }: StepProps) {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="font-semibold">Mockups fotográficos</p>
-            <p className="text-xs text-fog">Fotos profissionais (PSD grátis do mockups-design.com) com o logo, as cores e o grafismo da marca aplicados em perspectiva, com a luz, o papel e a sombra da foto. Cada um marcado vira uma página do manual. Escolha a arte de cada área nos botões.</p>
+            <p className="text-xs text-fog">Fotos profissionais (PSD grátis do mockups-design.com) com o logo, as cores e o grafismo da marca aplicados em perspectiva, com a luz, o papel e a sombra da foto. Cada um marcado vira uma página do manual. Cada área já recebe a peça certa (carta, cartão, story, claquete…) escrita na voz da marca; troque a arte de uma área na lista, se quiser.</p>
           </div>
           <a href="/design/mockups" className="btn btn-ghost !py-1.5 text-sm">Biblioteca e importar ↗</a>
         </div>
@@ -83,29 +85,39 @@ export default function ApplicationsStep({ d, set, go }: StepProps) {
           <>
             <div className="flex flex-wrap gap-1.5">
               <button onClick={() => setCat("")} className={`chip ${!cat ? "!border-mint text-mint" : ""}`}>Todos · {lib.length}</button>
-              {Array.from(new Set(lib.map((m) => m.category))).map((c) => <button key={c} onClick={() => setCat(c)} className={`chip ${cat === c ? "!border-mint text-mint" : ""}`}>{CATS[c] || c}</button>)}
+              {byGroup(lib).map(({ g, items }) => <button key={g.k} onClick={() => setCat(g.k)} className={`chip ${cat === g.k ? "!border-mint text-mint" : ""}`}>{g.l} · {items.length}</button>)}
               <span className="text-[11px] text-fog self-center ml-auto">{chosen.length} no manual</span>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {lib.filter((m) => !cat || m.category === cat).map((m) => {
-                const on = chosen.includes(m.id);
-                return (
-                  <div key={m.id} className={`rounded-xl border p-2 transition-colors ${on ? "border-mint" : "border-line"}`}>
-                    <button onClick={() => toggleMk(m.id)} className="block w-full text-left"><Fit w={m.width} h={m.height}><MockupStage d={d} m={m} arts={arts[m.id]} /></Fit></button>
-                    <div className="flex items-center justify-between px-1 pt-2 gap-2">
-                      <span className="text-sm font-semibold truncate">{m.title}</span>
-                      <button onClick={() => toggleMk(m.id)} className={`text-[11px] font-mono shrink-0 ${on ? "text-mint" : "text-fog"}`}>{on ? "no manual" : "fora"}</button>
-                    </div>
-                    {m.slots.map((sl, i) => (
-                      <div key={i} className="flex flex-wrap gap-1 px-1 pt-1.5">
-                        {m.slots.length > 1 && <span className="text-[10px] text-fog self-center mr-1">{sl.name}</span>}
-                        {ARTS.map((a) => { const cur = (arts[m.id] || [])[i] || sl.art || "claro"; return <button key={a.k} onClick={() => setArt(m.id, i, a.k, m.slots.length)} className={`chip !text-[10px] !px-1.5 !py-0 ${cur === a.k ? "!border-mint text-mint" : ""}`}>{a.l}</button>; })}
+            {byGroup(lib.filter((m) => !cat || groupOf(m.category).k === cat)).map(({ g, items }) => (
+              <div key={g.k} className="space-y-2">
+                <div className="flex items-baseline gap-2 border-b border-line pb-1">
+                  <p className="text-sm font-semibold">{g.l}</p>
+                  <p className="text-[11px] text-fog">{g.d} · {items.filter((m) => chosen.includes(m.id)).length} de {items.length} no manual</p>
+                </div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {items.map((m: Mockup) => {
+                    const on = chosen.includes(m.id);
+                    return (
+                      <div key={m.id} className={`rounded-xl border p-2 transition-colors ${on ? "border-mint" : "border-line"}`}>
+                        <button onClick={() => toggleMk(m.id)} className="block w-full text-left"><Fit w={m.width} h={m.height}><MockupStage d={d} m={m} arts={arts[m.id]} /></Fit></button>
+                        <div className="flex items-center justify-between px-1 pt-2 gap-2">
+                          <span className="text-sm font-semibold truncate">{m.title}</span>
+                          <button onClick={() => toggleMk(m.id)} className={`text-[11px] font-mono shrink-0 ${on ? "text-mint" : "text-fog"}`}>{on ? "no manual" : "fora"}</button>
+                        </div>
+                        {m.slots.map((sl, i) => (
+                          <label key={i} className="flex items-center gap-2 px-1 pt-1.5">
+                            <span className="text-[10px] text-fog w-16 truncate">{m.slots.length > 1 ? sl.name : "Arte"}</span>
+                            <select value={(arts[m.id] || [])[i] || "auto"} onChange={(e) => setArt(m.id, i, e.target.value, m.slots.length)} className="input !py-0.5 text-xs flex-1">
+                              {ARTS.map((a) => <option key={a.k} value={a.k}>{a.l}</option>)}
+                            </select>
+                          </label>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </>
         )}
       </section>

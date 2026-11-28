@@ -6,6 +6,7 @@ import { I } from "@/components/icons";
 import { FORMAT_LIST, MAX_REVISIONS, blockers, isLate } from "@/lib/content";
 import { estimate, parseScript } from "@/lib/prompter";
 import ScriptSheet from "@/components/creator/ScriptSheet";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Props = { item: any; statuses: any[]; accounts: any[]; clients: any[]; pillars: string[]; assignees: string[]; onClose: () => void; onSaved: () => void };
 
@@ -89,15 +90,13 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
     await navigator.clipboard?.writeText(`${location.origin}/r/conteudo/${token}`).catch(() => {});
     setCopied(true); setTimeout(() => setCopied(false), 2500); onSaved();
   }
-  // excluir de vez: só para card arquivado, em 2 etapas (abrir o aviso e digitar EXCLUIR)
+  // excluir: só para card arquivado, em 2 etapas (abrir o aviso e confirmar com a senha); vai para a lixeira
   const [del, setDel] = useState<0 | 1>(0);
-  const [delWord, setDelWord] = useState("");
   const [delErr, setDelErr] = useState<string | null>(null);
   async function destroy() {
-    if (delWord.trim().toUpperCase() !== "EXCLUIR") return;
     setDelErr(null);
-    const { error } = await s().from("content_ideas").delete().eq("id", item.id);
-    if (error) { setDelErr("Não deu para excluir: " + error.message); return; }
+    const ok = await apagarComLixeira({ tabela: "content_ideas", filtro: { id: item.id }, oque: `o conteúdo "${f.title || "sem título"}"`, rotulo: `Conteúdo: ${f.title || "sem título"}`, link: "/creator/producao" });
+    if (!ok) { setDelErr("Não foi excluído."); return; }
     onSaved(); onClose();
   }
   async function archive() {
@@ -248,13 +247,12 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
 
         {del === 1 && (
           <div className="mt-6 rounded-xl border border-danger/50 bg-danger/5 p-4 space-y-3">
-            <p className="text-sm font-semibold text-danger">Excluir “{f.title || "sem título"}” de vez?</p>
-            <p className="text-xs text-fog">Some o card, o roteiro, a decupagem e o histórico. Não dá para desfazer. Para confirmar, digite <b className="text-paper">EXCLUIR</b>.</p>
-            <input className="input" value={delWord} onChange={(e) => setDelWord(e.target.value)} placeholder="EXCLUIR" autoFocus aria-label="Digite EXCLUIR para confirmar" />
+            <p className="text-sm font-semibold text-danger">Excluir “{f.title || "sem título"}”?</p>
+            <p className="text-xs text-fog">O card, o roteiro, a decupagem e o histórico vão juntos para a Lixeira (Minha conta). Ficam lá 15 dias e dá para recuperar tudo.</p>
             {delErr && <p className="text-xs text-danger">{delErr}</p>}
             <div className="flex justify-between">
-              <button type="button" onClick={() => { setDel(0); setDelWord(""); setDelErr(null); }} className="btn btn-ghost btn-sm">Cancelar</button>
-              <button type="button" disabled={delWord.trim().toUpperCase() !== "EXCLUIR"} onClick={destroy} className="btn btn-sm bg-danger text-ink disabled:opacity-40">Excluir de vez</button>
+              <button type="button" onClick={() => { setDel(0); setDelErr(null); }} className="btn btn-ghost btn-sm">Cancelar</button>
+              <button type="button" onClick={destroy} className="btn btn-sm bg-danger text-ink disabled:opacity-40">Mandar para a lixeira</button>
             </div>
           </div>
         )}

@@ -177,8 +177,8 @@ export default function SymbolStep({ d, set }: StepProps) {
               </div>
             ))}
           </div>
-          <div className="flex items-end gap-6 mt-4 bg-[#f4f4f2] rounded-xl p-4 w-fit">
-            {[96, 48, 24].map((h) => <div key={h} style={{ height: h, width: h * 2.4 }}>{chosen.svg ? <SvgView svg={chosen.svg} className="w-full h-full" /> : <img src={chosen.img} alt="" className="h-full" />}</div>)}
+          <div className="flex flex-wrap items-end gap-4 sm:gap-6 mt-4 bg-[#f4f4f2] rounded-xl p-4 w-fit max-w-full">
+            {[96, 48, 24].map((h) => <div key={h} className="max-w-full" style={{ height: h, width: h * 2.4 }}>{chosen.svg ? <SvgView svg={chosen.svg} className="w-full h-full" /> : <img src={chosen.img} alt="" className="h-full" />}</div>)}
             <span className="text-[11px] text-neutral-500">ainda lê pequena?</span>
           </div>
         </section>

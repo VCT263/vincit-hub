@@ -1,4 +1,5 @@
 "use client";
+import { brandPrompt } from "@/lib/brandPrompt";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -6,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAI } from "@/lib/useAI";
 import { I } from "@/components/icons";
 import Modal from "@/components/agency/Modal";
-import { DEFAULT_KIT, SIZES, briefText, canvaNew, download, drawSlide, kitFrom, loadFonts, shrink, uid, type Kit, type Slide } from "@/lib/design";
+import { DEFAULT_KIT, SIZES, canvaNew, download, drawSlide, kitFrom, loadFonts, shrink, uid, type Kit, type Slide } from "@/lib/design";
 
 const LAYOUTS: [Slide["layout"], string][] = [["capa", "Capa"], ["texto", "Texto"], ["lista", "Lista"], ["citacao", "Frase"], ["cta", "Chamada"]];
 const BGS: [Slide["bg"], string][] = [["primaria", "Primária"], ["escuro", "Escuro"], ["claro", "Claro"], ["destaque", "Destaque"], ["imagem", "Foto"]];
@@ -84,7 +85,7 @@ export default function PieceEditor() {
   };
 
   async function askClaude() {
-    const r: any = await run("carousel_copy", { tema, pages: p.kind === "peca" ? 1 : Math.max(4, Math.min(10, slides.length || 6)), brand: brand ? `${brand.data?.brief?.nome || brand.title}\n${briefText(brand.data?.brief)}` : "", kind: p.kind });
+    const r: any = await run("carousel_copy", { tema, pages: p.kind === "peca" ? 1 : Math.max(4, Math.min(10, slides.length || 6)), brand: brand ? brandPrompt(brand.data || {}) : "", kind: p.kind });
     if (!r?.slides?.length) return;
     const okL = LAYOUTS.map((x) => x[0]), okB = BGS.map((x) => x[0]);
     setSlides(r.slides.map((x: any, i: number) => ({ id: uid(), layout: okL.includes(x.layout) ? x.layout : i === 0 ? "capa" : "texto", kicker: x.kicker || "", title: x.title || "", body: x.body || "", bg: okB.includes(x.bg) && x.bg !== "imagem" ? x.bg : i === 0 ? "primaria" : "claro" })));
@@ -156,6 +157,7 @@ export default function PieceEditor() {
               <button key={k} onClick={() => (k === "imagem" && !s.img ? fileRef.current?.click() : up({ bg: k }))} className={`chip !px-2.5 !py-1 ${s.bg === k ? "chip-mint" : ""}`}>
                 {k !== "imagem" && <span className="w-3 h-3 rounded-full border border-line" style={{ background: kit.colors[l === "Primária" ? "Primária" : l] }} />}{l}</button>
             ))}</div></div>
+            {kit.pattern && s.bg !== "imagem" && <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" className="accent-[var(--color-mint)]" checked={s.grafismo ?? (s.layout === "capa" || s.layout === "cta")} onChange={(e) => up({ grafismo: e.target.checked })} />Grafismo da marca no fundo</label>}
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) up({ img: await shrink(f, 1350, .85), bg: "imagem" }); e.target.value = ""; }} />
             {s.bg === "imagem" && <button onClick={() => fileRef.current?.click()} className="btn btn-ghost btn-sm w-full">{s.img ? "Trocar foto" : "Escolher foto"}</button>}
             <div><label className="label">Chamada pequena</label><input value={s.kicker || ""} onChange={(e) => up({ kicker: e.target.value })} className="input" placeholder="Ex.: GUIA RÁPIDO" /></div>

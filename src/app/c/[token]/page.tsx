@@ -45,7 +45,7 @@ export default async function Cobranca({ params }: { params: Promise<{ token: st
                 <p className="font-display font-bold">Pague com Pix</p>
                 <p className="text-xs text-fog mt-1">Abra o app do seu banco e escaneie, ou use o copia e cola.</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qr} alt="QR Code Pix" className="mx-auto mt-4 rounded-xl w-56 h-56" />
+                <img loading="lazy" decoding="async" src={qr} alt="QR Code Pix" className="mx-auto mt-4 rounded-xl w-56 h-56" />
                 <div className="mt-4 bg-panel2 rounded-lg p-2.5 text-[11px] font-mono break-all text-left">{pix}</div>
                 <div className="mt-3 flex justify-center"><CopyButton text={pix} label="Copiar código Pix" /></div>
                 <p className="text-[11px] text-fog mt-3">Recebedor: {c.pix_name || c.company?.name}</p>

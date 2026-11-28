@@ -1,4 +1,6 @@
 "use client";
+import { useConfirmarExclusao } from "@/components/lixeira/ConfirmarExclusao";
+import { diasRestantes } from "@/lib/lixeira";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -19,7 +21,9 @@ export default function Marcas() {
     createClient().from("design_projects").select("id,title,step,data,updated_at,archived_at").eq("kind", "marca").order("updated_at", { ascending: false })
       .then(({ data }) => { setRows((data || []).filter((r) => !r.archived_at)); setTrash((data || []).filter((r) => r.archived_at)); });
   }, []);
+  const { pedir, modal } = useConfirmarExclusao();
   async function excluir(b: any) {
+    if (!(await pedir({ oque: `a marca ${b.data?.brief?.nome || b.title}` }))) return;
     const at = new Date().toISOString();
     const { error } = await createClient().from("design_projects").update({ archived_at: at }).eq("id", b.id);
     if (error) return;
@@ -34,7 +38,6 @@ export default function Marcas() {
     setRows((r) => [{ ...b, archived_at: null }, ...(r || [])]);
     setUndo(null);
   }
-  const diasRestantes = (at: string) => Math.max(0, Math.ceil(15 - (Date.now() - new Date(at).getTime()) / 864e5));
   async function novo() {
     setBusy(true);
     const { data } = await createClient().from("design_projects").insert({ kind: "marca", title: "Nova marca" }).select("id").single();
@@ -65,7 +68,7 @@ export default function Marcas() {
         ))}</div>
       )}
       {undo && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 card px-4 py-3 flex items-center gap-3 text-sm shadow-xl">
+        <div className="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-5 left-1/2 -translate-x-1/2 z-50 card px-4 py-3 flex items-center gap-3 text-sm shadow-xl">
           <span><b>{undo.data?.brief?.nome || undo.title}</b> foi para a lixeira. Some sozinha em 15 dias.</span>
           <button onClick={() => recuperar(undo)} className="btn btn-ghost !py-1 text-mint">Desfazer</button>
           <button onClick={() => setUndo(null)} className="text-fog hover:text-white" aria-label="Fechar">×</button>
@@ -96,6 +99,7 @@ export default function Marcas() {
           )}
         </div>
       )}
+      {modal}
     </>
   );
 }

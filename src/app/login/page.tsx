@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import { isValidCPF, maskCPF, maskPhone, onlyDigits } from "@/lib/br";
+import { SENHA_AVISO, SENHA_MIN, SENHA_REGRAS, pedirLinkSenha } from "@/lib/senha";
 
 function Eye({ open }: { open: boolean }) {
   return open ? (
@@ -13,7 +14,7 @@ function Eye({ open }: { open: boolean }) {
   );
 }
 
-function PasswordInput({ value, onChange, placeholder, autoComplete, min = 8 }: { value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string; min?: number }) {
+function PasswordInput({ value, onChange, placeholder, autoComplete, min = SENHA_MIN }: { value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string; min?: number }) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
@@ -23,11 +24,7 @@ function PasswordInput({ value, onChange, placeholder, autoComplete, min = 8 }: 
   );
 }
 
-const RULES: [string, (p: string) => boolean][] = [
-  ["8+ caracteres", (p) => p.length >= 8],
-  ["letra maiúscula", (p) => /[A-Z]/.test(p)],
-  ["número", (p) => /\d/.test(p)],
-];
+const RULES = SENHA_REGRAS;
 
 export default function Login() {
   const [mode, setMode] = useState<"in" | "up">("in");
@@ -47,6 +44,7 @@ export default function Login() {
     const q = new URLSearchParams(location.search);
     if (q.get("cadastro")) setMode("up");
     const e = q.get("email"); if (e) setEmail(e);
+    if (q.get("erro") === "link") setMsg({ t: "Esse link expirou ou foi aberto em outro navegador. Peça um novo ou entre com sua senha." });
   }, []);
 
   const cpfDigits = onlyDigits(cpf);
@@ -78,7 +76,7 @@ export default function Login() {
     if (!nameOk) return setMsg({ t: "Informe nome e sobrenome." });
     if (!cpfOk) return setMsg({ t: "CPF inválido. Confira os números." });
     if (!phoneOk) return setMsg({ t: "Informe um WhatsApp com DDD." });
-    if (!passOk) return setMsg({ t: "A senha precisa de 8 caracteres, uma letra maiúscula e um número." });
+    if (!passOk) return setMsg({ t: SENHA_AVISO });
     if (!matchOk) return setMsg({ t: "As senhas não conferem." });
     if (!terms) return setMsg({ t: "Aceite os termos e a política de privacidade para continuar." });
     setBusy(true);
@@ -97,9 +95,9 @@ export default function Login() {
   async function forgot() {
     if (!email) return setMsg({ t: "Digite seu e-mail acima para receber o link de redefinição." });
     setBusy(true);
-    const { error } = await createClient().auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/auth/callback?next=/conta` });
+    const err = await pedirLinkSenha(email);
     setBusy(false);
-    setMsg(error ? { t: error.message } : { t: "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha.", ok: true });
+    setMsg(err ? { t: err } : { t: "Se houver uma conta com esse e-mail, enviamos o link para redefinir a senha. Use o e-mail mais recente: cada pedido invalida os anteriores.", ok: true });
   }
 
   const Hint = ({ ok, text }: { ok: boolean; text: string }) => <p className={`text-[11px] mt-1 ${ok ? "text-mint" : "text-danger"}`}>{ok ? "✓ " : ""}{text}</p>;
@@ -148,7 +146,7 @@ export default function Login() {
           <input className="input mb-4" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com" autoComplete="email" />
 
           <label className="label">Senha</label>
-          <PasswordInput value={password} onChange={setPassword} placeholder={mode === "in" ? "Sua senha" : "Crie uma senha"} autoComplete={mode === "in" ? "current-password" : "new-password"} min={mode === "in" ? 1 : 8} />
+          <PasswordInput value={password} onChange={setPassword} placeholder={mode === "in" ? "Sua senha" : "Crie uma senha"} autoComplete={mode === "in" ? "current-password" : "new-password"} min={mode === "in" ? 1 : SENHA_MIN} />
           {mode === "up" && password && <div className="flex flex-wrap gap-x-3 mt-1.5">{RULES.map(([l, f]) => <span key={l} className={`text-[11px] ${f(password) ? "text-mint" : "text-fog"}`}>{f(password) ? "✓" : "·"} {l}</span>)}</div>}
 
           {mode === "up" && (

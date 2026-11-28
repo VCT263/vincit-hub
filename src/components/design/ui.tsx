@@ -1,13 +1,28 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { FONT_CATS, FONT_LIB } from "@/lib/fonts";
 import { STEPS, sanitizeSvg, loadFonts, stepOf, primaryLogo } from "@/lib/design";
 
+/** ids internos (máscaras, gradientes) únicos por cópia: o mesmo logo aparece na tela e na cópia
+    do PDF; com ids repetidos, url(#id) aponta para a cópia escondida e a máscara some (logo vira um
+    retângulo cheio na impressão) */
+export function uniqueIds(svg: string, suffix: string) {
+  const ids = Array.from(svg.matchAll(/\sid="([^"]+)"/g)).map((m) => m[1]);
+  if (!ids.length) return svg;
+  let out = svg;
+  for (const id of new Set(ids)) {
+    const esc = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`(\\sid=")${esc}(")`, "g"), `$1${id}-${suffix}$2`).replace(new RegExp(`(url\\(['"]?#)${esc}(['"]?\\))`, "g"), `$1${id}-${suffix}$2`).replace(new RegExp(`((?:xlink:)?href="#)${esc}(")`, "g"), `$1${id}-${suffix}$2`);
+  }
+  return out;
+}
+
 /** mostra um SVG limpo (inline, para usar as fontes carregadas na página) */
 export function SvgView({ svg, className, fonts }: { svg: string; className?: string; fonts?: string[] }) {
   const [clean, setClean] = useState("");
-  useEffect(() => { setClean(sanitizeSvg(svg).replace(/<svg /, '<svg preserveAspectRatio="xMidYMid meet" width="100%" height="100%" ')); }, [svg]);
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  useEffect(() => { setClean(uniqueIds(sanitizeSvg(svg), uid).replace(/<svg /, '<svg preserveAspectRatio="xMidYMid meet" width="100%" height="100%" ')); }, [svg, uid]);
   const fam = useMemo(() => fonts || Array.from(new Set(Array.from(svg.matchAll(/font-family="([^"]+)"/g)).map((m) => m[1].split(",")[0].replace(/['"]/g, "").trim()))), [svg, fonts]);
   useEffect(() => { loadFonts(fam); }, [fam]);
   // o SVG fica absoluto para não empurrar a altura do contêiner (assinaturas verticais estouravam a caixa)
@@ -38,7 +53,7 @@ export function BrandCard({ b }: { b: { id: string; title: string; step: string;
   return (
     <Link href={`/design/marcas/${b.id}`} className="block rounded-xl border border-line overflow-hidden hover:border-mint transition-colors">
       <div className="h-28 grid place-items-center p-4" style={{ background: bg }}>
-        {main ? <SvgView svg={main} className="h-20 w-full" /> : logo?.svg ? <SvgView svg={logo.svg} className="h-20 w-full" /> : logo?.img ? <img src={logo.img} alt="" className="max-h-20 max-w-full" /> : <span className="font-display font-extrabold text-2xl" style={{ color: pal[0] || "var(--color-fog)" }}>{d.brief?.nome || b.title}</span>}
+        {main ? <SvgView svg={main} className="h-20 w-full" /> : logo?.svg ? <SvgView svg={logo.svg} className="h-20 w-full" /> : logo?.img ? <img loading="lazy" decoding="async" src={logo.img} alt="" className="max-h-20 max-w-full" /> : <span className="font-display font-extrabold text-2xl" style={{ color: pal[0] || "var(--color-fog)" }}>{d.brief?.nome || b.title}</span>}
       </div>
       <div className="flex h-2">{pal.map((c) => <span key={c} className="flex-1" style={{ background: c }} />)}</div>
       <div className="p-3">

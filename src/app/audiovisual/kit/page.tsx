@@ -11,6 +11,7 @@ import {
   type Kit, type Overlay, type OverlayMode, type Project, type Title, type TitleKind, type Zoom,
 } from "@/lib/editor/model";
 import { ESTILOS, estiloByNum, estiloTags, kitComEstilo, projetoDoEstilo, type Estilo } from "@/lib/editor/styles";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Row = { id?: string; name: string; account_id?: string | null; data: Kit };
 
@@ -137,8 +138,8 @@ export default function KitPage() {
     load();
   }
   async function del(id: string) {
-    if (!confirm("Apagar este kit?")) return;
-    await createClient().from("av_style_kits").delete().eq("id", id);
+    const nome = (typeof edit?.name === "string" && edit.name) || "sem nome";
+    if (!(await apagarComLixeira({ tabela: "av_style_kits", filtro: { id }, oque: `o kit "${nome}"`, rotulo: `Kit de estilo: ${nome}`, link: "/audiovisual/kit" }))) return;
     setEdit(null); load();
   }
   const set = (path: string[], v: any) => setEdit((e) => {

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAccounts } from "@/lib/useAccounts";
 import { useAI } from "@/lib/useAI";
 import { I } from "@/components/icons";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const empty = { id: "", account_id: "", name: "", trigger_type: "comment", keywords: "", media_id: "", public_reply: "", dm_message: "", dm_link: "", offer: "" };
 
@@ -49,7 +50,7 @@ export default function QuickRules() {
     setForm(null); load();
   }
   async function toggle(a: any) { await createClient().from("automations").update({ active: !a.active }).eq("id", a.id); load(); }
-  async function del(a: any) { if (confirm(`Excluir "${a.name}"?`)) { await createClient().from("automations").delete().eq("id", a.id); load(); } }
+  async function del(a: any) { if (await apagarComLixeira({ tabela: "automations", filtro: { id: a.id }, oque: `a automação "${a.name}"`, rotulo: `Automação: ${a.name}`, link: "/creator/automacoes" })) load(); }
   async function suggest() {
     const acc = accounts.find((a) => a.id === form.account_id);
     const r = await ai.run<any>("automation_copy", { account: acc, keyword: form.keywords.split(",")[0] || "QUERO", offer: form.offer || form.name, link: form.dm_link });

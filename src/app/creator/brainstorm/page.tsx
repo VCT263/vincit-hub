@@ -7,6 +7,7 @@ import PageHead from "@/components/PageHead";
 import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { BOARD_COLORS, BUCKET, CATEGORIES, TEMPLATES, timeAgo } from "@/lib/brainstorm";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 type Board = { id: string; title: string; color: string | null; preview: string | null; pinned: boolean; updated_at: string; scene: any; files: any };
 
@@ -53,17 +54,8 @@ export default function Brainstorm() {
   }
 
   async function remove(b: Board) {
-    const s = createClient();
-    const { data: full } = await s.from("brainstorm_boards").select("files").eq("id", b.id).single();
-    await s.from("brainstorm_boards").delete().eq("id", b.id);
-    // apaga as imagens que só este quadro usava
-    const paths = Object.values((full?.files as any) || {}).map((f: any) => f.path).filter((p: string) => p && p.includes(`/${b.id}/`));
-    if (paths.length) {
-      const { data: others } = await s.from("brainstorm_boards").select("files");
-      const used = new Set((others || []).flatMap((o: any) => Object.values(o.files || {}).map((f: any) => f.path)));
-      const orphan = paths.filter((p) => !used.has(p));
-      if (orphan.length) await s.storage.from(BUCKET).remove(orphan);
-    }
+    // as imagens ficam no bucket: o quadro pode voltar da lixeira com elas
+    if (!(await apagarComLixeira({ tabela: "brainstorm_boards", filtro: { id: b.id }, oque: `o quadro "${b.title}"`, rotulo: `Brainstorm: ${b.title}`, link: "/creator/brainstorm" }))) return;
     setEdit(null); load();
   }
 
@@ -120,7 +112,7 @@ export default function Brainstorm() {
             <div key={b.id} className="card overflow-hidden group rise relative" style={{ animationDelay: `${i * 0.03}s` }}>
               <Link href={`/creator/brainstorm/${b.id}`} className="block">
                 <div className="h-40 bg-panel2 border-b border-line relative overflow-hidden">
-                  {b.preview ? <img src={b.preview} alt="" className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full grid place-items-center text-fog text-xs">Quadro vazio</div>}
+                  {b.preview ? <img loading="lazy" decoding="async" src={b.preview} alt="" className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity" /> : <div className="w-full h-full grid place-items-center text-fog text-xs">Quadro vazio</div>}
                   <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: b.color || "var(--color-mint)" }} />
                 </div>
                 <div className="p-4 pr-12">
@@ -179,7 +171,7 @@ export default function Brainstorm() {
             <div className="flex flex-wrap gap-2 pt-2">
               <button onClick={() => { save(edit, { pinned: !edit.pinned }); setEdit(null); }} className="btn btn-ghost btn-sm">{edit.pinned ? "Desafixar" : "Fixar no topo"}</button>
               <button onClick={() => duplicate(edit)} className="btn btn-ghost btn-sm"><I.copy className="w-4 h-4" /> Duplicar</button>
-              <button onClick={() => { if (confirm(`Apagar o quadro "${edit.title}"? Isso não pode ser desfeito.`)) remove(edit); }} className="btn btn-ghost btn-sm !text-danger hover:!border-danger"><I.trash className="w-4 h-4" /> Apagar</button>
+              <button onClick={() => remove(edit)} className="btn btn-ghost btn-sm !text-danger hover:!border-danger"><I.trash className="w-4 h-4" /> Apagar</button>
             </div>
           </div>
         )}

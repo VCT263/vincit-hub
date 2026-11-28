@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { I } from "@/components/icons";
 import { PHASES, STEPS, stepOf, type Step } from "@/lib/design";
 import BriefStep from "@/components/design/brand/BriefStep";
+import TasteStep from "@/components/design/brand/TasteStep";
 import RefsStep from "@/components/design/brand/RefsStep";
 import StrategyStep from "@/components/design/brand/StrategyStep";
 import ConceptStep from "@/components/design/brand/ConceptStep";
@@ -107,6 +108,7 @@ export default function BrandWorkspace() {
 
       {step === "estrategia" && <StrategyStep {...props} />}
       {step === "briefing" && <BriefStep {...props} />}
+      {step === "preprojeto" && <TasteStep {...props} />}
       {step === "conceito" && <ConceptStep {...props} />}
       {step === "referencias" && <RefsStep {...props} />}
       {step === "simbolo" && <SymbolStep {...props} />}
@@ -119,9 +121,9 @@ export default function BrandWorkspace() {
       {step === "manual" && <ManualStep {...props} />}
 
       {step !== "manual" && (
-        <div className="flex justify-between mt-8 print:hidden">
-          {idx > 0 ? <button onClick={() => go(STEPS[idx - 1].k)} className="btn btn-ghost"><I.back className="w-4 h-4" />{STEPS[idx - 1].l}</button> : <span />}
-          <button onClick={() => go(STEPS[idx + 1].k)} className="btn btn-mint">{STEPS[idx + 1].l}<I.arrow className="w-4 h-4" /></button>
+        <div className="flex justify-between gap-2 mt-8 print:hidden">
+          {idx > 0 ? <button onClick={() => go(STEPS[idx - 1].k)} className="btn btn-ghost min-w-0"><I.back className="w-4 h-4 shrink-0" /><span className="truncate">{STEPS[idx - 1].l}</span></button> : <span />}
+          <button onClick={() => go(STEPS[idx + 1].k)} className="btn btn-mint min-w-0"><span className="truncate">{STEPS[idx + 1].l}</span><I.arrow className="w-4 h-4 shrink-0" /></button>
         </div>
       )}
     </>

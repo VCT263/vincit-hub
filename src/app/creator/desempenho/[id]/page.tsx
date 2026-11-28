@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmt } from "@/lib/useAccounts";
@@ -9,6 +9,8 @@ import Markdown from "@/components/Markdown";
 import { I } from "@/components/icons";
 import { pct, taxas } from "@/lib/mixModa";
 import { AreaChart, Spark, SignalColumns, HBar, LILAS, num } from "@/components/creator/Graficos";
+import CompartilharPerfil from "@/components/creator/CompartilharPerfil";
+import RemoverPerfil from "@/components/creator/RemoverPerfil";
 
 const FORMATOS: Record<string, string> = { REELS: "Reels", CAROUSEL_ALBUM: "Carrossel", IMAGE: "Foto", VIDEO: "Vídeo" };
 const formato = (t?: string) => FORMATOS[t || ""] || t || "Outro";
@@ -26,7 +28,6 @@ type MK = (typeof METRICAS)[number]["k"];
 
 export default function Perfil() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [acc, setAcc] = useState<any>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
@@ -86,11 +87,6 @@ export default function Perfil() {
   async function save() {
     await createClient().from("ig_accounts").update({ niche: acc.niche, goals: acc.goals, followers_count: acc.followers_count, brand_voice: acc.brand_voice || null }).eq("id", id);
     setEdit(false);
-  }
-  async function remove() {
-    if (!confirm(`Remover @${acc.username} do Creator? Posts e automações dele também serão removidos.`)) return;
-    await createClient().from("ig_accounts").delete().eq("id", id);
-    router.push("/creator/perfis");
   }
   async function diagnose() {
     const r = await ai.run<{ text: string }>("profile_diagnosis", { account: acc, posts, resultados: ins ? { dias: ins.days, atual: ins.current, anterior: ins.previous } : null });
@@ -161,7 +157,7 @@ export default function Perfil() {
           <div className="flex gap-1.5 overflow-x-auto scroll-thin -mx-1 px-1">
             {accounts.map((a) => (
               <Link key={a.id} href={`/creator/desempenho/${a.id}`} className={`chip whitespace-nowrap !text-xs !py-1 ${a.id === id ? "chip-mint" : "hover:text-paper"}`}>
-                {a.profile_picture_url ? <img src={a.profile_picture_url} alt="" className="w-4 h-4 rounded-full object-cover" /> : null}@{a.username}
+                {a.profile_picture_url ? <img loading="lazy" decoding="async" src={a.profile_picture_url} alt="" className="w-4 h-4 rounded-full object-cover" /> : null}@{a.username}
               </Link>
             ))}
           </div>
@@ -171,7 +167,7 @@ export default function Perfil() {
       {/* cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 rise">
         <div className="flex items-center gap-4 min-w-0">
-          {acc.profile_picture_url ? <img src={acc.profile_picture_url} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-mint/40" /> : <div className="w-16 h-16 rounded-full bg-panel2 grid place-items-center font-display text-2xl font-bold text-mint">{acc.username[0]?.toUpperCase()}</div>}
+          {acc.profile_picture_url ? <img loading="lazy" decoding="async" src={acc.profile_picture_url} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-mint/40" /> : <div className="w-16 h-16 rounded-full bg-panel2 grid place-items-center font-display text-2xl font-bold text-mint">{acc.username[0]?.toUpperCase()}</div>}
           <div className="min-w-0">
             <p className="font-mono text-[11px] text-mint tracking-widest uppercase">Creator · Desempenho & insights</p>
             <h1 className="font-display text-3xl font-extrabold tracking-tight truncate">@{acc.username}</h1>
@@ -314,7 +310,7 @@ export default function Perfil() {
                 return (
                   <a key={p.id} href={p.permalink} target="_blank" className="group rounded-[12px] overflow-hidden bg-panel2 border border-line hover:border-mint transition-colors">
                     <div className="relative aspect-[4/5] bg-ink">
-                      {p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform" /> : <p className="absolute inset-x-3 top-10 text-xs text-fog line-clamp-5">{p.caption || "(sem legenda)"}</p>}
+                      {p.thumbnail_url ? <img loading="lazy" decoding="async" src={p.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform" /> : <p className="absolute inset-x-3 top-10 text-xs text-fog line-clamp-5">{p.caption || "(sem legenda)"}</p>}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                       <span className="absolute top-2 left-2 font-display font-extrabold text-sm bg-black/60 text-paper rounded-md px-1.5">#{i + 1}</span>
                       {xm != null && <span className={`absolute top-2 right-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${xm >= 2 ? "bg-mint text-[#06140e]" : "bg-black/60 text-paper"}`}>{xm.toFixed(1)}x mediana</span>}
@@ -357,7 +353,7 @@ export default function Perfil() {
                   const t = taxas(p); const xm = xMed(p);
                   return (
                     <tr key={p.id} className="border-b border-line/60 hover:bg-panel2/50">
-                      <td className="py-2.5 pr-3"><a href={p.permalink} target="_blank" className="flex items-center gap-2.5 max-w-[260px]">{p.thumbnail_url ? <img src={p.thumbnail_url} alt="" className="w-9 h-9 rounded object-cover" /> : <div className="w-9 h-9 rounded bg-panel2" />}<span className="truncate">{p.caption || "(sem legenda)"}</span></a></td>
+                      <td className="py-2.5 pr-3"><a href={p.permalink} target="_blank" className="flex items-center gap-2.5 max-w-[260px]">{p.thumbnail_url ? <img loading="lazy" decoding="async" src={p.thumbnail_url} alt="" className="w-9 h-9 rounded object-cover" /> : <div className="w-9 h-9 rounded bg-panel2" />}<span className="truncate">{p.caption || "(sem legenda)"}</span></a></td>
                       <td className="pr-3 text-fog text-xs">{formato(p.media_type)}</td>
                       <td className="pr-3 text-fog text-xs whitespace-nowrap">{p.posted_at && new Date(p.posted_at).toLocaleDateString("pt-BR")}</td>
                       <td className="pr-3 text-xs">{xm != null ? <span className={`rounded-full px-1.5 py-0.5 ${xm >= 2 ? "bg-mint/15 text-mint font-semibold" : xm < 0.5 ? "text-fog" : ""}`}>{xm.toFixed(1)}x</span> : "–"}</td>
@@ -390,7 +386,7 @@ export default function Perfil() {
               <div><label className="label">Nicho</label><input className="input" value={acc.niche || ""} onChange={(e) => setAcc({ ...acc, niche: e.target.value })} /></div>
               <div><label className="label">Objetivos</label><textarea className="input" value={acc.goals || ""} onChange={(e) => setAcc({ ...acc, goals: e.target.value })} /></div>
               {!acc.connected && <div><label className="label">Seguidores</label><input type="number" className="input" value={acc.followers_count || ""} onChange={(e) => setAcc({ ...acc, followers_count: Number(e.target.value) || null })} /></div>}
-              <button onClick={remove} className="text-xs text-danger flex items-center gap-1"><I.trash className="w-3.5 h-3.5" />Remover perfil</button>
+              <p className="text-xs text-fog">Para remover ou apagar o perfil, use o cartão no fim da página.</p>
             </div>
           ) : (
             <div className="text-sm space-y-2"><p><span className="text-fog">Nicho:</span> {acc.niche || "não definido"}</p><p><span className="text-fog">Objetivos:</span> {acc.goals || "não definidos"}</p><p className="text-xs text-fog pt-2">A IA usa esse contexto em todas as análises.</p></div>
@@ -407,6 +403,7 @@ export default function Perfil() {
           ) : <p className="text-sm whitespace-pre-wrap line-clamp-6">{acc.brand_voice || <span className="text-fog">Ainda não definida. Com ela, legendas, roteiros e respostas saem com o jeito da marca.</span>}</p>}
         </section>
       </div>
+      <div className="mt-3 grid lg:grid-cols-2 gap-3"><CompartilharPerfil accountId={acc.id} ownerId={acc.owner_id} /><RemoverPerfil acc={acc} /></div>
     </>
   );
 }

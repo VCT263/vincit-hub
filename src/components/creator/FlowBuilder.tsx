@@ -5,6 +5,7 @@ import { useAccounts } from "@/lib/useAccounts";
 import { useAI } from "@/lib/useAI";
 import { I } from "@/components/icons";
 import type { FlowNode } from "@/lib/flows";
+import { apagarComLixeira } from "@/lib/lixeira";
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 const TRIGGERS: Record<string, { l: string; d: string }> = {
@@ -139,7 +140,7 @@ export default function FlowBuilder() {
     setEd({ ...ed, ...res.data }); setSaved(true); setTimeout(() => setSaved(false), 1800); load();
   }
   async function toggle(f: any) { await createClient().from("dm_flows").update({ active: !f.active }).eq("id", f.id); load(); }
-  async function del(f: any) { if (!confirm(`Excluir o fluxo "${f.name}"?`)) return; await createClient().from("dm_flows").delete().eq("id", f.id); setEd(null); load(); }
+  async function del(f: any) { if (!(await apagarComLixeira({ tabela: "dm_flows", filtro: { id: f.id }, oque: `o fluxo "${f.name}"`, rotulo: `Fluxo de DM: ${f.name}`, link: "/creator/automacoes" }))) return; setEd(null); load(); }
   async function aiText(n: any) {
     const acc = accounts.find((a) => a.id === ed.account_id);
     const r = await ai.run<{ text: string }>("agent", { agent: "direct", input: `Escreva só o texto de UMA mensagem curta (até 300 caracteres) para esta etapa de um fluxo automático de direct. Contexto do fluxo: ${ed.name}. Gatilho: ${TRIGGERS[ed.trigger_type].l} (${ed.keywords.join(", ")}). Etapa: ${n.type === "question" ? "pergunta para coletar " + n.field : "mensagem"}. Texto atual: ${n.text || "(vazio)"}. Responda apenas com o texto final, sem títulos.`, account: acc });
