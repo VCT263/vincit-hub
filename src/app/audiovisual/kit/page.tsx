@@ -12,6 +12,7 @@ import {
 import { ESTILOS, estiloByNum, estiloTags, kitComEstilo, projetoDoEstilo, type Estilo } from "@/lib/editor/styles";
 import { apagarComLixeira } from "@/lib/lixeira";
 import { kitComMarca } from "@/lib/kitMarca";
+import { EstiloSomSelect } from "@/components/av/EstiloSom";
 
 type Row = { id?: string; name: string; account_id?: string | null; data: Kit; marca?: { id: string; title?: string } };
 
@@ -304,6 +305,10 @@ export default function KitPage() {
                     <Field label="Volume final (LUFS)"><input type="number" step={0.5} className="input" value={d.regras?.lufs ?? -14} onChange={(e) => set(["regras", "lufs"], +e.target.value)} /></Field>
                     <Field label="Pico máx. (dBTP)"><input type="number" step={0.5} className="input" value={d.regras?.pico_dbtp ?? -1.5} onChange={(e) => set(["regras", "pico_dbtp"], +e.target.value)} /></Field>
                     <Field label="Efeitos sonoros"><select className="input" value={d.regras?.sfx || "acao"} onChange={(e) => set(["regras", "sfx"], e.target.value)}><option value="acao">Só em ação visível</option><option value="nenhum">Nenhum</option></select></Field>
+                  </div>
+                <div className="mt-3 max-w-md">
+                    <Field label="Estilo dos efeitos sonoros"><EstiloSomSelect value={d.regras?.som_estilo} onChange={(v) => set(["regras", "som_estilo"], v)} vazio="Sem estilo definido" /></Field>
+                    <p className="text-[11px] text-fog mt-1">O Motion exporta com os sons deste estilo, e o Claude segue o mesmo estilo na edição.</p>
                   </div>
                 </Group>
                 <Group title="Vocabulário da marca">

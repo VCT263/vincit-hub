@@ -78,13 +78,14 @@ export type Kit = {
    * Regras de edição (base: playbook do herk-edit-kit, MIT, medido em 27 reels).
    * folga_ms: respiro mantido antes e depois da fala; batida_ms: pausa natural que fica (depois de vírgula, "primeiro");
    * vicios: só saem com silêncio dos dois lados; plano_medio_s e primeiro_corte_s: ritmo do reel;
-   * lufs e pico_dbtp: volume final medido no arquivo; sfx: "acao" = efeito só em ação visível
+   * lufs e pico_dbtp: volume final medido no arquivo; sfx: "acao" = efeito só em ação visível;
+   * som_estilo: estilo dos efeitos sonoros da marca (ESTILOS_SOM em som.ts)
    */
   regras?: {
     corte_max_s?: number; silencio_ms?: number; trilha_db?: number;
     folga_ms?: number; batida_ms?: number; vicios?: string[]; tomada?: "ultima" | "melhor";
     plano_medio_s?: number; primeiro_corte_s?: number; max_sem_rosto_s?: number;
-    lufs?: number; pico_dbtp?: number; sfx?: "acao" | "nenhum";
+    lufs?: number; pico_dbtp?: number; sfx?: "acao" | "nenhum"; som_estilo?: import("./som").EstiloSom;
   };
   /** grafia certa de marcas e nomes que a transcrição erra: uma troca por linha, "errado = certo" */
   vocabulario?: string;
