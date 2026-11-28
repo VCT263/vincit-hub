@@ -40,6 +40,7 @@ export function infoComposicao(html: string) {
 /** confere o mínimo para a composição rodar; devolve a lista de problemas (vazia = ok) */
 export function conferirHtml(html: string) {
   const p: string[] = [];
+  if (!/<\/html>\s*$/i.test(html.trim())) p.push("a resposta veio cortada no meio (faltou o fim do HTML); peça de novo");
   if (!/data-composition-id=/.test(html)) p.push("falta o elemento raiz com data-composition-id");
   if (!/__timelines/.test(html)) p.push("a linha do tempo não foi registrada em window.__timelines");
   if (!/paused\s*:\s*true/.test(html)) p.push("a linha do tempo precisa nascer pausada (paused: true)");
