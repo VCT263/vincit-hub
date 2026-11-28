@@ -199,6 +199,7 @@ export default function PostScheduler() {
               {(() => { const h = peakHour(grids[f.account_id], f.date); return h == null ? null : (
                 <p className="text-xs text-fog -mt-2">Seus seguidores estão mais online às <b className="text-paper">{h}h</b> nesse dia da semana.{f.time !== `${pad(h)}:00` && <button type="button" onClick={() => setF({ ...f, time: `${pad(h)}:00` })} className="text-mint ml-1 underline">Usar {h}h</button>}</p>
               ); })()}
+              <AntesDePublicar acc={acc} accounts={accounts} caption={f.caption || ""} />
               {f.error && <p className="text-sm text-danger">Último erro: {f.error}</p>}
               {err && <p className="text-sm text-danger">{err}</p>}
               <div className="flex flex-wrap gap-2 justify-between">
@@ -220,6 +221,32 @@ export default function PostScheduler() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+/** regras de ouro do manifesto do perfil como checagem antes de publicar, e linguagem proibida achada na legenda */
+function AntesDePublicar({ acc, accounts, caption }: { acc: any; accounts: any[]; caption: string }) {
+  const [ok, setOk] = useState<Record<number, boolean>>({});
+  const comBriefing = (a: any) => a?.briefing && (a.briefing.regras_ouro?.length || a.briefing.proibido?.length);
+  const fonte = comBriefing(acc) ? acc : accounts.find((a) => a.username === acc?.username && comBriefing(a));
+  const b = fonte?.briefing || {};
+  const regras: string[] = Array.isArray(b.regras_ouro) ? b.regras_ouro.filter(Boolean).slice(0, 6) : [];
+  const lower = caption.toLowerCase();
+  const achadas = (Array.isArray(b.proibido) ? b.proibido : [])
+    .map((t: string) => String(t).replace(/["“”…]/g, "").replace(/\.\.\.$/, "").trim())
+    .filter((t: string) => t.length > 3 && t.split(" ").length <= 5 && lower.includes(t.toLowerCase()));
+  if (!regras.length && !achadas.length) return null;
+  return (
+    <div className="rounded-xl border border-line p-3 space-y-2">
+      <p className="text-xs font-semibold">Antes de publicar <span className="text-fog font-normal">· regras de ouro de @{fonte?.username || acc?.username}</span></p>
+      {regras.map((r, i) => (
+        <label key={i} className="flex items-start gap-2 text-sm cursor-pointer">
+          <input type="checkbox" className="mt-1 accent-[var(--mint,#18F2B2)]" checked={!!ok[i]} onChange={() => setOk({ ...ok, [i]: !ok[i] })} />
+          <span className={ok[i] ? "text-fog line-through" : ""}>{r}</span>
+        </label>
+      ))}
+      {achadas.length > 0 && <p className="text-xs text-danger">A legenda usa linguagem proibida no manifesto: {achadas.map((t: string) => `“${t}”`).join(", ")}.</p>}
     </div>
   );
 }

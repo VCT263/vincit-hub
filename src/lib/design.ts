@@ -45,7 +45,7 @@ export const BRIEF: { k: string; l: string; fields: BF[] }[] = [
     { k: "diferencial", l: "Diferencial", type: "textarea", ph: "O que só ela tem ou faz." },
   ] },
   { k: "manifesto", l: "Manifesto e voz", fields: [
-    ...MANIFESTO_FIELDS.filter((f) => ["frase_mae", "manifesto", "arquetipo", "territorio", "nao_e", "matriz_tom", "proibido", "regras_ouro"].includes(f.k)),
+    ...MANIFESTO_FIELDS.filter((f) => ["frase_mae", "manifesto", "problema", "framework", "arquetipo", "territorio", "nao_e", "matriz_tom", "proibido", "regras_ouro", "estrutura", "fechamento", "ritmo", "indicadores", "visao"].includes(f.k)),
   ] },
   { k: "visual", l: "Direção visual", fields: [
     { k: "palavras", l: "3 a 5 palavras que a marca precisa transmitir", type: "chips", ph: "Ex.: leve, confiante, feminina" },

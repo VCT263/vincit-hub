@@ -28,6 +28,7 @@ export const PROMPTS: McpPrompt[] = [
 3. As palavras e expressões que o perfil e o público mais usam.
 4. Os temas mais salvos e compartilhados e as perguntas que o público repete.
 5. O que repetir e o que parar.
+6. Manifesto contra os posts: se o briefing tiver manifesto (frase-mãe, problema, método/framework, o que não é, regras de ouro, indicadores), passe por cada elo da corrente (crença, problema, método, fronteira, voz, visual, rotina, prova) e diga se os posts sustentam, contradizem ou ignoram, citando um post. Aponte os 2 elos mais fracos e o que publicar para fortalecer cada um. Não peça de novo o que o briefing já tem.
 Mostre e, com o meu ok, grave com salvar_analise (título "Dossiê do perfil"). Depois proponha só os campos do briefing que os posts sustentam (linguagem, pilares, formatos, provas, historias, padrao, oportunidades e, se ficar claro, dores, desejos e objecoes): chame entrevista_abrir com nova=true e entrevista_concluir com resumo começando por "Dossiê do perfil:" e citacoes com os ganchos que funcionaram. O briefing só muda quando eu aprovar na tela Entrevista do HUB.`,
   },
   {
