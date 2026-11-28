@@ -17,7 +17,7 @@ const doc = (o: { titulo: string; dur: number; variaveis: object[]; css: string;
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=1080, height=1920" />
 <title>${o.titulo}</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400;1,500&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400;1,500&family=Caveat:wght@600;700&family=Anton&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:1080px;height:1920px;overflow:hidden;background:transparent}
@@ -96,14 +96,15 @@ tl.to('#c',{y:-40,opacity:0,duration:.2,ease:'power3.in'},D-.22);`,
 const arco = doc({
   titulo: "Texto em arco", dur: 3,
   variaveis: [{ id: "texto", type: "string", label: "Texto (repete em volta)", default: "TEXTO EM ARCO" }, POS, { id: "tinta", type: "color", label: "Cor do texto", default: "#FFFFFF" }, { id: "cor", type: "color", label: "Ponto do meio", default: "#E8242B" }],
-  css: `#a{position:relative;width:660px;height:660px}#a svg{position:absolute;inset:0}
-#a text{font-family:Poppins,sans-serif;font-weight:700;font-size:52px;letter-spacing:5px;fill:var(--tinta)}
-#pt{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:var(--cor)}`,
-  corpo: `<div id="pos"><div id="a"><svg viewBox="0 0 440 440"><defs><path id="cir" d="M220,220 m-170,0 a170,170 0 1,1 340,0 a170,170 0 1,1 -340,0"/></defs><text><textPath href="#cir" id="tp"></textPath></text></svg><div id="pt"></div></div></div>`,
-  script: `var t=String(v('texto','TEXTO EM ARCO')).toUpperCase();document.getElementById('tp').textContent=(t+' • ').repeat(Math.max(2,Math.ceil(80/(t.length+3))));document.querySelector('#a text').setAttribute('fill',v('tinta','#FFFFFF'));
-tl.fromTo('#a svg',{scale:.6,opacity:0},{scale:1,opacity:1,duration:.45,ease:'back.out(1.8)'},0);
+  css: `#a{position:relative;width:560px;height:560px}#rg{position:absolute;inset:0}
+#rg span{position:absolute;left:50%;top:50%;width:40px;margin-left:-20px;height:52px;margin-top:-26px;text-align:center;font-weight:700;font-size:44px;line-height:52px;color:var(--tinta)}
+#pt{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:var(--cor)}`,
+  corpo: `<div id="pos"><div id="a" class="sh"><div id="rg"></div><div id="pt"></div></div></div>`,
+  script: `var t=String(v('texto','TEXTO EM ARCO')).toUpperCase()+' • ';var n=t.length*Math.max(1,Math.round(2*Math.PI*240/33/t.length));var rg=document.getElementById('rg');
+for(var i=0;i<n;i++){var c=t.charAt(i%t.length);var e=document.createElement('span');e.textContent=c===' '?'\u00a0':c;e.style.transform='rotate('+(i*360/n)+'deg) translateY(-240px)';rg.appendChild(e)}
+tl.fromTo('#rg',{scale:.6,opacity:0},{scale:1,opacity:1,duration:.45,ease:'back.out(1.8)'},0);
 tl.fromTo('#pt',{scale:0},{scale:1,duration:.35,ease:'back.out(3)'},.12);
-tl.fromTo('#a svg',{rotation:-40},{rotation:80,duration:D,ease:'none'},0);
+tl.fromTo('#rg',{rotation:-40},{rotation:80,duration:D,ease:'none'},0);
 tl.to('#a',{scale:1.15,opacity:0,duration:.22,ease:'power3.in'},D-.24);`,
 });
 
@@ -284,6 +285,24 @@ tl.fromTo('#lb',{opacity:0,y:12},{opacity:1,y:0,duration:.25,ease:'power3.out'},
 tl.to('#ic',{y:-10,duration:D-1,ease:'sine.inOut'},.7);`,
 });
 
+
+/* 17 · Título empilhado: palavras pequenas à mão em volta de uma palavra enorme e condensada (referência: Revisor, @midtrack.co) */
+const empilhado = doc({
+  titulo: "Título empilhado", dur: 2.6,
+  variaveis: [{ id: "antes", type: "string", label: "Antes (à mão)", default: "o seu" }, { id: "texto", type: "string", label: "Palavra grande", default: "CLAUDE" }, { id: "depois", type: "string", label: "Depois (à mão)", default: "em um editor" }, POS, { id: "cor", type: "color", label: "Palavra grande", default: "#F2C230" }, { id: "tinta", type: "color", label: "Palavras à mão", default: "#FFFFFF" }],
+  css: `#ep{position:relative;display:flex;flex-direction:column;align-items:center}
+#big{font-family:Anton,Impact,sans-serif;font-size:250px;line-height:.9;color:var(--cor);text-transform:uppercase;white-space:nowrap;text-shadow:0 8px 30px rgba(0,0,0,.35)}
+.hw{position:relative;z-index:2;font-family:Caveat,cursive;font-weight:700;font-size:78px;line-height:1;white-space:nowrap}
+#a1{margin-bottom:-40px;margin-left:200px;transform:rotate(-4deg)}#a2{margin-top:-34px;margin-left:-160px;transform:rotate(-3deg)}`,
+  corpo: `<div id="pos"><div id="ep"><div id="a1" class="hw sh"></div><div id="big"></div><div id="a2" class="hw sh"></div></div></div>`,
+  script: `txt('#a1','antes','o seu');txt('#a2','depois','em um editor');var L=partes('#big','texto','CLAUDE','letra');caber(document.getElementById('big'),260,1150);
+tl.fromTo(L,{yPercent:40,scale:1.25,opacity:0},{yPercent:0,scale:1,opacity:1,duration:.4,ease:'expo.out',stagger:.035},0);
+tl.fromTo('#a1',{opacity:0,x:-30},{opacity:1,x:0,duration:.3,ease:'power3.out'},.2);
+tl.fromTo('#a2',{opacity:0,x:30},{opacity:1,x:0,duration:.3,ease:'power3.out'},.42);
+tl.to('#ep',{scale:1.04,duration:D-.7,ease:'none'},.4);
+tl.to('#ep',{opacity:0,y:-30,duration:.2,ease:'power3.in'},D-.22);`,
+});
+
 const E = (id: string, nome: string, desc: string, duracao: number, html: string): ModeloHtml => ({ id: `texto-${id}`, nome, desc, marca: "Texto", duracao, html });
 
 /** Estilos de texto por nome, em fundo transparente, para pôr por cima de quem fala. */
@@ -303,6 +322,7 @@ export const ESTILOS_TEXTO: ModeloHtml[] = [
   E("contador", "Contador", "O número conta até o valor, com rótulo e linha.", 2.6, contador),
   E("marcacao", "Marcação", "Marca-texto que passa por trás da frase.", 2.5, marcacao),
   E("legenda", "Legenda amarela", "Até 3 palavras, uma de cada vez, com pulo.", 2, legenda),
+  E("empilhado", "Título empilhado", "Palavra enorme e condensada com palavras pequenas à mão em volta.", 2.6, empilhado),
   E("dividida", "Tela dividida", "Papel quadriculado em cima com passo e objeto; a metade de baixo fica livre para o rosto.", 3, dividida),
 ];
 
