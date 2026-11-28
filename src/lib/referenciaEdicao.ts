@@ -3,7 +3,8 @@
  * O pedido vai pela fila do Claude. Quem responde (o Claude no Mac do Vinícius) baixa o vídeo, quebra plano a plano
  * com o rea-video (JuneYaooo/rea-video, Apache-2.0, só ffmpeg, modo offline) e devolve a análise + uma proposta de Kit.
  * A análise fica em references_lib.edicao; o Kit de estilo (av_style_kits) só nasce quando a pessoa aprova.
- * Com 2 ou 3 referências analisadas, "juntar" escreve uma folha da marca, inspirada nelas e não copiada.
+ * Estilos de referência: vários links num estilo só; a cada vídeo novo a folha do estilo é refeita (o que se repete vira regra).
+ * A folha vira Kit quando a pessoa aprova, e aprovar de novo atualiza o mesmo Kit.
  */
 import { NOMES_ESTILOS } from "./motion/estilos-texto";
 
@@ -113,16 +114,29 @@ Responda SOMENTE com JSON:
 ${FORMATO}`;
 }
 
-/** Prompt para juntar 2 ou 3 análises numa folha da marca, inspirada e não copiada. */
-export function promptJuntar(o: { analises: { titulo: string; url?: string; edicao: Edicao }[]; contexto?: string }) {
-  const lista = o.analises.map((a, i) => `Referência ${i + 1}: ${a.titulo}${a.url ? ` (${a.url})` : ""}\n${JSON.stringify({ ...a.edicao, planos: a.edicao.planos.slice(0, 12) }).slice(0, 6000)}`).join("\n\n");
+/** Prompt para juntar as análises de um estilo (1 a 8 vídeos) numa folha da marca, inspirada e não copiada. */
+export function promptJuntar(o: { analises: { titulo: string; url?: string; edicao: Edicao }[]; contexto?: string; estilo?: { nome: string; descricao?: string } }) {
+  const n = o.analises.length;
+  const cada = Math.min(6000, Math.floor(26000 / Math.max(1, n)));
+  const lista = o.analises.map((a, i) => `Referência ${i + 1}: ${a.titulo}${a.url ? ` (${a.url})` : ""}\n${JSON.stringify({ ...a.edicao, planos: a.edicao.planos.slice(0, n > 4 ? 6 : 12) }).slice(0, cada)}`).join("\n\n");
+  const est = o.estilo ? `Estilo: "${o.estilo.nome}"${o.estilo.descricao ? `. O que a pessoa quer com ele: ${o.estilo.descricao}` : ""}\n` : "";
   return `${o.contexto || ""}
-Junte estas análises de edição numa folha de estilo para a marca acima: o que as referências têm em comum vira regra; o que é identidade de um criador só fica de fora. A folha é da marca, não uma cópia: use as cores e letras da marca quando existirem.
+${est}Junte ${n === 1 ? "esta análise" : `estas ${n} análises`} de edição numa folha de estilo para a marca acima. ${n > 1 ? "O que aparece na maioria dos vídeos vira regra; o que aparece em um só é exceção ou identidade daquele criador e fica de fora. Nos números (plano médio, primeiro corte, cortes por minuto), use a mediana dos que foram medidos." : "Com um vídeo só, tire as regras dele e deixe de fora o que é identidade do criador."} A folha é da marca, não uma cópia: use as cores e letras da marca quando existirem. Em como_foi_medido, diga de quantos vídeos saiu cada regra.
 
 ${lista}
 
 Responda SOMENTE com JSON no mesmo formato da análise (resumo = a folha em uma frase; planos = 3 a 6 planos-modelo; kit = o Kit de estilo final):
 ${FORMATO}`;
+}
+
+/** Mescla a proposta no Kit que já existe, camada por camada, sem perder o que a pessoa ajustou à mão. */
+export function mesclarKit(atual: any, novo: any) {
+  const out: any = { ...(atual || {}) };
+  for (const [k, v] of Object.entries(novo || {})) {
+    if (v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object" && !Array.isArray(out[k])) out[k] = { ...out[k], ...(v as any) };
+    else if (v !== undefined) out[k] = v;
+  }
+  return out;
 }
 
 /** Converte a proposta no formato do Kit de estilo que o editor, o plugin e o Motion já leem. */

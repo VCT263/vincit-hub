@@ -212,6 +212,8 @@ Contrato técnico (sem isso a peça não roda nem exporta):
 Direção (o que separa motion de marca de motion de IA):
 - Curvas: entrada com expo.out ou power3.out, saída com power2.in ou expo.inOut; escada de 0,08 a 0,15 s; nada linear, exceto o empurrão lento de câmera no fundo.
 - Sempre algo vivo: um empurrão de 2 a 5% no quadro inteiro durante a peça.
+- Ponto de ancoragem: defina transformOrigin de propósito em cada elemento que escala ou gira (cresce a partir do lado de onde entra, gira no próprio eixo ou na dobradiça), nunca no centro por padrão.
+- Desfoque de movimento: em deslocamentos rápidos (mais de 300 px em menos de 0,4 s), estique o elemento no sentido do movimento (scaleX ou scaleY 1,12 a 1,25 voltando a 1) junto com o deslocamento, e use um rastro de 2 ou 3 cópias com opacidade 0,15 a 0,3 que somem em 0,1 s.
 - Hierarquia: uma coisa em foco por vez; título grande (120 px ou mais), rótulos de 30 px ou mais.
 - Respeite a zona segura e o "nunca" do brief.
 

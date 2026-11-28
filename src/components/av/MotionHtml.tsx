@@ -3,6 +3,7 @@
  * Motion em HTML (HyperFrames): brief do Claude para aprovar, prévia ao vivo, textos e cores trocáveis,
  * exportação em MP4 ou WebM transparente no navegador e pedido de ajuste. Ver src/lib/motion/html.ts.
  */
+import AreaSegura from "@/components/av/AreaSegura";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
@@ -145,6 +146,7 @@ export function Previa({ html, valores, w, h, duracao, className = "" }: { html:
   const [t, setT] = useState(0);
   const [tocando, setTocando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [grade, setGrade] = useState(false);
   const doc = useMemo(() => montarDoc(html, valores), [html, valores]);
 
   useEffect(() => {
@@ -182,12 +184,14 @@ export function Previa({ html, valores, w, h, duracao, className = "" }: { html:
     <div className={className}>
       <div ref={box} className="relative w-full overflow-hidden rounded-xl border border-line bg-black" style={{ aspectRatio: `${w} / ${h}`, backgroundImage: "repeating-conic-gradient(#2c2c2c 0 25%, #1f1f1f 0 50%)", backgroundSize: "28px 28px" }}>
         <iframe ref={ifr} sandbox="allow-scripts" title="Prévia do motion" style={{ width: w, height: h, transform: `scale(${scale})`, transformOrigin: "0 0", border: 0, position: "absolute", left: 0, top: 0 }} />
+        {grade && <AreaSegura w={w} h={h} />}
         {erro && <div className="absolute inset-0 grid place-items-center p-4 text-center text-xs text-red-300 bg-black/70">{erro}</div>}
       </div>
       <div className="flex items-center gap-2 mt-2">
         <button onClick={alternar} className="chip" aria-label={tocando ? "Pausar" : "Tocar"}>{tocando ? "Pausar" : "Tocar"}</button>
         <input type="range" min={0} max={duracao || 1} step={0.01} value={t} onChange={(e) => ir(+e.target.value)} className="flex-1 accent-[var(--color-mint)]" aria-label="Tempo" />
         <span className="font-mono text-[11px] text-fog w-12 text-right">{t.toFixed(1)} s</span>
+        <button onClick={() => setGrade((g) => !g)} className={`chip ${grade ? "chip-mint" : ""}`} title="Margem de 35 px e as faixas que o app do Instagram cobre">Área segura</button>
       </div>
     </div>
   );

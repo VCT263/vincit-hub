@@ -74,13 +74,13 @@ export default function Configurar() {
           passos: ["Em Creator › Perfis & briefing, clique em Conectar via Meta.", "Entre na conta do Facebook dona da Página ligada ao Instagram e marque só as Páginas certas.", "Conta de outra pessoa (ex.: a loja) precisa ser testadora do app antes de conectar."],
           acao: { href: "/creator/perfis", label: "Conectar Instagram" } },
       );
-      lista.push({ id: "google", nivel: "recomendado", titulo: "Google Agenda e Drive", serve: "Compromissos e tarefas com prazo vão para a sua Agenda; o Drive vira o Banco de mídia.",
+      lista.push({ id: "google", nivel: "obrigatorio", titulo: "Google Drive e Agenda", serve: "O Drive é o Banco de mídia do HUB: brutos, referências, marca e tudo que o HUB exporta ficam lá, e o Claude acha sozinho. A Agenda recebe tarefas com prazo.",
         estado: g.connected ? (g.last_error ? "parcial" : "ok") : "falta",
         detalhe: g.connected ? `Conectado${g.email ? " como " + g.email : ""}.${g.last_error ? " Erro no último envio: " + g.last_error : ""}` : "Não conectado.",
         passos: gestor ? ["Em Minha conta › Google Agenda, clique em Conectar.", "Aceite Agenda e Drive na tela do Google."] : ["A conexão com o Google aparece em Minha conta para quem tem o hub Gestor. Peça ao administrador."],
         acao: gestor ? { href: "/conta#google", label: "Conectar Google" } : undefined });
       if (av) lista.push(
-        { id: "drive", nivel: "opcional", titulo: "Pasta do Banco de mídia", serve: "Escolhe a pasta do Drive que vira o acervo do Audiovisual.",
+        { id: "drive", nivel: "obrigatorio", titulo: "Pasta do Banco de mídia", serve: "Escolhe a pasta do Drive que vira o acervo: Entrada, Meus conteúdos (brutos e vídeos) e Técnico (referências, marca, trilhas).",
           estado: avs?.drive_folder_id ? "ok" : "falta", detalhe: avs?.drive_folder_id ? `Pasta ${avs.drive_folder_name || ""}${avs.last_sync_at ? ", sincronizada em " + fmt(avs.last_sync_at) : ""}.` : "Nenhuma pasta escolhida.",
           passos: ["Conecte o Google antes.", "Abra Audiovisual › Banco de mídia e escolha a pasta raiz."], acao: { href: "/audiovisual/midia", label: "Abrir Banco de mídia" } },
         { id: "premiere", nivel: "opcional", titulo: "Plugin do Premiere", serve: "Manda a timeline do Premiere ao HUB e aplica o plano de edição que o Claude devolve.",
@@ -109,7 +109,7 @@ export default function Configurar() {
   const prontos = obrig.filter((x) => x.estado === "ok").length;
   const grupos: { k: Item["nivel"]; t: string; d: string }[] = [
     { k: "obrigatorio", t: "Obrigatório", d: "Sem isso o fluxo não roda." },
-    { k: "recomendado", t: "Recomendado", d: "Faz o HUB conversar com a sua agenda e os seus arquivos." },
+    { k: "recomendado", t: "Recomendado", d: "Ajuda, mas o fluxo roda sem." },
     { k: "opcional", t: "Opcional", d: "Liga quando for usar." },
   ];
 

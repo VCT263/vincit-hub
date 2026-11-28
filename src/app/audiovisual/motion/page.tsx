@@ -33,6 +33,7 @@ function Motion() {
   const q = useSearchParams();
   const router = useRouter();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [filtro, setFiltro] = useState<"todas" | "aprovado" | "descartado">("todas");
   const [open, setOpen] = useState<Partial<MotionDoc> | null>(null);
   const [openHtml, setOpenHtml] = useState<HtmlRow | null>(null);
   const [key, setKey] = useState(0);
@@ -171,6 +172,13 @@ function Motion() {
     if (r) abrir(r);
   }
 
+  /** aprovada ou descartada (ideia do @gabeberaldo): fica no spec e vira referência no pedido das próximas peças */
+  async function avaliar(r: Row, v: "aprovado" | "descartado") {
+    const nova = r.spec?.avaliacao === v ? null : v;
+    const spec = { ...(r.spec || {}), avaliacao: nova || undefined };
+    setRows((rs) => (rs || []).map((x) => (x.id === r.id ? { ...x, spec } : x)));
+    await createClient().from("av_motions").update({ spec }).eq("id", r.id);
+  }
   async function excluir(r: Row) {
     const ok = await apagarComLixeira({ tabela: "av_motions", filtro: { id: r.id }, oque: `o motion "${r.titulo}"`, rotulo: `Motion: ${r.titulo}`, link: "/audiovisual/motion" });
     if (ok) { if (open?.id === r.id) setOpen(null); if (openHtml?.id === r.id) setOpenHtml(null); load(); }
@@ -251,6 +259,9 @@ function Motion() {
         <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Meus motions</p>
         {rows === null && <p className="text-sm text-fog">Carregando…</p>}
         {rows?.length === 0 && <p className="text-sm text-fog py-6 text-center">Nenhum motion ainda. Comece por um modelo em &quot;Novo motion&quot; ou peça um ao Claude.</p>}
+        {!!rows?.some((r) => r.spec?.avaliacao) && (
+          <div className="flex flex-wrap gap-1 mb-3">{([["todas", "Todas"], ["aprovado", "Aprovadas"], ["descartado", "Descartadas"]] as const).map(([k, l]) => <button key={k} onClick={() => setFiltro(k)} className={`chip ${filtro === k ? "chip-mint" : ""}`}>{l} ({k === "todas" ? rows.length : rows.filter((r) => r.spec?.avaliacao === k).length})</button>)}</div>
+        )}
         <div className="flex flex-wrap items-center gap-1.5 mb-4">
           <button onClick={() => setPasta("")} className={`chip ${pasta === "" ? "!border-mint text-mint" : ""}`}>Todas ({rows?.length || 0})</button>
           {pastas.map((n) => <button key={n} onClick={() => setPasta(n)} className={`chip ${pasta === n ? "!border-mint text-mint" : ""}`}><I.folder className="w-3 h-3 inline -mt-0.5 mr-1" />{n} ({(rows || []).filter((r) => r.pasta === n).length})</button>)}
@@ -259,7 +270,7 @@ function Motion() {
         </div>
         {pastaAtual && <p className="text-xs text-fog -mt-2 mb-3">Os motions que você criar agora (pedido ao Claude ou modelo) entram na pasta &quot;{pastaAtual}&quot;.{campanhaAtual ? <> A pasta é da <Link href={`/ecommerce/acoes/campanha?id=${campanhaAtual}`} className="text-mint">campanha no E-commerce</Link>: o Claude lê o conceito dela no pedido, e o Editor abre esta pasta quando o vídeo é de um card da campanha.</> : " No Editor, a aba Motion também filtra por pasta."}</p>}
         {(pasta === "" && pastas.length ? [...pastas, SEM] : [pasta || SEM]).map((grupo) => {
-          const lista = (rows || []).filter((r) => (pasta === "" && !pastas.length) ? true : grupo === SEM ? !r.pasta : r.pasta === grupo);
+          const lista = (rows || []).filter((r) => filtro === "todas" || r.spec?.avaliacao === filtro).filter((r) => (pasta === "" && !pastas.length) ? true : grupo === SEM ? !r.pasta : r.pasta === grupo);
           if (!lista.length) return pasta === "" ? null : <p key={grupo} className="text-sm text-fog py-6 text-center">Pasta vazia. Crie um motion com a pasta aberta ou mova um para cá pelo seletor do card.</p>;
           return (
         <div key={grupo} className="mb-5 last:mb-0">
@@ -283,6 +294,10 @@ function Motion() {
                   <p className="text-[11px] text-fog">{r.formato}{inf ? ` · ${inf.duracao} s` : ""} · HyperFrames</p>
                   <div className="flex flex-wrap gap-1 mt-2">
                     {!esperando && <button onClick={() => abrir(r)} className="chip">Abrir</button>}
+                    {!esperando && h && <>
+                      <button onClick={() => avaliar(r, "aprovado")} className={`chip ${r.spec?.avaliacao === "aprovado" ? "chip-mint" : ""}`} title="O Claude segue a linha das aprovadas nas próximas peças">{r.spec?.avaliacao === "aprovado" ? "✓ Aprovada" : "Aprovar"}</button>
+                      <button onClick={() => avaliar(r, "descartado")} className={`chip ${r.spec?.avaliacao === "descartado" ? "text-red-400 border-red-400/50" : ""}`} title="O Claude evita o que as descartadas tinham">{r.spec?.avaliacao === "descartado" ? "✗ Descartada" : "Descartar"}</button>
+                    </>}
                     <select value={r.pasta || SEM} onChange={(e) => mover(r, e.target.value)} aria-label="Pasta" className="chip !py-0 max-w-[9rem] bg-transparent"><option value={SEM}>Sem pasta</option>{pastas.map((n) => <option key={n} value={n}>{n}</option>)}<option value={NOVA}>+ Nova pasta…</option></select>
                     <button onClick={() => excluir(r)} className="chip text-red-400" aria-label={`Excluir ${r.titulo}`}><I.trash className="w-3 h-3" /></button>
                   </div>

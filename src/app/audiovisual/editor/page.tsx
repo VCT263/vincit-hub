@@ -18,6 +18,7 @@ import MotionStudio, { MotionThumb, fileToDataUrl, type MotionDoc } from "@/comp
 import { aiFetch } from "@/lib/aiFetch";
 import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type Cena, type MotionSpec } from "@/lib/motion/engine";
 import { aplicarVocabulario, motionEnd, type MotionClip } from "@/lib/editor/model";
+import AreaSegura from "@/components/av/AreaSegura";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -28,6 +29,7 @@ export default function Editor() {
   const [p, setP] = useState<Project>(EMPTY);
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [grade, setGrade] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [tab, setTab] = useState<"clipes" | "legenda" | "textos" | "estilo" | "motion">("clipes");
   const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean }[]>([]);
@@ -784,10 +786,14 @@ export default function Editor() {
 
         {/* ---------- centro ---------- */}
         <div className="card p-3 flex flex-col items-center gap-3 order-1 lg:order-2 min-w-0">
-          <canvas key={wide ? "h" : "v"} ref={canvasRef} width={W} height={H} className={`w-full rounded-2xl border border-line bg-black ${wide ? "aspect-video" : "max-w-[320px] aspect-[9/16]"}`} />
+          <div className={`relative w-full ${wide ? "" : "max-w-[320px]"}`}>
+            <canvas key={wide ? "h" : "v"} ref={canvasRef} width={W} height={H} className={`w-full rounded-2xl border border-line bg-black ${wide ? "aspect-video" : "aspect-[9/16]"}`} />
+            {grade && <AreaSegura w={W} h={H} />}
+          </div>
           <div className="flex items-center gap-3">
             <button disabled={!total} onClick={() => setPlaying((x) => !x)} className="px-4 py-2 rounded-xl border border-line text-sm font-semibold inline-flex items-center gap-2 disabled:opacity-40">{playing ? <I.pause className="w-4 h-4" /> : <I.play className="w-4 h-4" />}{playing ? "Pausar" : "Tocar"}</button>
             <span className="font-mono text-xs text-soft tabular-nums">{fmt(t)} / {fmt(total)}</span>
+            <button onClick={() => setGrade((g) => !g)} className={`chip ${grade ? "chip-mint" : ""}`} title="Margem de 35 px e as faixas que o app do Instagram cobre">Área segura</button>
           </div>
           {result && (
             <div className="w-full max-w-[320px] rounded-xl border border-mint-dim p-3 text-sm">
