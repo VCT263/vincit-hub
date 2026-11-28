@@ -27,7 +27,7 @@ export default function RemoverPerfil({ acc }: { acc: { id: string; owner_id: st
   }
   async function sair() {
     const ok = await apagarComLixeira({ tabela: "ig_account_members", filtro: { account_id: acc.id, user_id: me! }, oque: `${nome} da sua conta (o perfil continua com o dono)`, rotulo: `Acesso ao perfil ${nome}`, link: "/creator/desempenho" });
-    if (ok) router.push("/creator/desempenho");
+    if (ok) router.push("/creator/perfis");
   }
 
   return (

@@ -3,26 +3,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
-import { applyTable, buildLut, buildToLog, parseCube, toCube, type LutSpec } from "@/lib/luts/core";
-import { CAMERAS, ESTILOS, PACOTES } from "@/lib/luts/catalog";
+import { applyTable, buildLut, buildToLog, parseCube } from "@/lib/luts/core";
+import { LOGS, MARCAS, type Lut } from "@/lib/luts/catalog";
 
-/* Biblioteca de LUTs: converte o log de cada câmera para Rec.709 e aplica estilos, com prévia num quadro real.
- * A prévia, o .cube e a cor do Editor saem do mesmo cálculo (src/lib/luts/core.ts). */
+/* Biblioteca de LUTs: só a prévia de como cada LUT deixa o vídeo, separada por marca.
+ * O HUB não hospeda os arquivos: cada LUT leva ao site oficial, e a LUT baixada pode ser testada aqui. */
 
 const SUPA = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const FOTOS = ["De9sLhLx4cR", "Dc9KD-UiXYv", "DfVHDGRpYci", "DfnAO7gCXGW", "DgDiG6Pj_3i", "DfC1VppkYs8"].map((c) => `${SUPA}/storage/v1/object/public/design-mockups/brand/isys/ig/${c}.jpg`);
 const MAXW = 900;
+const NOME_LOG = Object.fromEntries(LOGS);
 
-type Quadro = { img: ImageData; nome: string; jaLog: boolean };
+type Quadro = { img: ImageData; nome: string; doUsuario: boolean };
 type Externa = { nome: string; n: number; data: Float32Array };
-
-function baixar(nome: string, texto: string) {
-  const url = URL.createObjectURL(new Blob([texto], { type: "text/plain" }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: nome });
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-const slug = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "");
 
 /** cartela de teste: pele, cinzas e cores fortes, para quando nenhuma foto carregar */
 function cartela(): ImageData {
@@ -32,15 +25,13 @@ function cartela(): ImageData {
   const grad = g.createLinearGradient(0, 0, w, 0);
   grad.addColorStop(0, "#000"); grad.addColorStop(1, "#fff");
   g.fillStyle = grad; g.fillRect(0, 0, w, 120);
-  const sw = ["#f3d2bd", "#e0ac8a", "#c68863", "#8d5a3b", "#5b3a29", "#3a261c"];
-  sw.forEach((s, i) => { g.fillStyle = s; g.fillRect((i * w) / 6, 120, w / 6 + 1, 220); });
-  const cores = ["#c0392b", "#e67e22", "#f1c40f", "#27ae60", "#16a085", "#2980b9", "#8e44ad", "#d35400", "#7f8c8d", "#2c3e50", "#a3313b", "#5a7d3a"];
-  cores.forEach((s, i) => { g.fillStyle = s; g.fillRect((i % 6) * (w / 6), 340 + Math.floor(i / 6) * 200, w / 6 + 1, 200); });
+  ["#f3d2bd", "#e0ac8a", "#c68863", "#8d5a3b", "#5b3a29", "#3a261c"].forEach((s, i) => { g.fillStyle = s; g.fillRect((i * w) / 6, 120, w / 6 + 1, 220); });
+  ["#c0392b", "#e67e22", "#f1c40f", "#27ae60", "#16a085", "#2980b9", "#8e44ad", "#d35400", "#7f8c8d", "#2c3e50", "#a3313b", "#5a7d3a"].forEach((s, i) => { g.fillStyle = s; g.fillRect((i % 6) * (w / 6), 340 + Math.floor(i / 6) * 200, w / 6 + 1, 200); });
   g.fillStyle = "#808080"; g.fillRect(0, 740, w, 160);
   g.fillStyle = "#fff"; g.font = "bold 34px sans-serif"; g.fillText("Cartela de teste VINCIT", 30, 830);
   return g.getImageData(0, 0, w, h);
 }
-
+const copia = (img: ImageData) => new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
 function desenhar(cv: HTMLCanvasElement | null, img: ImageData | null) {
   if (!cv || !img) return;
   cv.width = img.width; cv.height = img.height;
@@ -61,10 +52,22 @@ function deImagem(el: HTMLImageElement | HTMLVideoElement, w0: number, h0: numbe
   return g.getImageData(0, 0, w, h);
 }
 
+/** quadro "antes" que a LUT espera: o log da câmera dela (simulado a partir da foto) ou o vídeo normal */
+function antesPara(lut: Lut, base: ImageData, meuLog: string) {
+  const img = copia(base);
+  if (meuLog) { // quadro do usuário gravado em log
+    if (lut.entrada === meuLog) return img;
+    applyTable(img, buildLut({ log: meuLog }), 33); // vira Rec.709
+  }
+  if (lut.entrada) applyTable(img, buildToLog(lut.entrada), 33);
+  return img;
+}
+
 export default function Luts() {
-  const [cam, setCam] = useState("slog3");
-  const [estilo, setEstilo] = useState("teal-laranja");
+  const [marcaId, setMarcaId] = useState("blackmagic");
+  const [lutId, setLutId] = useState("bmd-video");
   const [quadro, setQuadro] = useState<Quadro | null>(null);
+  const [meuLog, setMeuLog] = useState("");
   const [fotoIdx, setFotoIdx] = useState(0);
   const [externa, setExterna] = useState<Externa | null>(null);
   const [corte, setCorte] = useState(50);
@@ -73,17 +76,18 @@ export default function Luts() {
   const depoisRef = useRef<HTMLCanvasElement>(null);
   const thumbs = useRef<Record<string, HTMLCanvasElement | null>>({});
 
-  const camera = CAMERAS.find((c) => c.id === cam);
-  const est = ESTILOS.find((e) => e.id === estilo);
+  const marca = MARCAS.find((m) => m.id === marcaId) || MARCAS[0];
+  const lut = marca.luts.find((l) => l.id === lutId) || marca.luts[0];
 
-  // carrega uma foto da ISYS como quadro de exemplo
+  const escolherMarca = (id: string) => { const m = MARCAS.find((x) => x.id === id)!; setMarcaId(id); setLutId(m.luts[0].id); setExterna(null); };
+
   const carregarFoto = useCallback((i: number) => {
-    setFotoIdx(i);
-    if (i < 0 || !SUPA) { setQuadro({ img: cartela(), nome: "Cartela de teste", jaLog: false }); return; }
+    setFotoIdx(i); setMeuLog("");
+    if (i < 0 || !SUPA) { setQuadro({ img: cartela(), nome: "Cartela de teste", doUsuario: false }); return; }
     const el = new Image();
     el.crossOrigin = "anonymous";
-    el.onload = () => { setAviso(""); setQuadro({ img: deImagem(el, el.naturalWidth, el.naturalHeight), nome: `Foto ISYS ${i + 1}`, jaLog: false }); };
-    el.onerror = () => { setAviso("A foto não carregou; usando a cartela de teste."); setQuadro({ img: cartela(), nome: "Cartela de teste", jaLog: false }); };
+    el.onload = () => { setAviso(""); setQuadro({ img: deImagem(el, el.naturalWidth, el.naturalHeight), nome: `Foto ISYS ${i + 1}`, doUsuario: false }); };
+    el.onerror = () => { setAviso("A foto não carregou; usando a cartela de teste."); setQuadro({ img: cartela(), nome: "Cartela de teste", doUsuario: false }); };
     el.src = FOTOS[i];
   }, []);
   useEffect(() => { carregarFoto(0); }, [carregarFoto]);
@@ -93,15 +97,16 @@ export default function Luts() {
     if (!f) return;
     const url = URL.createObjectURL(f);
     setFotoIdx(-2);
+    const pronto = (el: HTMLImageElement | HTMLVideoElement, w: number, h: number) => { setAviso(""); setQuadro({ img: deImagem(el, w, h), nome: f.name, doUsuario: true }); URL.revokeObjectURL(url); };
     if (f.type.startsWith("video/")) {
       const v = document.createElement("video");
       v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
       v.onloadedmetadata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 2); };
-      v.onseeked = () => { setAviso(""); setQuadro({ img: deImagem(v, v.videoWidth, v.videoHeight), nome: f.name, jaLog: !!cam }); URL.revokeObjectURL(url); };
-      v.onerror = () => setAviso("O navegador não abriu esse vídeo (alguns ProRes e BRAW não abrem). Exporte um quadro em PNG e envie.");
+      v.onseeked = () => pronto(v, v.videoWidth, v.videoHeight);
+      v.onerror = () => setAviso("O navegador não abriu esse vídeo (alguns ProRes e BRAW não abrem). Exporte um quadro em PNG ou JPG e envie.");
     } else {
       const el = new Image();
-      el.onload = () => { setAviso(""); setQuadro({ img: deImagem(el, el.naturalWidth, el.naturalHeight), nome: f.name, jaLog: !!cam }); URL.revokeObjectURL(url); };
+      el.onload = () => pronto(el, el.naturalWidth, el.naturalHeight);
       el.src = url;
     }
   };
@@ -112,102 +117,85 @@ export default function Luts() {
     setAviso(""); setExterna({ nome: f.name, ...r });
   };
 
-  // antes = quadro em log (simulado a partir da foto, ou o quadro real do usuário); depois = com a LUT
-  const antes = useMemo(() => {
-    if (!quadro) return null;
-    const img = new ImageData(new Uint8ClampedArray(quadro.img.data), quadro.img.width, quadro.img.height);
-    if (cam && !quadro.jaLog) applyTable(img, buildToLog(cam), 33);
-    return img;
-  }, [quadro, cam]);
-  const spec: LutSpec = useMemo(() => ({ log: cam || undefined, look: estilo || undefined }), [cam, estilo]);
+  const antes = useMemo(() => (quadro ? antesPara(lut, quadro.img, meuLog) : null), [quadro, lut, meuLog]);
   const depois = useMemo(() => {
     if (!antes) return null;
-    const img = new ImageData(new Uint8ClampedArray(antes.data), antes.width, antes.height);
-    if (externa) {
-      if (cam) applyTable(img, buildLut({ log: cam }), 33);
-      applyTable(img, externa.data, externa.n);
-    } else applyTable(img, buildLut(spec), 33);
+    const img = copia(antes);
+    if (externa) applyTable(img, externa.data, externa.n);
+    else applyTable(img, buildLut({ log: lut.entrada || undefined, look: lut.look }), 33);
     return img;
-  }, [antes, spec, externa, cam]);
+  }, [antes, lut, externa]);
   useEffect(() => { desenhar(antesRef.current, antes); desenhar(depoisRef.current, depois); }, [antes, depois]);
 
-  // miniaturas de cada estilo sobre o quadro já convertido
+  // miniaturas das LUTs da marca escolhida
   useEffect(() => {
-    if (!antes) return;
-    const peq = reduzir(antes, 220);
-    const base = new ImageData(new Uint8ClampedArray(peq.data), peq.width, peq.height);
-    if (cam) applyTable(base, buildLut({ log: cam }), 33);
-    let i = 0;
-    const todos = [{ id: "" }, ...ESTILOS];
+    if (!quadro) return;
+    const peq = reduzir(quadro.img, 220);
+    let i = 0, vivo = true;
     const passo = () => {
-      const e = todos[i++];
-      if (!e) return;
-      const img = new ImageData(new Uint8ClampedArray(peq.data), peq.width, peq.height);
-      applyTable(img, buildLut({ log: cam || undefined, look: e.id || undefined }), 33);
-      desenhar(thumbs.current[e.id || "_"] || null, e.id ? img : base);
+      const l = marca.luts[i++];
+      if (!l || !vivo) return;
+      const img = antesPara(l, peq, meuLog);
+      applyTable(img, buildLut({ log: l.entrada || undefined, look: l.look }), 33);
+      desenhar(thumbs.current[l.id] || null, img);
       requestAnimationFrame(passo);
     };
     passo();
-  }, [antes, cam]);
+    return () => { vivo = false; };
+  }, [quadro, marca, meuLog]);
 
-  const nomeCam = camera ? `${camera.marca} ${camera.perfil.split(" · ")[0]}` : "";
-  const baixarConversao = (id: string) => {
-    const c = CAMERAS.find((x) => x.id === id)!;
-    const n = `${c.marca} ${c.perfil.split(" · ")[0]} para Rec709`;
-    baixar(`VINCIT_${slug(n)}.cube`, toCube({ log: id }, n));
-  };
-  const baixarEstilo = (id: string) => {
-    const e = ESTILOS.find((x) => x.id === id)!;
-    baixar(`VINCIT_${slug(e.nome)}.cube`, toCube({ look: id }, `VINCIT ${e.nome}`));
-  };
-  const baixarJunto = () => {
-    if (!camera || !est) return;
-    const n = `${nomeCam} + ${est.nome}`;
-    baixar(`VINCIT_${slug(n)}.cube`, toCube(spec, n));
-  };
+  const rotuloAntes = lut.entrada && !(meuLog && meuLog === lut.entrada) ? `Antes · ${NOME_LOG[lut.entrada]} (simulado)` : lut.entrada ? `Antes · ${NOME_LOG[lut.entrada]}` : "Antes · Rec.709";
 
   return (
     <>
       <PageHead kicker="AUDIOVISUAL · ACERVO" title="Biblioteca de LUTs"
-        desc="Para vídeo gravado em log: primeiro a conversão da câmera para cor normal (Rec.709), depois um estilo. Veja antes e depois num quadro real, baixe o .cube para o Premiere ou use direto no Editor.">
+        desc="Veja como cada LUT deixa o vídeo antes de baixar. Separadas por marca; o arquivo original você baixa grátis no site oficial, pelo link de cada uma.">
         <Link href="/audiovisual/editor" className="chip"><I.video className="w-3.5 h-3.5" />Usar no Editor</Link>
       </PageHead>
 
-      {/* ---------- prévia ---------- */}
-      <section className="card p-4 sm:p-5">
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        {MARCAS.map((m) => (
+          <button key={m.id} onClick={() => escolherMarca(m.id)} className={`chip shrink-0 ${marca.id === m.id ? "!border-mint !text-mint" : ""}`}>{m.nome}</button>
+        ))}
+      </div>
+
+      <section className="card p-4 sm:p-5 mt-3">
+        <p className="text-sm text-fog">{marca.resumo}</p>
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 mt-3">
+          {marca.luts.map((l) => (
+            <button key={l.id} onClick={() => { setLutId(l.id); setExterna(null); }} className={`text-left rounded-xl border p-1.5 ${lut.id === l.id && !externa ? "border-mint" : "border-line"}`}>
+              <canvas ref={(el) => { thumbs.current[l.id] = el; }} className="w-full aspect-[4/5] object-cover rounded-lg bg-black" />
+              <p className="text-[11px] font-semibold mt-1 leading-tight">{l.nome}</p>
+              <p className="text-[10px] text-fog leading-tight">{l.tipo}</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-5 mt-5">
           <div className="min-w-0">
             <div className="relative overflow-hidden rounded-xl bg-black select-none mx-auto" style={{ aspectRatio: antes ? `${antes.width}/${antes.height}` : "4/5", width: `min(100%, calc(70vh * ${antes ? antes.width / antes.height : 0.8}))` }}>
               {!antes && <p className="absolute inset-0 grid place-items-center text-sm text-fog">Carregando o quadro…</p>}
-              <canvas ref={depoisRef} className="absolute inset-0 w-full h-full object-contain" />
-              <canvas ref={antesRef} className="absolute inset-0 w-full h-full object-contain" style={{ clipPath: `inset(0 ${100 - corte}% 0 0)` }} />
+              <canvas ref={depoisRef} className="absolute inset-0 w-full h-full" />
+              <canvas ref={antesRef} className="absolute inset-0 w-full h-full" style={{ clipPath: `inset(0 ${100 - corte}% 0 0)` }} />
               <div className="absolute top-0 bottom-0 w-0.5 bg-white/90 pointer-events-none" style={{ left: `${corte}%` }} />
-              <span className="absolute top-2 left-2 chip !bg-black/60 !text-white text-[11px]">Antes{cam ? " · log" : ""}</span>
-              <span className="absolute top-2 right-2 chip !bg-black/60 !text-white text-[11px]">Depois</span>
+              <span className="absolute top-2 left-2 chip !bg-black/60 !text-white text-[11px]">{rotuloAntes}</span>
+              <span className="absolute top-2 right-2 chip !bg-black/60 !text-white text-[11px]">{externa ? "Sua LUT" : "Prévia"}</span>
               <input type="range" min={0} max={100} value={corte} onChange={(e) => setCorte(+e.target.value)} aria-label="Comparar antes e depois" className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize" />
             </div>
-            <p className="text-xs text-fog mt-2">
-              Arraste sobre a imagem para comparar. {quadro && !quadro.jaLog && cam ? "O \"antes\" é a foto convertida para o log da câmera escolhida, para você ver como o vídeo sai lavado e como fica depois. Com um quadro do seu vídeo em log, o antes é o arquivo de verdade." : ""}
-            </p>
+            <p className="text-xs text-fog mt-2">Arraste sobre a imagem para comparar. A prévia é uma aproximação feita pelo HUB; a original pode variar um pouco. Para ver a original de verdade, baixe e use &quot;Testar a LUT que baixei&quot;.</p>
           </div>
 
           <div className="space-y-4 min-w-0">
-            <label className="block text-xs text-fog">1 · Câmera / perfil de log
-              <select value={cam} onChange={(e) => { setCam(e.target.value); setExterna(null); }} className="input mt-1 text-sm">
-                <option value="">Vídeo normal (já está em Rec.709)</option>
-                {CAMERAS.filter((c) => c.id).map((c) => <option key={c.id} value={c.id}>{c.marca} · {c.perfil}</option>)}
-              </select>
-            </label>
-            {camera?.dica && <p className="text-xs text-amber-300 -mt-2">{camera.dica}</p>}
-
             <div>
-              <p className="text-xs text-fog">2 · Estilo</p>
-              <p className="text-sm font-semibold mt-1">{externa ? externa.nome : est ? est.nome : "Só a conversão"}</p>
-              {!externa && est && <p className="text-xs text-fog mt-0.5">{est.desc} <span className="text-paper">Bom para: {est.uso}.</span></p>}
-              {externa && <button onClick={() => setExterna(null)} className="chip mt-1 text-xs">Tirar a LUT de fora</button>}
+              <p className="font-mono text-[11px] text-mint tracking-widest uppercase">{marca.nome} · {lut.tipo}</p>
+              <p className="font-display text-xl font-extrabold mt-1">{externa ? externa.nome : lut.nome}</p>
+              <p className="text-sm text-fog mt-1">{lut.desc}</p>
+              <p className="text-xs mt-2"><span className="text-fog">Entra:</span> {lut.entrada ? NOME_LOG[lut.entrada] : "vídeo já convertido (Rec.709)"}</p>
+              <a href={lut.onde.url} target="_blank" rel="noreferrer" className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-mint text-ink"><I.link className="w-4 h-4" />Baixar em {lut.onde.label}</a>
+              <p className="text-xs text-fog mt-1.5">{lut.passo}</p>
             </div>
 
-            <div>
+            <div className="pt-3 border-t border-line">
               <p className="text-xs text-fog">Quadro da prévia</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {FOTOS.map((_, i) => <button key={i} onClick={() => carregarFoto(i)} className={`chip text-xs ${fotoIdx === i ? "!border-mint !text-mint" : ""}`}>ISYS {i + 1}</button>)}
@@ -216,115 +204,45 @@ export default function Luts() {
               <label className="chip text-xs mt-2 cursor-pointer w-full justify-center"><I.video className="w-3.5 h-3.5" />Quadro do meu vídeo
                 <input type="file" accept="video/*,image/*" className="hidden" onChange={(e) => abrirArquivo(e.target.files?.[0])} />
               </label>
-              {quadro && fotoIdx === -2 && (
-                <label className="flex items-center gap-1.5 text-xs mt-2"><input type="checkbox" checked={quadro.jaLog} onChange={(e) => setQuadro({ ...quadro, jaLog: e.target.checked })} />Esse arquivo foi gravado em log</label>
+              {quadro?.doUsuario && (
+                <label className="block text-xs text-fog mt-2">Esse vídeo foi gravado em
+                  <select value={meuLog} onChange={(e) => setMeuLog(e.target.value)} className="input !py-1 text-xs mt-1">
+                    <option value="">Cor normal (sem log)</option>
+                    {LOGS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+                  </select>
+                </label>
               )}
-              <label className="chip text-xs mt-2 cursor-pointer w-full justify-center"><I.palette className="w-3.5 h-3.5" />Testar uma LUT .cube de fora
+              {quadro?.doUsuario && meuLog && lut.entrada && lut.entrada !== meuLog && <p className="text-xs text-amber-300 mt-1">Essa LUT é para {NOME_LOG[lut.entrada]}; seu quadro foi convertido para simular.</p>}
+              <label className="chip text-xs mt-2 cursor-pointer w-full justify-center"><I.palette className="w-3.5 h-3.5" />Testar a LUT que baixei (.cube)
                 <input type="file" accept=".cube" className="hidden" onChange={(e) => abrirCube(e.target.files?.[0])} />
               </label>
+              {externa && <button onClick={() => setExterna(null)} className="chip text-xs mt-2 w-full justify-center">Voltar para a prévia do HUB</button>}
               {aviso && <p className="text-xs text-amber-300 mt-2">{aviso}</p>}
-            </div>
-
-            <div className="space-y-2 pt-1 border-t border-line">
-              <p className="text-xs text-fog pt-3">Baixar para o Premiere (.cube, 33 pontos)</p>
-              {cam && <button onClick={() => baixarConversao(cam)} className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-line"><I.download className="w-4 h-4" />Conversão {nomeCam} → Rec.709</button>}
-              {est && <button onClick={() => baixarEstilo(est.id)} className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-line"><I.download className="w-4 h-4" />Estilo {est.nome}</button>}
-              {cam && est && !externa && <button onClick={baixarJunto} className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-mint text-ink"><I.download className="w-4 h-4" />Tudo em um arquivo</button>}
             </div>
           </div>
         </div>
-
-        {/* ---------- estilos ---------- */}
-        <div className="mt-6">
-          <p className="font-display text-lg font-extrabold">Estilos</p>
-          <p className="text-sm text-fog">Clique para ver na prévia. Os da VINCIT foram feitos para a marca; os do Editor são os mesmos looks do Editor do HUB, para a cor bater no Premiere.</p>
-          {(["VINCIT", "Editor"] as const).map((g) => (
-            <div key={g} className="mt-3">
-              <p className="font-mono text-[11px] text-mint tracking-widest uppercase">{g === "VINCIT" ? "Estilos VINCIT" : "Looks do Editor"}</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-2">
-                {g === "VINCIT" && (
-                  <button onClick={() => { setEstilo(""); setExterna(null); }} className={`text-left rounded-xl border p-1.5 ${!estilo && !externa ? "border-mint" : "border-line"}`}>
-                    <canvas ref={(el) => { thumbs.current._ = el; }} className="w-full aspect-[4/5] object-cover rounded-lg bg-black" />
-                    <p className="text-[11px] font-semibold mt-1 leading-tight">Só a conversão</p>
-                  </button>
-                )}
-                {ESTILOS.filter((e) => e.grupo === g).map((e) => (
-                  <button key={e.id} onClick={() => { setEstilo(e.id); setExterna(null); }} className={`text-left rounded-xl border p-1.5 ${estilo === e.id && !externa ? "border-mint" : "border-line"}`}>
-                    <canvas ref={(el) => { thumbs.current[e.id] = el; }} className="w-full aspect-[4/5] object-cover rounded-lg bg-black" />
-                    <p className="text-[11px] font-semibold mt-1 leading-tight">{e.nome}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
       </section>
 
-      {/* ---------- câmeras ---------- */}
-      <section className="card p-4 sm:p-5 mt-4">
-        <p className="font-display text-lg font-extrabold">Conversão por câmera</p>
-        <p className="text-sm text-fog">A conversão do HUB é feita com a curva e o gamut que cada fabricante publica, com um tom de cinema suave nas altas luzes. É nossa: pode baixar, usar em trabalho pago e repassar. A LUT oficial do fabricante continua sendo a referência; quando a licença não deixa hospedar, fica o link.</p>
-        <div className="mt-3 divide-y divide-line">
-          {CAMERAS.map((c) => (
-            <div key={c.marca + c.perfil} className="py-3 grid md:grid-cols-[1fr_auto] gap-2 items-start">
-              <div className="min-w-0">
-                <p className="font-semibold">{c.marca} <span className="text-fog font-normal">· {c.perfil}</span></p>
-                <p className="text-xs text-fog">{c.cameras}</p>
-                {c.oficial && <p className="text-xs mt-1"><a href={c.oficial.url} target="_blank" rel="noreferrer" className="text-mint underline">{c.oficial.label}</a> <span className="text-fog">· {c.oficial.nota}</span></p>}
-              </div>
-              <div className="flex gap-2 flex-wrap md:justify-end">
-                {c.id ? (
-                  <>
-                    <button onClick={() => { setCam(c.id); setExterna(null); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="chip text-xs">Ver na prévia</button>
-                    <button onClick={() => baixarConversao(c.id)} className="chip text-xs"><I.download className="w-3.5 h-3.5" />Baixar do HUB</button>
-                  </>
-                ) : <span className="chip text-xs text-fog">Só a oficial</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ---------- pacotes grátis ---------- */}
-      <section className="card p-4 sm:p-5 mt-4">
-        <p className="font-display text-lg font-extrabold">Pacotes grátis de fora</p>
-        <p className="text-sm text-fog">Todos liberam uso em trabalho pago. Baixe no site de quem fez e teste aqui com &quot;Testar uma LUT .cube de fora&quot;. Estilos de fora entram depois da conversão (Rec.709).</p>
-        <div className="grid md:grid-cols-2 gap-3 mt-3">
-          {PACOTES.map((p) => (
-            <a key={p.nome} href={p.url} target="_blank" rel="noreferrer" className="rounded-xl border border-line p-3 hover:border-mint block">
-              <p className="font-semibold flex items-center gap-2">{p.nome}<I.link className="w-3.5 h-3.5 text-fog" /></p>
-              <p className="text-xs text-fog mt-0.5">{p.conteudo}</p>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                <span className="chip text-[11px]">{p.licenca}</span>
-                <span className="chip text-[11px] text-mint border-mint/40">Uso comercial</span>
-                <span className="chip text-[11px]">Repasse: {p.repasse}</span>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* ---------- instalação ---------- */}
       <section className="card p-4 sm:p-5 mt-4 grid md:grid-cols-2 gap-5">
         <div>
-          <p className="font-display text-lg font-extrabold">No Premiere (Lumetri)</p>
+          <p className="font-display text-lg font-extrabold">Depois de baixar, no Premiere</p>
           <ol className="text-sm text-fog mt-2 space-y-2 list-decimal pl-4">
             <li>Selecione o clipe e abra <b className="text-paper">Janela › Cor Lumetri</b>.</li>
-            <li>Em <b className="text-paper">Correção básica › LUT de entrada</b>, clique em Procurar e escolha a <b className="text-paper">conversão</b> da sua câmera.</li>
-            <li>Em <b className="text-paper">Criativo › Look</b>, escolha o <b className="text-paper">estilo</b>. A barra Intensidade dosa o estilo.</li>
-            <li>Ou use só o arquivo &quot;Tudo em um&quot; na LUT de entrada.</li>
-            <li>Premiere 25 em diante pode reconhecer o log sozinho (Gerenciamento de cor automático). Se a imagem já aparecer com cor normal, pule a conversão e use só o estilo.</li>
+            <li><b className="text-paper">Conversão</b> (log para cor normal): em <b className="text-paper">Correção básica › LUT de entrada</b>, clique em Procurar.</li>
+            <li><b className="text-paper">Filme ou estilo</b>: em <b className="text-paper">Criativo › Look</b>. A barra Intensidade dosa.</li>
+            <li>Vídeo em log com estilo de filme: use os dois, a conversão primeiro e o estilo depois.</li>
+            <li>No Premiere 25 em diante, o Gerenciamento de cor automático pode converter o log sozinho. Se a imagem já abrir com cor normal, use só o estilo.</li>
           </ol>
         </div>
         <div>
           <p className="font-display text-lg font-extrabold">Deixar sempre na lista</p>
-          <p className="text-sm text-fog mt-2">Copie os arquivos para estas pastas e reabra o Premiere. Eles aparecem direto no menu, sem Procurar.</p>
+          <p className="text-sm text-fog mt-2">Copie os arquivos para estas pastas e reabra o Premiere:</p>
           <ul className="text-xs mt-2 space-y-1.5 font-mono break-all">
             <li><span className="text-fog font-sans">Mac, conversões:</span> /Library/Application Support/Adobe/Common/LUTs/Technical</li>
             <li><span className="text-fog font-sans">Mac, estilos:</span> /Library/Application Support/Adobe/Common/LUTs/Creative</li>
             <li><span className="text-fog font-sans">Windows:</span> C:\Program Files\Adobe\Common\LUTs\Technical e \Creative</li>
           </ul>
-          <p className="text-sm text-fog mt-3">No <Link href="/audiovisual/editor" className="text-mint underline">Editor do HUB</Link>, escolha &quot;Gravado em log&quot; e &quot;LUT da biblioteca&quot; na aba de estilo. Guarde os .cube na pasta LUT do <Link href="/audiovisual/midia" className="text-mint underline">Banco de mídia</Link> para ter tudo no Drive.</p>
+          <p className="text-sm text-fog mt-3">Guarde os .cube na pasta LUT do <Link href="/audiovisual/midia" className="text-mint underline">Banco de mídia</Link> para ter tudo no Drive. No <Link href="/audiovisual/editor" className="text-mint underline">Editor do HUB</Link>, escolha &quot;Gravado em log&quot; e a LUT para ver a mesma prévia no vídeo.</p>
         </div>
       </section>
     </>

@@ -39,8 +39,8 @@ export default async function Overview() {
   ];
 
   const flow = [
-    { t: "Base", Icon: I.user, links: [["Perfis & briefing", "/creator/perfis"]] },
-    { t: "Análise", Icon: I.chart, links: [["Desempenho", "/creator/desempenho"], ["Referências", "/creator/referencias"], ["Raio-X", "/creator/diagnostico"]] },
+    { t: "Base", Icon: I.user, links: [["Perfis & marca", "/creator/perfis"]] },
+    { t: "Análise", Icon: I.chart, links: [["Referências", "/creator/referencias"], ["Raio-X", "/creator/diagnostico"]] },
     { t: "Criação", Icon: I.flask, links: [["Brainstorm", "/creator/brainstorm"], ["Laboratório", "/creator/laboratorio"]] },
     { t: "Produção", Icon: I.board, links: [["Quadro", "/creator/producao"], ["Calendário", "/creator/pauta"]] },
   ];

@@ -19,7 +19,7 @@ async function handle(req: Request) {
     const { motion_id, pedido, formato, base, account_id, etapa, ajuste } = await req.json();
     if (!motion_id || !String(pedido || "").trim()) return NextResponse.json({ error: "Descreva o motion que você quer." }, { status: 400 });
     const sb = await createClient();
-    const { data: row } = await sb.from("av_motions").select("id,spec,kit_id").eq("id", motion_id).maybeSingle();
+    const { data: row } = await sb.from("av_motions").select("id,spec,kit_id,ec_action_id").eq("id", motion_id).maybeSingle();
     if (!row) return NextResponse.json({ error: "Pedido de motion não encontrado." }, { status: 404 });
 
     let ctx = "";
@@ -28,6 +28,14 @@ async function handle(req: Request) {
       if (acc) ctx += `Perfil: @${acc.username}${acc.niche ? ` · nicho ${acc.niche}` : ""}${acc.brand_voice ? `\nVoz da marca: ${acc.brand_voice}` : ""}\n`;
       const { data: marca } = await sb.from("design_projects").select("data").eq("kind", "marca").is("archived_at", null).eq("data->>perfil_id", account_id).limit(1).maybeSingle();
       if (marca?.data) ctx += `\n${brandPrompt(marca.data)}\n`;
+    }
+    if ((row as any).ec_action_id) {
+      // pasta ligada a uma campanha do E-commerce: o motion segue o conceito e a mensagem dela
+      const { data: acao } = await sb.from("ec_actions").select("title,date,end_date,campaign").eq("id", (row as any).ec_action_id).maybeSingle();
+      if (acao) {
+        const c = (acao as any).campaign || {};
+        ctx += `\nCampanha: ${acao.title} (${acao.date}${acao.end_date ? ` a ${acao.end_date}` : ""})${c.conceito ? `\nConceito: ${c.conceito}` : ""}${c.mensagem ? `\nMensagem: ${c.mensagem}` : ""}${c.oferta?.mecanica ? `\nOferta: ${c.oferta.mecanica}` : ""}\nOs motions desta campanha formam uma família: mesma linguagem visual, mesmo ritmo e o conceito presente.\n`;
+      }
     }
     {
       const kitId = (row as any).kit_id;

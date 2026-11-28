@@ -17,7 +17,7 @@ function load(): { mode: ReaderMode; z: number; cols: number } | null {
 function save(v: { mode: ReaderMode; z: number; cols: number }) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch { /* sem armazenamento: tudo bem */ } }
 
 /** uma página do leitor: escala o slide para a largura que recebeu */
-function Page({ x, s, n, total, margin, onOpen, current, label }: { x: Ctx; s: SlideDef; n: number; total: number; margin: string; onOpen?: () => void; current?: boolean; label?: boolean }) {
+function Page({ x, s, src, n, total, margin, onOpen, current, label }: { x: Ctx; s?: SlideDef; src?: string; n: number; total: number; margin: string; onOpen?: () => void; current?: boolean; label?: boolean }) {
   const ref = useRef<HTMLDivElement>(null); const [k, setK] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current; if (!el) return;
@@ -29,9 +29,11 @@ function Page({ x, s, n, total, margin, onOpen, current, label }: { x: Ctx; s: S
   return (
     <div className="min-w-0">
       <div ref={ref} onClick={onOpen} className={`w-full relative overflow-hidden rounded-md bg-panel2 shadow-xl ${onOpen ? "cursor-pointer" : ""} ${current ? "ring-2 ring-mint" : ""}`} style={{ height: k ? x.H * k : undefined, aspectRatio: k ? undefined : `${x.W} / ${x.H}` }}>
-        {near && k > 0 && <div style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H, pointerEvents: "none" }}>
-          <Frame x={x} s={s} n={n} total={total}>{s.body(x)}</Frame>
-        </div>}
+        {near && k > 0 && (src
+          ? <img src={src} alt={`Página ${n}`} decoding="async" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+          : s && <div style={{ transform: `scale(${k})`, transformOrigin: "0 0", width: x.W, height: x.H, pointerEvents: "none" }}>
+            <Frame x={x} s={s} n={n} total={total}>{s.body(x)}</Frame>
+          </div>)}
       </div>
       {label && <p className={`text-center font-mono text-[11px] mt-1.5 ${current ? "text-mint" : "text-fog"}`}>{n}</p>}
     </div>
@@ -48,15 +50,18 @@ const I = {
 function Btn({ on, title, onClick, disabled, children, wide }: { on?: boolean; title: string; onClick: () => void; disabled?: boolean; children: ReactNode; wide?: boolean }) {
   return (
     <button type="button" title={title} aria-label={title} aria-pressed={on} onClick={onClick} disabled={disabled}
-      className={`h-9 ${wide ? "px-2.5" : "w-[30px] sm:w-9"} grid place-items-center rounded-lg text-sm font-semibold transition disabled:opacity-35 ${on ? "bg-mint text-[#06140e]" : "text-paper hover:bg-white/10 active:bg-white/15"}`}>
+      className={`h-9 ${wide ? "px-2.5" : "w-[29px] sm:w-9"} grid place-items-center rounded-lg text-sm font-semibold transition disabled:opacity-35 ${on ? "bg-mint text-[#06140e]" : "text-paper hover:bg-white/10 active:bg-white/15"}`}>
       {children}
     </button>
   );
 }
 
-export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides: SlideDef[]; onPresent: (i: number) => void; active?: boolean }) {
+/** imgs: páginas já fotografadas (Storage). Quando existem, o leitor mostra as imagens em vez de montar os slides */
+export function Reader({ x, slides, onPresent, active = true, imgs }: { x: Ctx; slides: SlideDef[]; onPresent: (i: number) => void; active?: boolean; imgs?: { urls: string[]; thumbs?: string[] } | null }) {
   const lite = useLite();
-  const total = slides.length;
+  const total = imgs?.urls.length || slides.length;
+  const ids = Array.from({ length: total }, (_, i) => i);
+  const keyOf = (i: number) => imgs ? imgs.urls[i] : slides[i]?.key ?? String(i);
   const [mode, setMode] = useState<ReaderMode>("uma");
   const [z, setZ] = useState(2); // índice em ZOOMS (100%)
   const [cols, setCols] = useState(0); // 0 = automático (2 no celular, 4 no computador)
@@ -90,6 +95,12 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
   }, []);
   const nCols = cols || autoCols;
   const zoom = mode === "grade" ? 1 : ZOOMS[z];
+  /** imagem leve (800 px) nas miniaturas e no celular; a grande quando a página fica maior que isso */
+  const srcOf = (i: number, small: boolean) => {
+    if (!imgs) return undefined;
+    const t = imgs.thumbs?.[i];
+    return t && (small || (lite && zoom <= 1.5)) ? t : imgs.urls[i];
+  };
 
   /** leva a página i para logo abaixo da barra */
   const goTo = useCallback((i: number, smooth = true) => {
@@ -193,7 +204,7 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
                 onChange={(e) => setTyped(e.target.value.replace(/\D/g, "").slice(0, 3))}
                 onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setTyped(null); (e.target as HTMLInputElement).blur(); } }}
                 onBlur={jump}
-                className="w-7 sm:w-9 h-8 text-center rounded-md bg-panel2 text-paper text-[13px] outline-none focus:ring-1 focus:ring-mint" />
+                enterKeyHint="go" className="w-8 sm:w-9 h-8 text-center rounded-md bg-panel2 text-paper text-[16px] sm:text-[13px] outline-none focus:ring-1 focus:ring-mint" />
               <span className="pl-0.5 sm:pl-1 pr-0.5">/{total}</span>
             </span>
             <Btn title="Próxima página" onClick={next} disabled={cur >= total - 1}>›</Btn>
@@ -206,15 +217,15 @@ export function Reader({ x, slides, onPresent, active = true }: { x: Ctx; slides
       <div ref={scroller} className="overflow-x-auto overscroll-x-contain">
         <div className="mx-auto px-3 md:px-8 py-6 md:py-8" style={{ width: `calc(min(100%, 72rem) * ${zoom})` }}>
           {mode === "uma" && <div className="space-y-4 md:space-y-6">
-            {slides.map((s, i) => <div key={s.key} ref={setRef(i)}><Page x={x} s={s} n={i + 1} total={total} margin={margin} onOpen={zoom <= 1 ? () => onPresent(i) : undefined} /></div>)}
+            {ids.map((i) => <div key={keyOf(i)} ref={setRef(i)}><Page x={x} s={slides[i]} src={srcOf(i, false)} n={i + 1} total={total} margin={margin} onOpen={zoom <= 1 ? () => onPresent(i) : undefined} /></div>)}
           </div>}
           {mode === "duas" && <div className="space-y-3 md:space-y-6">
             {rows.map((r) => <div key={r[0]} className="grid grid-cols-2 gap-2 md:gap-4 items-start">
-              {r.map((i) => <div key={slides[i].key} ref={setRef(i)}><Page x={x} s={slides[i]} n={i + 1} total={total} margin={margin} label onOpen={zoom <= 1 ? () => onPresent(i) : undefined} /></div>)}
+              {r.map((i) => <div key={keyOf(i)} ref={setRef(i)}><Page x={x} s={slides[i]} src={srcOf(i, true)} n={i + 1} total={total} margin={margin} label onOpen={zoom <= 1 ? () => onPresent(i) : undefined} /></div>)}
             </div>)}
           </div>}
           {mode === "grade" && <div className="grid gap-x-2 gap-y-3 md:gap-x-4 md:gap-y-5" style={{ gridTemplateColumns: `repeat(${nCols}, minmax(0, 1fr))` }}>
-            {slides.map((s, i) => <div key={s.key} ref={setRef(i)}><Page x={x} s={s} n={i + 1} total={total} margin={margin} label current={i === cur}
+            {ids.map((i) => <div key={keyOf(i)} ref={setRef(i)}><Page x={x} s={slides[i]} src={srcOf(i, true)} n={i + 1} total={total} margin={margin} label current={i === cur}
               onOpen={() => { setCur(i); curRef.current = i; setMode("uma"); }} /></div>)}
           </div>}
         </div>

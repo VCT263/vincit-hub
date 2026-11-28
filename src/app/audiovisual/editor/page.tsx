@@ -2,7 +2,7 @@
 import { briefEmTexto, normalizeBrief } from "@/lib/briefs";
 import { salvarNoDrive } from "@/lib/drive";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CAMERAS as LUT_CAMERAS, ESTILOS as LUT_ESTILOS } from "@/lib/luts/catalog";
+import { LOGS as LUT_LOGS, TODAS as LUT_TODAS } from "@/lib/luts/catalog";
 import Ajuda from "@/components/ajuda/Ajuda";
 import Link from "next/link";
 import { I } from "@/components/icons";
@@ -32,13 +32,20 @@ export default function Editor() {
   const [grade, setGrade] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [tab, setTab] = useState<"clipes" | "legenda" | "textos" | "estilo" | "motion">("clipes");
-  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec }[]>([]);
+  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean }[]>([]);
+  const [motionPasta, setMotionPasta] = useState("");
   const [studio, setStudio] = useState<Partial<MotionDoc> | null>(null);
   const [kits, setKits] = useState<{ id: string; name: string; data: Kit }[]>([]);
   const [kitId, setKitId] = useState("");
   const [override, setOverride] = useState<Kit>({});
   const [contents, setContents] = useState<any[]>([]);
   const [contentId, setContentId] = useState("");
+  // vídeo de um card de campanha: a aba Motion abre na pasta dos motions daquela campanha
+  useEffect(() => {
+    const acao = contents.find((x) => x.id === contentId)?.ec_action_id;
+    const p = acao && motions.find((m) => m.ec_action_id === acao && m.pasta)?.pasta;
+    if (p) setMotionPasta(p);
+  }, [contentId, contents, motions]);
   const [busy, setBusy] = useState<Busy>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; size: number } | null>(null);
@@ -76,7 +83,7 @@ export default function Editor() {
   useEffect(() => {
     const s = createClient();
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
-    s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
+    s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url,ec_action_id").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
       setContents(data || []);
       // veio do card do Quadro (?c=): o conteúdo já entra escolhido
       const c = new URLSearchParams(window.location.search).get("c");
@@ -90,8 +97,8 @@ export default function Editor() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function loadMotions() {
-    const { data } = await createClient().from("av_motions").select("id,titulo,spec").eq("status", "pronto").order("updated_at", { ascending: false }).limit(40);
-    const list = ((data as any) || []).map((r: any) => ({ ...r, spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec }[];
+    const { data } = await createClient().from("av_motions").select("id,titulo,spec,pasta,ec_action_id").eq("status", "pronto").order("updated_at", { ascending: false }).limit(120);
+    const list = ((data as any) || []).map((r: any) => ({ ...r, html: r.spec?.motor === "html", spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean }[];
     setMotions(list);
     return list;
   }
@@ -703,8 +710,20 @@ export default function Editor() {
               )}
               <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Meus motions</p>
               {motions.length === 0 && <p className="text-xs text-fog">Nenhum motion salvo ainda.</p>}
+              {motions.some((m) => m.pasta) && (
+                <select value={motionPasta} onChange={(e) => setMotionPasta(e.target.value)} aria-label="Pasta dos motions" className="input text-xs">
+                  <option value="">Todas as pastas</option>
+                  {Array.from(new Set(motions.map((m) => m.pasta).filter(Boolean) as string[])).sort().map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              )}
               <div className="grid grid-cols-2 gap-2">
-                {motions.map((m) => (
+                {motions.filter((m) => !motionPasta || m.pasta === motionPasta).map((m) => m.html ? (
+                  <div key={m.id} className="rounded-xl border border-line p-1.5">
+                    <div className="aspect-[9/12] rounded-lg bg-white/5 grid place-items-center text-[10px] text-fog text-center p-2">Peça HyperFrames: exporte em WebM transparente ou MP4 no Motion e traga como mídia</div>
+                    <p className="text-[11px] font-semibold truncate mt-1">{m.titulo}</p>
+                    <Link href={`/audiovisual/motion?id=${m.id}`} className="chip !text-[10px] mt-1 inline-block">Exportar no Motion</Link>
+                  </div>
+                ) : (
                   <div key={m.id} className="rounded-xl border border-line p-1.5">
                     <MotionThumb spec={m.spec} />
                     <p className="text-[11px] font-semibold truncate mt-1">{m.titulo}</p>
@@ -879,13 +898,13 @@ export default function Editor() {
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <label className="text-[11px] text-fog">Gravado em log
-                <select value={p.logCamera || ""} onChange={(e) => update((pp) => ({ ...pp, logCamera: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Não (vídeo normal)</option>{LUT_CAMERAS.filter((c) => c.id).map((c) => <option key={c.id} value={c.id}>{c.marca} · {c.perfil.split(" · ")[0]}</option>)}</select>
+                <select value={p.logCamera || ""} onChange={(e) => update((pp) => ({ ...pp, logCamera: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Não (vídeo normal)</option>{LUT_LOGS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}</select>
               </label>
               <label className="text-[11px] text-fog">LUT da biblioteca
-                <select value={p.lut || ""} onChange={(e) => update((pp) => ({ ...pp, lut: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Nenhuma</option>{LUT_ESTILOS.filter((x) => x.grupo === "VINCIT").map((x) => <option key={x.id} value={x.id}>{x.nome}</option>)}</select>
+                <select value={p.lut || ""} onChange={(e) => update((pp) => ({ ...pp, lut: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Nenhuma</option>{LUT_TODAS.filter((x) => x.look).map((x) => <option key={x.id} value={x.look}>{x.marca} · {x.nome}</option>)}</select>
               </label>
             </div>
-            <a href="/audiovisual/luts" className="text-[11px] text-fog underline mt-1 inline-block">Ver as LUTs com prévia e baixar para o Premiere</a>
+            <a href="/audiovisual/luts" className="text-[11px] text-fog underline mt-1 inline-block">Ver as LUTs com prévia e onde baixar</a>
             <label className="flex items-center gap-1.5 text-xs mt-1.5"><input type="checkbox" checked={!!p.grao} onChange={(e) => update((pp) => ({ ...pp, grao: e.target.checked }))} />Grão de filme</label>
             {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
           </div>
