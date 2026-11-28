@@ -2,11 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { can, hubAllowed, toolForPath, type Access } from "@/lib/access";
 
-const PUBLIC = ["/b/", "/m/", "/g/", "/login", "/api/mcp", "/api/oauth/register", "/api/oauth/metadata", "/.well-known/", "/auth", "/api/meta/webhook", "/api/cron/", "/api/luts/", "/sw.js", "/manifest.webmanifest", "/pwa/", "/privacidade", "/p/", "/r/", "/c/"];
+const PUBLIC = ["/b/", "/m/", "/g/", "/login", "/api/mcp", "/api/oauth/register", "/api/oauth/metadata", "/.well-known/", "/auth", "/api/meta/webhook", "/api/cron/", "/api/luts/", "/sw.js", "/manifest.webmanifest", "/pwa/", "/privacidade", "/p/", "/r/", "/c/", "/w/"];
 
 // links públicos por token não usam a sessão: não renovam o login a cada abertura
 // (evita "refresh_token_already_used" quando várias abas abrem juntas e deixa o link mais rápido)
-const TOKEN_PAGES = ["/b/", "/m/", "/g/", "/p/", "/r/", "/c/", "/privacidade", "/sw.js", "/manifest.webmanifest", "/pwa/"];
+const TOKEN_PAGES = ["/b/", "/m/", "/g/", "/p/", "/r/", "/c/", "/w/", "/privacidade", "/sw.js", "/manifest.webmanifest", "/pwa/"];
 
 export async function middleware(request: NextRequest) {
   if (TOKEN_PAGES.some((p) => request.nextUrl.pathname.startsWith(p))) return NextResponse.next();

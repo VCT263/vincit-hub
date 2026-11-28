@@ -31,6 +31,7 @@ export const TOOLS: Tool[] = [
   { key: "ecommerce:inteligencia", label: "Inteligência do negócio", hub: "ecommerce", path: "/ecommerce/inteligencia" },
   { key: "design:marca", label: "Criação de marca (briefing, logo, cores, tipografia, manual)", hub: "design", path: "/design/marcas" },
   { key: "design:pecas", label: "Carrosséis e peças estáticas", hub: "design", path: "/design/pecas" },
+  { key: "design:paginas", label: "Páginas e sites (prévia e aprovação do cliente)", hub: "design", path: "/design/paginas" },
   { key: "ia", label: "Inteligência artificial (agentes, roteiros, análises)", hub: "geral" },
 ];
 

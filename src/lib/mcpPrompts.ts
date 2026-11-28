@@ -13,6 +13,12 @@ const s = (v: any, n = 80) => (v ? String(v).slice(0, n) : "");
 
 export const PROMPTS: McpPrompt[] = [
   {
+    name: "criar_pagina", title: "Criar página",
+    description: "Cria ou ajusta uma página, landing ou site no Design › Páginas e sites, com prévia e aprovação do cliente no HUB.",
+    arguments: [{ name: "pagina", description: "nome ou id da página (opcional)", required: false }],
+    text: (a) => `Vamos trabalhar em Páginas e sites do VINCIT HUB${a.pagina ? ` (${s(a.pagina, 80)})` : ""}. Chame paginas_pendentes (sem id para ver a lista e depois com o id da página certa). Siga a skill_criar_paginas que vem no resultado: se for a primeira versão, me mostre a ficha da página (objetivo, público, oferta e prova, seções em ordem, tom, destino) e espere meu ok; se for ajuste, leia os comentários abertos e o pedido e mexa só no que foi pedido. Escreva cada tela como HTML completo, celular primeiro, com a marca do manual e as fotos que vierem. Revise o texto contra os vícios de IA e grave com salvar_pagina, marcando os comentários atendidos. No fim, me mande o link do HUB e o link do cliente.`,
+  },
+  {
     name: "comecar_no_hub", title: "Começar no HUB",
     description: "Carrega sua conta, perfis, manual da marca, pendências e as novidades de IA do VINCIT HUB.",
     arguments: [],
