@@ -30,7 +30,7 @@ async function handle(req: Request) {
       const { data: est } = await sb.from("ref_estilos").select("id,name,descricao,account_id").eq("id", body.estilo_id).maybeSingle();
       if (!est) return NextResponse.json({ error: "Estilo não encontrado." }, { status: 404 });
       const { data: refs } = await sb.from("references_lib").select("id,title,url,edicao").eq("estilo_id", est.id).not("edicao", "is", null).order("created_at", { ascending: false }).limit(8);
-      const ok = (refs || []).filter((r: any) => r.edicao);
+      const ok = (refs || []).filter((r: any) => r.edicao?.planos?.length);
       if (!ok.length) return NextResponse.json({ error: "Nenhum vídeo deste estilo foi desmontado ainda." }, { status: 400 });
       const ctx = await contextoMarca(sb, est.account_id);
       const text = await callClaude({ maxTokens: 6000, prompt: promptJuntar({ contexto: ctx, estilo: { nome: est.name, descricao: est.descricao || undefined }, analises: ok.map((r: any) => ({ titulo: r.title, url: r.url, edicao: normalizeEdicao(r.edicao) })) }) });
@@ -60,7 +60,11 @@ async function handle(req: Request) {
     if (!ref.url) return NextResponse.json({ error: "A referência precisa do link do vídeo." }, { status: 400 });
     const text = await callClaude({ maxTokens: 8000, prompt: promptEngenhariaReversa({ url: ref.url, titulo: ref.title, handle: ref.handle || undefined }) });
     const edicao = { ...normalizeEdicao(extractJson(text)), at: new Date().toISOString() };
-    if (!edicao.resumo && !edicao.planos.length) return NextResponse.json({ error: "O Claude não mandou a análise. Tente de novo." }, { status: 500 });
+    /* sem planos = o Claude não viu o vídeo (ex.: o painel do claude.ai, que não abre links). Não grava recusa como análise. */
+    if (!edicao.planos.length) {
+      await sb.from("references_lib").update({ edicao_request: null }).eq("id", ref.id);
+      return NextResponse.json({ error: `O Claude não conseguiu ver o vídeo${edicao.resumo ? `: ${edicao.resumo.slice(0, 200)}` : "."} Peça de novo com o Claude do Mac aberto (Claude Code ou o Claude com o Chrome).` }, { status: 422 });
+    }
     await sb.from("references_lib").update({ edicao, edicao_request: null }).eq("id", ref.id);
     return NextResponse.json({ edicao });
   } catch (e: any) {
