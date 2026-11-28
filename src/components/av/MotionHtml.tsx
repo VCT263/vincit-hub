@@ -7,9 +7,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeBrief, type Brief } from "@/lib/briefs";
+import { salvarNoDrive } from "@/lib/drive";
 import { MotionFrame, exportarHtml, infoComposicao, montarDoc, variaveisDeclaradas } from "@/lib/motion/html";
 
-export type HtmlRow = { id: string; titulo: string; spec: any; status: string };
+export type HtmlRow = { id: string; titulo: string; spec: any; status: string; account_id?: string | null };
 
 export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
   row: HtmlRow;
@@ -30,6 +31,8 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
   const [msg, setMsg] = useState<string | null>(null);
   const [verBrief, setVerBrief] = useState(!html);
   const cancel = useRef({ cancel: false });
+  const [ultimo, setUltimo] = useState<{ blob: Blob; nome: string } | null>(null);
+  const [driveLink, setDriveLink] = useState<string | null>(null);
 
   const vars = useMemo(() => variaveisDeclaradas(html), [html]);
   const info = useMemo(() => infoComposicao(html), [html]);
@@ -46,10 +49,19 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${(titulo || "motion").replace(/[^\w\-À-ú ]+/g, "").trim() || "motion"} ${info.w}x${info.h}.${tipo}`;
+      setUltimo({ blob, nome: a.download }); setDriveLink(null);
       document.body.appendChild(a); a.click(); a.remove();
       setMsg(tipo === "webm" ? "WebM transparente baixado. Serve para pôr por cima do vídeo no Editor, no Premiere ou no CapCut." : "MP4 baixado.");
     } catch (e: any) { setMsg(e.message); }
     setBusy(null);
+  }
+  async function paraDrive() {
+    if (!ultimo) return;
+    setBusy("Salvando no Drive…");
+    const r = await salvarNoDrive({ kind: "interno", sub: "Motion", nome: ultimo.nome, blob: ultimo.blob, accountId: row.account_id });
+    setBusy(null);
+    if (r.ok) { setDriveLink(r.link || null); setMsg(`Salvo no Drive em ${r.caminho || "Meus conteúdos > Projetos e entregas > Motion"}.`); }
+    else setMsg(r.needsScope ? "Falta liberar o Drive: abra o Banco de mídia e toque em \"Liberar organização do Drive\"." : r.error || "Não salvou no Drive.");
   }
   function respostasTexto() {
     if (!brief) return "";
@@ -107,6 +119,8 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
                 <button onClick={salvar} className="btn btn-ghost btn-sm">Salvar</button>
                 <button disabled={!!busy} onClick={() => exportar("mp4")} className="btn btn-ghost btn-sm"><I.download className="w-4 h-4" />MP4</button>
                 <button disabled={!!busy} onClick={() => exportar("webm")} className="btn btn-ghost btn-sm" title="Fundo transparente, para pôr por cima do vídeo"><I.download className="w-4 h-4" />WebM transparente</button>
+                {ultimo && <button disabled={!!busy} onClick={paraDrive} className="btn btn-ghost btn-sm" title={`Salva ${ultimo.nome} na pasta Motion do Drive`}>Salvar no Drive</button>}
+                {driveLink && <a href={driveLink} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Abrir no Drive</a>}
               </div>
               <div className="rounded-xl border border-line p-3">
                 <p className="text-sm font-semibold">Pedir ajuste ao Claude</p>

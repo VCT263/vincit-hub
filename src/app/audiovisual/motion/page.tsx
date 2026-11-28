@@ -88,7 +88,7 @@ function Motion() {
   }, [rows, reenviar]);
 
   function abrir(r: Row) {
-    if (ehHtml(r)) { setOpen(null); setOpenHtml({ id: r.id, titulo: r.titulo, spec: r.spec, status: r.status }); setKey((k) => k + 1); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (ehHtml(r)) { setOpen(null); setOpenHtml({ id: r.id, titulo: r.titulo, spec: r.spec, status: r.status, account_id: r.account_id }); setKey((k) => k + 1); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     setOpenHtml(null);
     setOpen({ id: r.id, titulo: r.titulo, spec: normalizeSpec(r.spec), kit_id: r.kit_id, brand_id: r.brand_id, account_id: r.account_id });
     setKey((k) => k + 1);
