@@ -84,13 +84,13 @@ export default function TopBar() {
   return (
     <>
     <header className="print:hidden sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
-      <div className="h-16 flex items-center gap-6 px-4 md:px-6">
+      <div className="h-16 flex items-center gap-3 md:gap-6 px-3 md:px-6">
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           <Logo className="h-5" />
-          <span className="font-mono text-[10px] text-fog border border-line rounded-md px-1.5 py-0.5">HUB</span>
+          <span className="hidden min-[400px]:inline font-mono text-[10px] text-fog border border-line rounded-md px-1.5 py-0.5">HUB</span>
         </Link>
         <div className="hidden md:block">{nav}</div>
-        <form action="/auth/signout" method="post" className="ml-auto flex items-center gap-2">
+        <form action="/auth/signout" method="post" className="ml-auto flex items-center gap-1 sm:gap-2 min-w-0">
           <span data-tour="sino" className="inline-flex"><Bell /></span>
           {acc?.role === "superadmin" && <Link href="/admin" className="btn btn-ghost btn-sm text-mint">Admin</Link>}
           <Link href="/conta/lixeira" data-tour="lixeira" className="btn btn-ghost btn-sm" aria-label="Lixeira" title="Lixeira"><I.trash className="w-3.5 h-3.5" /></Link>

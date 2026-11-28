@@ -262,7 +262,7 @@ export default function MidiaPage() {
           <div className="flex flex-col md:flex-row gap-2 md:items-center mt-3">
             <div className="relative md:w-72">
               <I.search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fog" />
-              <input className="input pl-9" placeholder="Buscar no banco: whoosh, café, logo…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input className="input !pl-9" placeholder="Buscar no banco: whoosh, café, logo…" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <button onClick={reorganize} disabled={reorg || !items?.length} className="btn btn-ghost btn-sm md:ml-auto" title="Põe cada arquivo na área indicada pelo nome da pasta. Também desfaz trocas feitas à mão.">{reorg ? "Organizando…" : "Reorganizar pelas pastas"}</button>
           </div>

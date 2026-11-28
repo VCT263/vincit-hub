@@ -33,10 +33,12 @@ export default async function Resumo({ searchParams }: { searchParams: Promise<{
   const today = todayBR();
   const start = monday(today), end = addDays(start, 6);
   const ym = today.slice(0, 7);
+  // último dia do mês de verdade ("2026-11-31" não existe e o banco recusava a consulta: o financeiro do mês vinha zerado)
+  const fimMes = `${ym}-${String(new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate()).padStart(2, "0")}`;
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const [{ data: settings }, { data: tx }, { data: projects }, { data: events }, { data: tasks }, { data: proposals }, { data: content }, { data: spaces }, { data: statuses }, cst] = await Promise.all([
     supabase.from("ag_settings").select("monthly_goal").maybeSingle(),
-    hasAgency ? supabase.from("ag_transactions").select("id,kind,amount,due_date,paid,description").is("transfer_id", null).gte("due_date", `${ym}-01` < start ? `${ym}-01` : start).lte("due_date", end > `${ym}-31` ? end : `${ym}-31`) : Promise.resolve({ data: [] as any[] }),
+    hasAgency ? supabase.from("ag_transactions").select("id,kind,amount,due_date,paid,description").is("transfer_id", null).gte("due_date", `${ym}-01` < start ? `${ym}-01` : start).lte("due_date", end > fimMes ? end : fimMes) : Promise.resolve({ data: [] as any[] }),
     supabase.from("ag_projects").select("id,title,stage,shoot_date,due_date,revisions"),
     supabase.from("ag_events").select("id,title,kind,starts_at,recurrence,recurrence_until,exdates,location"),
     supabase.from("ag_tasks").select("*").is("parent_id", null),

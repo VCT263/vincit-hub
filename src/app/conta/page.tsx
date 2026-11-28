@@ -95,7 +95,7 @@ export default function Conta() {
         <form onSubmit={save} className="card p-5 space-y-3">
           <p className="font-display font-bold flex items-center gap-2">Alterar senha <Ajuda id="senha" /></p>
           <input className="input" type={show ? "text" : "password"} value={atual} onChange={(e) => setAtual(e.target.value)} placeholder="Senha atual" autoComplete="current-password" />
-          <div className="relative"><input className="input pr-11" type={show ? "text" : "password"} minLength={SENHA_MIN} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" />
+          <div className="relative"><input className="input !pr-11" type={show ? "text" : "password"} minLength={SENHA_MIN} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" />
             <button type="button" onClick={() => setShow(!show)} className="absolute right-0 top-0 h-full px-3.5 text-fog hover:text-paper text-xs">{show ? "Ocultar" : "Mostrar"}</button></div>
           <input className="input" type={show ? "text" : "password"} value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Repita a nova senha" autoComplete="new-password" />
           <button className="btn btn-mint w-full">Salvar nova senha</button>
