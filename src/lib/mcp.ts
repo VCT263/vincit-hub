@@ -1,4 +1,5 @@
 import { brandPrompt } from "@/lib/brandPrompt";
+import { GUIA_REFINAR_EDICAO, normalizeBrief } from "@/lib/briefs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, hubAllowed, type Access } from "@/lib/access";
 import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
@@ -420,6 +421,7 @@ export const TOOLS: Tool[] = [
         quantidade: out.length, edicoes: out,
         formato_do_plano: {
           resumo: "1 a 3 frases sobre a edição proposta",
+          brief: "opcional, recomendado: o brief da edição (8 partes, tipo 'edicao'), escrito antes do plano; veja regras",
           cortes: "[{inicio, fim, motivo}] trechos para remover (respiros, erros, repetições)",
           legendas: "[{inicio, fim, texto, destaque}] frases curtas de 1 a 4 palavras; destaque = palavra a colorir",
           titulos: "[{inicio, fim, texto, tipo: 'gancho'|'cta'|'lower_third'|'episodio'|'capitulo'|'palavra'|'frase'|'letreiro'|'data'|'lista'|'rec'|'vazado'|'riscado'|'numero'|'grafico'|'checklist'|'seta'|'relogio'|'progresso', linha?}] episodio = abertura da série (linha = 'EP. 03 · 2026'); capitulo = roda de capítulos numerada; palavra = palavra-chave na tela; frase = frase de impacto no centro com o quadro escurecido (linha = palavras na cor de destaque); letreiro = palavra gigante espaçada no alto; data = data e lugar do vlog (linha = dia da semana); lista = tela de explicação (linha = itens separados por |); rec = efeito câmera REC em preto e branco; vazado = palavra grande e transparente no espaço vazio (linha = 2ª linha em itálico); riscado = palavra riscada em vermelho e a certa embaixo (texto = a errada, linha = a certa; use em 'não é X, é Y'). Motion (animação nas cores do kit, alternativa à imagem): numero = número contando (texto '70%' ou 'R$ 3 mil', linha = legenda); grafico = barras subindo (linha = legenda); checklist = itens marcados (linha = itens separados por |); seta = seta desenhada (linha = esquerda|direita|cima|baixo); relogio = relógio girando (texto '30 min'); progresso = barra enchendo (texto = número de 0 a 100). Nada fica fixo o vídeo todo: cada texto dura 2 a 3 s. Tipos novos valem no Editor do HUB",
@@ -430,7 +432,7 @@ export const TOOLS: Tool[] = [
           estilo: "'01' a '12' (só no Editor do HUB): número do catálogo de estilos. Aplica lettering, câmera, cor, transição e jump cut do estilo; seus cortes, zooms e títulos entram por cima. Use o estilo pedido, senão o padrão do kit (kit_de_estilo.data.estilo), senão sugira o que combina com o roteiro",
         },
         catalogo_de_estilos: ESTILOS.map((e) => ({ numero: e.num, nome: e.nome, resumo: e.resumo, bom_para: e.uso, definicao: estiloTags(e).join(" · ") })),
-        regras: "Use só tempos que existem na transcrição/timeline. Respeite o kit de estilo e o pedido do editor. Nada é aplicado sem o editor revisar no Premiere.",
+        regras: GUIA_REFINAR_EDICAO + " Use só tempos que existem na transcrição/timeline. Respeite o kit de estilo (kit_de_estilo.data.regras e vocabulario) e o pedido do editor. Nada é aplicado sem o editor revisar no Premiere. Corte entre frases, nunca dentro de uma: tire o silêncio maior que regras.silencio_ms, mantenha regras.folga_ms de respiro e as pausas naturais de até regras.batida_ms depois de vírgula ou de 'primeiro'. Vício (regras.vicios) só sai com silêncio dos dois lados. Tomada repetida: fica a última limpa; gaguejo e falso começo saem. História: gancho nos 3 s iniciais, uma linha de contexto, um plano por item de lista, virada que volta ao gancho, CTA. Ritmo de reel com fala: primeiro corte até regras.primeiro_corte_s, planos de cerca de regras.plano_medio_s, a pessoa fora da tela no máximo regras.max_sem_rosto_s. Legenda de 1 a 3 palavras, um visual só no vídeo inteiro, cor em no máximo 45% das telas e por sentido, nunca sobre a boca (sobretudo nos 2,5 s iniciais), com a grafia do vocabulário. Som: trilha cerca de 11 dB abaixo da voz, efeito sonoro só em ação visível (regras.sfx), volume final regras.lufs e pico regras.pico_dbtp. Nunca invente número para enfeitar uma fala.",
       };
     },
   },
@@ -449,6 +451,7 @@ export const TOOLS: Tool[] = [
       if (!p || typeof p !== "object" || Array.isArray(p)) fail("O plano precisa ser um objeto JSON.");
       const keys = ["cortes", "legendas", "titulos", "zooms", "insercoes", "marcadores"];
       const plan: any = { resumo: clip(p.resumo, 1000) || "" };
+      if (p.brief && typeof p.brief === "object") plan.brief = normalizeBrief(p.brief, "edicao");
       if (p.camera != null && Number.isFinite(+p.camera)) plan.camera = Math.max(0, Math.min(3, Math.round(+p.camera)));
       const est = estiloByNum(p.estilo);
       if (est) plan.estilo = est.num;
@@ -475,7 +478,7 @@ export const TOOLS: Tool[] = [
       type: "object", required: ["nome", "kit"],
       properties: {
         id: { type: "string", description: "id do kit para atualizar (opcional)" }, nome: { type: "string" }, perfil_id: accountId,
-        kit: { type: "object", description: "{cores:{destaque, texto, fundo}, fontes:{titulo, legenda}, legenda:{estilo, palavras_por_tela, caixa_alta}, motion:[...], regras:{corte_max_s, silencio_ms, trilha_db}, estilo: '01' a '12' (estilo padrão do cliente no catálogo), mogrts:{legenda, gancho, cta, lower_third} (caminho do .mogrt no computador do editor)}" },
+        kit: { type: "object", description: "{cores:{destaque, texto, fundo}, fontes:{titulo, legenda}, legenda:{estilo, palavras_por_tela, caixa_alta}, motion:[...], regras:{corte_max_s, silencio_ms, trilha_db, folga_ms, batida_ms, vicios[], tomada, plano_medio_s, primeiro_corte_s, max_sem_rosto_s, lufs, pico_dbtp, sfx}, vocabulario: 'errado = certo' por linha, estilo: '01' a '12' (estilo padrão do cliente no catálogo), mogrts:{legenda, gancho, cta, lower_third} (caminho do .mogrt no computador do editor)}" },
       },
     },
     needs: "audiovisual:premiere",

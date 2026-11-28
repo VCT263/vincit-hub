@@ -280,5 +280,107 @@
     return res;
   }
 
-  window.PR = { readTimeline, readTranscript, transcribe, applyPlan };
+  /* ---------- cortar de verdade (pausas e cortes do plano) ---------- */
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const gid = (s) => String(s && s.guid);
+
+  /** itens de todas as faixas (ou só das que passam no filtro) */
+  async function itemsOf(seq, keepVideo, keepAudio) {
+    const out = [];
+    const vc = await seq.getVideoTrackCount();
+    for (let i = 0; i < vc; i++) if (keepVideo(i)) out.push(...(await trackItems(await seq.getVideoTrack(i))));
+    const ac = await seq.getAudioTrackCount();
+    for (let i = 0; i < ac; i++) out.push(...(await trackItems(await seq.getAudioTrack(i))).filter((c) => keepAudio(i, c)));
+    return out;
+  }
+
+  function removeItems(project, seq, items) {
+    if (!items.length) return true;
+    const editor = ppro.SequenceEditor.getEditor(seq);
+    let ok = false;
+    ppro.TrackItemSelection.createEmptySelection((sel) => {
+      items.forEach((c) => sel.addItem(c.item, true));
+      ok = run(project, [editor.createRemoveItemsAction(sel, false, ppro.Constants.MediaType.ANY, false)], "VINCIT: limpar a sequência nova");
+    });
+    return ok;
+  }
+
+  /**
+   * Monta uma sequência nova só com o que fica (a original não muda).
+   * cortes: [{inicio, fim}] em segundos da sequência ativa, já aprovados pela pessoa.
+   */
+  async function cutSequence(cortes) {
+    const tl = await readTimeline();
+    const { project, seq } = tl;
+    const v1 = tl.clips.filter((c) => c.faixa === "V1").map((c) => c._c).filter((c) => c.projectItem);
+    if (!v1.length) throw new Error("Não há clipes em V1 para cortar.");
+    const trechos = CORTES.trechosQueFicam(cortes, tl.duration);
+    const peds = CORTES.pedacos(trechos, v1.map((c) => ({ start: c.start, end: c.end, inPoint: c.inPoint, ref: c.projectItem })));
+    if (!peds.length) throw new Error("Os cortes tiram o vídeo inteiro.");
+    const avisos = [];
+    const fala = new Set(v1.map((c) => c.name));
+    const outras = tl.clips.filter((c) => c.faixa !== "V1" && !(c.faixa[0] === "A" && fala.has(c.nome)));
+    if (outras.length) avisos.push(`${outras.length} clipe(s) fora de V1 ficaram de fora: entre com eles depois dos cortes.`);
+
+    // 1. sequência nova com as mesmas configurações: clona a ativa (ou cria a partir da mídia, se o clone falhar)
+    const antes = new Set((await project.getSequences()).map(gid));
+    run(project, [seq.createCloneAction()], "VINCIT: copiar a sequência");
+    let novo = null;
+    for (let i = 0; i < 10 && !novo; i++) {
+      novo = (await project.getSequences()).find((s) => !antes.has(gid(s))) || null;
+      if (!novo) await wait(300);
+    }
+    let soFala = true;
+    if (!novo) {
+      const clip = ppro.ClipProjectItem.cast(v1[0].projectItem);
+      novo = await project.createSequenceFromMedia(`${seq.name} · sem pausas`, [clip]);
+      soFala = false;
+      if (!novo) throw new Error("O Premiere não criou a sequência nova.");
+    }
+    const nome = `${seq.name} · sem pausas`;
+    try { const pi = await novo.getProjectItem(); run(project, [pi.createSetNameAction(nome)], "VINCIT: nome da sequência"); } catch (e) {}
+
+    // 2. tira a fala antiga da cópia (V1 e o áudio dos mesmos arquivos); o resto fica no tempo antigo
+    const velhos = await itemsOf(novo, (i) => !soFala || i === 0, (i, c) => !soFala || fala.has(c.name));
+    if (!removeItems(project, novo, velhos)) throw new Error("Não consegui limpar a sequência nova.");
+    if (soFala && outras.length) {
+      const resto = await itemsOf(novo, (i) => i > 0, (i, c) => !fala.has(c.name));
+      removeItems(project, novo, resto);
+    }
+
+    // 3. põe os pedaços um depois do outro, a partir do 0
+    const editor = ppro.SequenceEditor.getEditor(novo);
+    const AUD = ppro.Constants.MediaType.AUDIO, VID = ppro.Constants.MediaType.VIDEO;
+    const marcas = new Map(); // entrada e saída originais de cada arquivo, para devolver no fim
+    let t = 0, n = 0;
+    for (const p of peds) {
+      let clip;
+      try { clip = ppro.ClipProjectItem.cast(p.ref); } catch (e) { clip = null; }
+      if (!clip) { avisos.push(`Pedaço de ${fmt(p.de)} pulado: arquivo não encontrado.`); continue; }
+      const key = p.ref.name;
+      if (!marcas.has(key)) {
+        try { marcas.set(key, { clip, i: await clip.getInPoint(VID), o: await clip.getOutPoint(VID) }); } catch (e) { try { marcas.set(key, { clip, i: await clip.getInPoint(AUD), o: await clip.getOutPoint(AUD) }); } catch (e2) { marcas.set(key, { clip }); } }
+      }
+      const ok = run(project, [clip.createSetInPointAction(T(p.de)), clip.createSetOutPointAction(T(p.ate))], "VINCIT: trecho")
+        && run(project, [editor.createOverwriteItemAction(p.ref, T(t), 0, 0)], "VINCIT: montar sem pausas");
+      if (ok) { t += p.ate - p.de; n++; } else avisos.push(`O Premiere recusou o pedaço de ${fmt(p.de)}.`);
+    }
+    for (const m of marcas.values()) {
+      if (m.i && m.o) run(project, [m.clip.createSetInPointAction(m.i), m.clip.createSetOutPointAction(m.o)], "VINCIT: devolver entrada e saída");
+      else run(project, [m.clip.createClearInOutPointsAction()], "VINCIT: devolver entrada e saída");
+    }
+
+    try { await project.openSequence(novo); await project.setActiveSequence(novo); } catch (e) {}
+    return { nome, pedacos: n, antes: tl.duration, depois: r2(t), avisos };
+  }
+
+  /** leva a agulha do Premiere até o ponto (Conferir um a um) */
+  async function seek(seconds) {
+    const { seq } = await ctx();
+    if (typeof seq.setPlayerPosition !== "function") throw new Error("esta versão do Premiere não deixa mover a agulha pelo painel");
+    await seq.setPlayerPosition(T(seconds));
+  }
+
+  window.PR = { readTimeline, readTranscript, transcribe, applyPlan, cutSequence, seek };
 })();
