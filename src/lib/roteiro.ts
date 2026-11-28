@@ -14,6 +14,33 @@ export const MOVES = ["Fixa (tripé)", "Na mão, leve", "Push-in lento", "Pull-o
 export const AUDIOS = ["Voz (lapela)", "Voz (celular perto)", "Som ambiente", "Trilha baixa", "Trilha sobe", "Efeito (whoosh)", "Silêncio"];
 export const PARTS = ["Gancho", "Contexto", "Desenvolvimento", "Virada", "Prova", "CTA", "Fechamento"];
 
+/** coluna de B-roll (imagem de apoio gravada à parte) */
+export const BROLL_COL = /b-?roll|inser[cç]|apoio/i;
+/** célula vazia de tabela ("—", "-", "sem fala") vira texto vazio */
+const clean = (v: string) => { const t = (v || "").replace(/<br\s*\/?>/gi, " ").trim(); return /^(?:[-–—·]+|n\/?a|nenhum[a]?|sem fala|\(sem fala\))$/i.test(t) ? "" : t; };
+
+/**
+ * Formato do roteiro que o Claude devolve (fila e conector): uma tabela com uma linha por plano.
+ * Fala, direção de gravação e B-roll ficam em colunas separadas para a folha do set.
+ */
+export const FORMATO_ROTEIRO = `Roteiro em tabela markdown, uma linha por plano, nesta ordem de colunas:
+| Tempo | Etapa | Fala | Direção | B-roll | Texto na tela |
+- Fala: só o que a pessoa diz em voz alta (vai para o teleprompter). Sem fala, escreva "—".
+- Direção: como gravar a fala, junto dela: plano (Close, Médio · olho, Detalhe, Plano aberto…), câmera (Fixa, Na mão, Push-in…) e o estilo da cena (ação, onde está, tom). Ex.: "Médio · olho, fixa. Isa na porta da loja, sorri e fala olhando para a lente."
+- B-roll: imagens de apoio que se gravam à parte, sem fala, para cobrir a edição. Ex.: "Detalhe do laço e da etiqueta, mão abrindo a sacola". Sem B-roll, "—".
+- Etapa: Gancho, Desenvolvimento, Prova, CTA ou Fechamento. Tempo: 0–3s.
+- Não repita a fala na Direção nem a direção na Fala.`;
+
+/** começo da direção ("Médio · olho, fixa. Isa abre a porta…" → "Médio · olho, fixa"), onde vêm plano e câmera */
+const lead = (d: string) => (d || "").split(/[.;:]\s/)[0];
+
+/** tira da direção o começo com plano e câmera (já viram as siglas da folha) e deixa o estilo da cena */
+function semLead(d: string, usar: boolean) {
+  const l = lead(d);
+  if (!usar || l === d || !(guessFraming(l, false) || moveIn(l)) || l.split(/\s+/).length > 6) return d;
+  return d.slice(l.length).replace(/^[.;:]\s*/, "").trim() || d;
+}
+
 const CTA = /coment|segue|seguir|salva|compartilh|manda|link|clica|chama|agenda|direct|dm\b|me conta/i;
 
 /** sugestão de enquadramento pela descrição da cena */
@@ -22,7 +49,7 @@ export function guessFraming(scene: string, talking: boolean): string | null {
   if (/top ?shot|de cima|vista superior/.test(s)) return "Top shot";
   if (/pov|ponto de vista/.test(s)) return "POV";
   if (/macro/.test(s)) return "Macro";
-  if (/detalhe|m[aã]os?\b|produto|textura|close ?up de/.test(s)) return "Detalhe";
+  if (/detalhe|(?<!na )m[aã]os?\b|produto|textura|close ?up de/.test(s)) return "Detalhe";
   if (/close|primeir[oa] plano|rosto/.test(s)) return "Close";
   if (/m[eé]dio fechado/.test(s)) return "Médio fechado";
   if (/m[eé]dio|cintura|peito/.test(s)) return "Médio · olho";
@@ -31,14 +58,19 @@ export function guessFraming(scene: string, talking: boolean): string | null {
 }
 /** sugestão de movimento pela descrição da cena */
 export function guessMove(scene: string, talking: boolean): string | null {
-  const s = scene.toLowerCase();
+  return moveIn(scene) || (talking ? "Fixa (tripé)" : "Na mão, leve");
+}
+/** movimento citado no texto, ou null */
+function moveIn(scene: string): string | null {
+  const s = (scene || "").toLowerCase();
+  if (/na m[aã]o|handheld/.test(s)) return "Na mão, leve";
   if (/aproxim|push|entra devagar|zoom in/.test(s)) return "Push-in lento";
   if (/afasta|pull|abre o plano/.test(s)) return "Pull-out";
   if (/acompanha|segue|caminha|andando/.test(s)) return "Acompanha a ação";
   if (/gimbal/.test(s)) return "Gimbal";
   if (/pan\b|panor/.test(s)) return "Pan";
   if (/trip[eé]|fix/.test(s)) return "Fixa (tripé)";
-  return talking ? "Fixa (tripé)" : "Na mão, leve";
+  return null;
 }
 
 /** etapa do roteiro pela posição: a primeira fala é o gancho, a última com chamada é o CTA */
@@ -55,27 +87,32 @@ export function rowsFromScript(md: string): SheetRow[] {
     const h = table.head;
     const f = col(h, FALA_COL);
     const tempo = col(h, /tempo|tc\b|time|dura/i);
-    const cena = col(h, /cena|visual|imagem|a[cç][aã]o|plano/i);
+    const broll = col(h, BROLL_COL);
+    // direção de gravação: plano, câmera e estilo da cena que acompanham a fala
+    const cena = col(h, /dire[cç][aã]o|cena|visual|imagem|a[cç][aã]o/i, BROLL_COL);
+    const plano = col(h, /^plano|enquadr/i, BROLL_COL);
     const tela = col(h, /tela|lettering|letreiro|texto/i, FALA_COL);
     const audio = col(h, /[aá]udio|som|trilha/i);
-    const broll = col(h, /b-?roll|inser/i);
-    const mov = col(h, /movimento|c[aâ]mera/i);
+    const mov = col(h, /movimento|c[aâ]mera/i, BROLL_COL);
     const etapa = col(h, /etapa|parte|bloco/i);
     const rows = table.rows.filter((r) => r.some((c) => c.trim()));
     return rows.map((r, i) => {
-      const line = unquote(r[f] || "");
-      const scene = cena >= 0 ? (r[cena] || "").trim() : "";
+      const line = clean(unquote(r[f] || ""));
+      const scene = clean(cena >= 0 ? r[cena] || "" : "");
       const talking = !!line;
+      const br = clean(broll >= 0 ? r[broll] || "" : "");
+      const pl = clean(plano >= 0 ? r[plano] || "" : "");
+      const mv = clean(mov >= 0 ? r[mov] || "" : "");
       const part = partFor(i, rows.length, line, etapa >= 0 ? r[etapa] : undefined);
       return {
         part: tempo >= 0 && r[tempo] ? `${part} · ${r[tempo]}` : part,
         line: line || null,
-        description: scene || (talking ? "Fala para a câmera" : "Inserção"),
-        framing: guessFraming(scene, talking),
-        movement: mov >= 0 && r[mov] ? r[mov] : guessMove(scene, talking),
-        broll: broll >= 0 && r[broll] ? r[broll] : null,
+        description: semLead(scene, !pl && !mv) || (talking ? "Fala para a câmera" : br ? "Só B-roll" : "Inserção"),
+        framing: pl || guessFraming(lead(scene), false) || guessFraming(scene, talking),
+        movement: mv || moveIn(lead(scene)) || guessMove(scene, talking),
+        broll: br || null,
         audio: audio >= 0 && r[audio] ? r[audio] : talking ? "Voz (lapela)" : "Som ambiente",
-        notes: tela >= 0 && r[tela] ? `Tela: ${unquote(r[tela])}` : null,
+        notes: tela >= 0 && clean(r[tela] || "") ? `Tela: ${unquote(r[tela])}` : null,
       };
     });
   }

@@ -8,6 +8,7 @@ import { contaInsights } from "@/lib/igInsights";
 import { porMes } from "@/lib/igHistorico";
 import { NOVIDADES, VERSAO_IA, novidadesDesde } from "@/lib/novidades";
 import { briefingProgress } from "@/lib/briefing";
+import { FORMATO_ROTEIRO, rowsFromScript } from "@/lib/roteiro";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 import { kitsComMarca } from "./kitMarca";
 
@@ -43,6 +44,30 @@ async function account(ctx: Ctx, id?: string | null) {
   const { data } = await ctx.sb.from("ig_accounts").select("id, username").eq("id", id).maybeSingle();
   if (!data) fail("Perfil não encontrado. Use listar_perfis para ver os ids dos seus perfis.");
   return data;
+}
+
+/** célula de tabela markdown: sem quebra de linha nem barra vertical */
+const celula = (v: any) => String(v ?? "").replace(/\r?\n+/g, " ").replace(/\|/g, "/").trim() || "—";
+/** cenas do conector → tabela do roteiro (Tempo · Etapa · Fala · Direção · B-roll · Texto na tela) */
+export function tabelaRoteiro(cenas: any[]) {
+  const linhas = cenas.map((c) => {
+    const dir = [[c.plano, c.camera].filter(Boolean).join(", "), c.direcao].filter((x) => x && String(x).trim()).join(". ");
+    return `| ${[c.tempo, c.etapa, c.fala, dir, c.broll, c.texto_tela].map(celula).join(" | ")} |`;
+  });
+  return ["| Tempo | Etapa | Fala | Direção | B-roll | Texto na tela |", "|---|---|---|---|---|---|", ...linhas].join("\n");
+}
+/** refaz a folha do roteiro técnico (av_shots) a partir da tabela; os planos antigos vão para a lixeira */
+async function refazerFolha(ctx: Ctx, contentId: string, roteiro: string) {
+  if (!/^\s*\|/m.test(roteiro || "")) return 0;
+  const rows = rowsFromScript(roteiro);
+  if (!rows.length) return 0;
+  const { count } = await ctx.sb.from("av_shots").select("id", { count: "exact", head: true }).eq("content_id", contentId);
+  if (count) {
+    const { error } = await ctx.sb.rpc("lixeira_apagar_varios", { p_passos: [{ tabela: "av_shots", filtro: { content_id: contentId } }], p_rotulo: "Roteiro técnico substituído pelo Claude", p_link: "/creator/producao" });
+    if (error && !/nada para apagar/.test(error.message)) return 0;
+  }
+  const { error } = await ctx.sb.from("av_shots").insert(rows.map((r, i) => ({ content_id: contentId, position: i, ...r })));
+  return error ? 0 : rows.length;
 }
 
 /** status do Quadro de produção pela etapa (ideia, roteiro…); null se a pessoa não tiver o modelo */
@@ -281,17 +306,34 @@ export const TOOLS: Tool[] = [
   {
     name: "enviar_roteiro",
     title: "Enviar roteiro",
-    description: "Grava um roteiro de vídeo no Quadro de produção, na etapa Roteiro (gancho, roteiro com cenas e texto de teleprompter, legenda). Com conteudo_id, completa um card que já existe (por exemplo, um post da campanha) e o move para Roteiro, sem criar card novo.",
+    description: "Grava um roteiro de vídeo no Quadro de produção, na etapa Roteiro (gancho, cenas, legenda). Para vídeo (Reels, Stories, YouTube, Live) mande as cenas em 'cenas': cada plano com a fala, a direção de gravação (plano, câmera e estilo da cena) e o B-roll em campos separados. O HUB monta a tabela do roteiro, o teleprompter (só as falas) e a folha do roteiro técnico do set. Com conteudo_id, completa um card que já existe (por exemplo, um post da campanha) e o move para Roteiro, sem criar card novo; a folha técnica desse card é refeita com as cenas novas.",
     inputSchema: {
-      type: "object", required: ["titulo", "roteiro"],
-      properties: { conteudo_id: { type: "string", description: "id de um card do Quadro (de listar_conteudos) para completar em vez de criar outro. Opcional." }, perfil_id: accountId, titulo: { type: "string" }, formato: { type: "string", enum: ["Reels", "Carrossel", "Stories", "Foto", "YouTube", "Live"] }, gancho: { type: "string" }, roteiro: { type: "string", description: "Cenas, falas e texto do teleprompter" }, legenda: { type: "string" }, data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
+      type: "object", required: ["titulo"],
+      properties: { conteudo_id: { type: "string", description: "id de um card do Quadro (de listar_conteudos) para completar em vez de criar outro. Opcional." }, perfil_id: accountId, titulo: { type: "string" }, formato: { type: "string", enum: ["Reels", "Carrossel", "Stories", "Foto", "YouTube", "Live"] }, gancho: { type: "string" },
+        cenas: {
+          type: "array", maxItems: 40, description: "Vídeo: um item por plano, na ordem da montagem. Fala, direção e B-roll nunca se misturam.",
+          items: { type: "object", properties: {
+            tempo: { type: "string", description: "ex.: 0–3s" },
+            etapa: { type: "string", description: "Gancho, Desenvolvimento, Prova, CTA ou Fechamento" },
+            fala: { type: "string", description: "só o que a pessoa diz em voz alta (vai para o teleprompter). Vazio quando o plano é só imagem" },
+            plano: { type: "string", description: "enquadramento: Close, Médio · olho, Médio fechado, Detalhe, Plano aberto, Top shot, POV…" },
+            camera: { type: "string", description: "movimento: Fixa (tripé), Na mão, leve, Push-in lento, Pull-out, Acompanha a ação, Gimbal…" },
+            direcao: { type: "string", description: "estilo da cena que se grava junto da fala: quem, onde, ação, olhar, tom. Sem repetir a fala" },
+            broll: { type: "string", description: "imagens de apoio para gravar à parte, sem fala, que cobrem este trecho na edição. Vazio se não tiver" },
+            texto_tela: { type: "string", description: "texto que aparece na tela, se houver" },
+          } },
+        },
+        roteiro: { type: "string", description: "Para carrossel, foto ou texto: o conteúdo slide a slide. Em vídeo, prefira 'cenas'; se mandar roteiro de vídeo aqui, use a tabela: " + FORMATO_ROTEIRO }, legenda: { type: "string" }, data: date, pilar: { type: "string" }, estilo: { type: "string", description: "Estilo de edição sugerido, número do catálogo '01' a '12' (veja catalogo_de_estilos em listar_edicoes_premiere). O Editor do HUB já abre com ele" } },
     },
     needs: "creator:producao",
     run: async (ctx, a) => {
       await account(ctx, a.perfil_id);
       const status_id = await statusFor(ctx, "roteiro");
       const est = estiloByNum(a.estilo);
-      const body = `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${a.roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}${est ? `\n\n**Estilo de edição:** ${est.num} · ${est.nome}` : ""}\n\n_${ORIGIN}_`;
+      const cenas: any[] = Array.isArray(a.cenas) ? a.cenas.slice(0, 40) : [];
+      if (!cenas.length && !a.roteiro) fail("Mande as cenas (vídeo) ou o roteiro (carrossel, foto).");
+      const roteiro = cenas.length ? tabelaRoteiro(cenas) : a.roteiro;
+      const body = `${a.gancho ? `**Gancho:** ${a.gancho}\n\n` : ""}**Roteiro:**\n${roteiro}${a.legenda ? `\n\n**Legenda:**\n${a.legenda}` : ""}${est ? `\n\n**Estilo de edição:** ${est.num} · ${est.nome}` : ""}\n\n_${ORIGIN}_`;
       if (a.conteudo_id) {
         const { data: atual } = await ctx.sb.from("content_ideas").select("id, account_id, format, planned_for, pillar, hook").eq("id", a.conteudo_id).maybeSingle();
         if (!atual) fail("Card não encontrado. Use listar_conteudos para ver os ids.");
@@ -305,14 +347,16 @@ export const TOOLS: Tool[] = [
         if (status_id) patch.status_id = status_id;
         const { error } = await ctx.sb.from("content_ideas").update(patch).eq("id", a.conteudo_id);
         if (error) fail(error.message);
-        return { ok: true, id: a.conteudo_id, atualizado: true, onde: "CREATOR › Quadro de produção (etapa Roteiro)" };
+        const folha = await refazerFolha(ctx, a.conteudo_id, roteiro);
+        return { ok: true, id: a.conteudo_id, atualizado: true, planos: folha, onde: "CREATOR › Quadro de produção (etapa Roteiro)" };
       }
       const { data, error } = await ctx.sb.from("content_ideas").insert({
         account_id: a.perfil_id || null, kind: "copy", status_id, title: clip(a.titulo, 120), format: a.formato || "Reels", hook: clip(a.gancho, 300), planned_for: a.data || null, pillar: clip(a.pilar, 80),
         body, caption: a.legenda || null,
       }).select("id").single();
       if (error) fail(error.message);
-      return { ok: true, id: data?.id, onde: "CREATOR › Quadro de produção (etapa Roteiro)" };
+      const folha = data?.id ? await refazerFolha(ctx, data.id, roteiro) : 0;
+      return { ok: true, id: data?.id, planos: folha, onde: "CREATOR › Quadro de produção (etapa Roteiro)" };
     },
   },
   {
