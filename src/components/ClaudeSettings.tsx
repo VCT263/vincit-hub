@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import Ajuda from "@/components/ajuda/Ajuda";
 import { NOVIDADES, VERSAO_IA } from "@/lib/novidades";
 
+import { CLAUDE_PANEL_URL } from "@/lib/painelApp";
 /** link do painel do HUB publicado no Claude (artifact) */
-export const CLAUDE_PANEL_URL = "https://claude.ai/artifact/AWg3shE2RQH28mLQnnLQsx";
+export { CLAUDE_PANEL_URL };
 
 /** /conta: como ligar o Claude ao HUB pelo conector (MCP) */
 export default function ClaudeSettings() {

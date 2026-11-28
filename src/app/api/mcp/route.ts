@@ -6,6 +6,7 @@ import { CORS, siteOrigin } from "@/lib/oauth";
 import { TOOLS, allowed, isUserError, listTools, type Ctx } from "@/lib/mcp";
 import { PROMPTS } from "@/lib/mcpPrompts";
 import { VERSAO_IA } from "@/lib/novidades";
+import { PAINEL_HTML, PAINEL_MIME, PAINEL_URI } from "@/lib/painelApp";
 
 /**
  * Conector VINCIT HUB para o Claude (servidor MCP, transporte HTTP "streamable", sem sessão).
@@ -67,7 +68,7 @@ async function handle(msg: any, ctx: Ctx) {
   switch (method) {
     case "initialize": {
       const v = VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : VERSIONS[1];
-      return ok({ protocolVersion: v, capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } }, serverInfo: { name: "vincit-hub", title: "VINCIT HUB", version: VERSAO_IA }, instructions: INSTRUCTIONS });
+      return ok({ protocolVersion: v, capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false } }, serverInfo: { name: "vincit-hub", title: "VINCIT HUB", version: VERSAO_IA }, instructions: INSTRUCTIONS });
     }
     case "ping":
       return ok({});
@@ -87,7 +88,13 @@ async function handle(msg: any, ctx: Ctx) {
       }
     }
     case "resources/list":
-      return ok({ resources: [] });
+      return ok({ resources: [{ uri: PAINEL_URI, name: "painel", title: "Painel da VINCIT", description: "Painel do HUB desenhado na conversa: perfis, pendências e novidades, com o botão Atualizar.", mimeType: PAINEL_MIME }] });
+    case "resources/templates/list":
+      return ok({ resourceTemplates: [] });
+    case "resources/read": {
+      if (params?.uri !== PAINEL_URI) return err(-32002, `Recurso não encontrado: ${params?.uri}`);
+      return ok({ contents: [{ uri: PAINEL_URI, mimeType: PAINEL_MIME, text: PAINEL_HTML, _meta: { ui: { prefersBorder: true } } }] });
+    }
     case "prompts/list":
       return ok({ prompts: PROMPTS.map(({ name, title, description, arguments: args }) => ({ name, title, description, arguments: args })) });
     case "prompts/get": {
