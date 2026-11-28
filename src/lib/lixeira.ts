@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 
 /* Lixeira do HUB (regra do Vinícius, 27/11/2026): nada é apagado na hora.
-   Excluir pede a senha de novo, o item ganha deleted_at (ou archived_at, nas marcas) e fica
+   Excluir pede confirmação (senha só nas ações de risco), o item ganha deleted_at (ou archived_at, nas marcas) e fica
    15 dias na lixeira, de onde pode ser recuperado. Depois disso o cron diário hub-lixeira
    (private.lixeira_purge, tabelas registradas em private.lixeira_tabelas) apaga de vez. */
 export const LIXEIRA_DIAS = 15;
@@ -18,24 +18,26 @@ export const prazoTexto = (at: string) => { const n = diasRestantes(at); return 
 type Filtro = Record<string, string | number | boolean | (string | number)[]>;
 export type PassoLixeira = { tabela: string; filtro: Filtro };
 
-// a senha é pedida pelo modal global (ExclusaoHost no layout)
-let pedirGlobal: ((oque: string, definitivo?: boolean) => Promise<boolean>) | null = null;
+// a confirmação é pedida pelo modal global (ExclusaoHost no layout)
+let pedirGlobal: ((oque: string, definitivo?: boolean, senha?: boolean) => Promise<boolean>) | null = null;
 export const registrarPedido = (f: typeof pedirGlobal) => { pedirGlobal = f; };
 
-/** pede a senha de novo (segunda autenticação). Sem o modal montado, cai no confirm do navegador. */
-export function confirmarExclusao(oque: string, definitivo = false) {
-  if (pedirGlobal) return pedirGlobal(oque, definitivo);
+/** pede confirmação: só o botão para ir à lixeira; senha de novo quando definitivo ou senha = true.
+ *  Sem o modal montado, cai no confirm do navegador. */
+export function confirmarExclusao(oque: string, definitivo = false, senha = definitivo) {
+  if (pedirGlobal) return pedirGlobal(oque, definitivo, senha);
   return Promise.resolve(typeof window !== "undefined" && window.confirm(definitivo ? `Apagar ${oque} para sempre?` : `Mandar ${oque} para a lixeira?`));
 }
 
 /**
- * Excluir qualquer coisa do HUB: pede a senha e manda para a lixeira (15 dias para recuperar).
+ * Excluir qualquer coisa do HUB: pede confirmação (só o botão) e manda para a lixeira (15 dias para recuperar).
+ * risco: true pede a senha também (perfil inteiro, espaço com todas as tarefas).
  * oque: como aparece na frase "Vai {oque} para a lixeira" (ex.: 'a tarefa "Gravar reels"').
  * rotulo: como o item aparece na Lixeira. semSenha: só para trocas internas (ex.: substituir planos).
  * Devolve true quando apagou.
  */
-export async function apagarComLixeira(o: { tabela?: string; filtro?: Filtro; passos?: PassoLixeira[]; oque: string; rotulo: string; link?: string; semSenha?: boolean }): Promise<boolean> {
-  if (!o.semSenha && !(await confirmarExclusao(o.oque))) return false;
+export async function apagarComLixeira(o: { tabela?: string; filtro?: Filtro; passos?: PassoLixeira[]; oque: string; rotulo: string; link?: string; semSenha?: boolean; risco?: boolean }): Promise<boolean> {
+  if (!o.semSenha && !(await confirmarExclusao(o.oque, false, !!o.risco))) return false;
   const passos = o.passos || [{ tabela: o.tabela!, filtro: o.filtro! }];
   const { error } = await createClient().rpc("lixeira_apagar_varios", { p_passos: passos, p_rotulo: o.rotulo, p_link: o.link || null });
   if (error) {

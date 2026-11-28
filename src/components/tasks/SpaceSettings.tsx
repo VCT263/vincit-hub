@@ -66,7 +66,7 @@ export default function SpaceSettings({ open, onClose, space, statuses, lists, t
   async function delSpace() {
     const n = tasks.filter((t) => t.space_id === space.id).length;
     const ok = await apagarComLixeira({ passos: [{ tabela: "ag_tasks", filtro: { space_id: space.id } }, { tabela: "ag_spaces", filtro: { id: space.id } }],
-      oque: `o espaço "${space.name}"${n ? ` e as ${n} tarefa(s) dele` : ""}`, rotulo: `Espaço: ${space.name}`, link: "/tarefas" });
+      oque: `o espaço "${space.name}"${n ? ` e as ${n} tarefa(s) dele` : ""}`, rotulo: `Espaço: ${space.name}`, link: "/tarefas", risco: true });
     if (ok) { onChanged(""); onClose(); }
   }
 
