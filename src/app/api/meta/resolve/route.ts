@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     let q = s.from("ig_accounts").select("id,owner_id,ig_user_id,username").eq("connected", true).not("ig_user_id", "is", null);
     if (account_id) q = q.eq("id", account_id);
     const { data: accounts } = await q;
-    if (!accounts?.length) return NextResponse.json({ error: account_id ? "Este perfil não está conectado ao Instagram. Conecte em Perfis & marca." : "Nenhum perfil conectado ao Instagram. Conecte em Perfis & marca." }, { status: 400 });
+    if (!accounts?.length) return NextResponse.json({ error: account_id ? "Este perfil não está conectado ao Instagram. Conecte em Perfis e marcas." : "Nenhum perfil conectado ao Instagram. Conecte em Perfis e marcas." }, { status: 400 });
 
     const has = (p?: string | null) => !!p && new RegExp(`/(p|reel|reels|tv)/${code}(/|$|\\?)`).test(p);
     const tokens: Record<string, string> = {};
