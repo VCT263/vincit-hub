@@ -1,4 +1,5 @@
 "use client";
+import { briefEmTexto, normalizeBrief } from "@/lib/briefs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Ajuda from "@/components/ajuda/Ajuda";
 import Link from "next/link";
@@ -849,6 +850,7 @@ export default function Editor() {
             ) : (
               <div className="mt-2 space-y-2">
                 {plan.plan?.resumo && <p className="text-paper">{plan.plan.resumo}</p>}
+                {plan.plan?.brief && <details className="mt-1"><summary className="cursor-pointer text-purple-300">Brief da edição</summary><pre className="mt-1 whitespace-pre-wrap text-[11px] text-fog">{briefEmTexto(normalizeBrief(plan.plan.brief, "edicao"))}</pre></details>}
                 <p className="text-fog">{["cortes", "zooms", "titulos"].map((k) => `${(plan.plan?.[k] || []).length} ${k}`).join(" · ")}</p>
                 {(plan.plan?.insercoes || []).length > 0 && <ul className="text-fog list-disc pl-4">{plan.plan.insercoes.slice(0, 6).map((x: any, i: number) => <li key={i}>B-roll em {fmt(+x.inicio)}: {x.midia}</li>)}</ul>}
                 <div className="flex gap-2"><button onClick={applyPlan} className="px-3 py-1.5 rounded-lg bg-purple-400 text-ink font-semibold">Aplicar</button><button onClick={() => setPlan(null)} className="px-3 py-1.5 rounded-lg border border-line">Descartar</button></div>

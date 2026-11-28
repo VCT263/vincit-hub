@@ -136,3 +136,40 @@ export function briefEmTexto(b: Brief) {
   if (b.falta_da_cliente.length) L.push(`Falta da cliente: ${b.falta_da_cliente.join(" / ")}`);
   return L.join("\n");
 }
+
+/** Campos extras do brief de edição (bloco `edicao`), tirados do playbook do Kit (regras de corte, som e legenda). */
+export const CAMPOS_EDICAO: Record<string, string> = {
+  gancho: "o que a pessoa diz e vê no primeiro 1,5 s; primeiro corte entre 0,6 e 1 s",
+  ritmo: "duração média dos planos (kit: plano_medio_s) e onde o ritmo acelera ou respira",
+  cortes: "silêncio a tirar (silencio_ms), respiro (folga_ms), pausas naturais mantidas (batida_ms), vícios a tirar só com silêncio dos dois lados, tomada repetida: fica a última",
+  legenda: "estilo do kit, palavras por tela, palavra em destaque; nunca cobrir a boca; zona segura",
+  broll: "onde entra B-roll ou cartão e por quê; a pessoa não fica fora da tela mais que max_sem_rosto_s",
+  som: "trilha uns 11 dB abaixo da voz (trilha_db), mix final em lufs e pico_dbtp do kit, efeitos sonoros só na ação (sfx)",
+  vocabulario: "palavras da marca que a transcrição erra e como escrever certo",
+};
+
+/** Guia do refinador de edição: serve ao prompt abaixo e ao plano pelo conector (listar_edicoes_premiere). */
+export const GUIA_REFINAR_EDICAO = `Antes do plano, escreva o brief da edição no formato de 8 partes (tipo "edicao"): régua, formato, ideia única, visual do kit, movimento (câmera, zooms, transições amarrados na fala), nunca, conferir e cena a cena com os tempos da transcrição. No bloco "edicao" preencha: ${Object.entries(CAMPOS_EDICAO).map(([k, v]) => `${k} (${v})`).join("; ")}. O que só a pessoa sabe (preço, peça, data, aprovação) vai em falta_da_cliente; não invente.`;
+
+/** Prompt do refinador do editor: lê o pedido cru, a fala e o kit e devolve o brief de edição em JSON. */
+export function promptRefinarEdicao(o: { pedido: string; formato?: string; contexto?: string; fala?: string; regras?: Record<string, any>; ajuste?: string; briefAnterior?: Brief }) {
+  const [w, h] = TAMANHOS[o.formato || "9:16"] || TAMANHOS["9:16"];
+  return `${o.contexto || ""}
+Você é editor-chefe de vídeo curto de um estúdio pequeno e exigente. Antes de qualquer corte, você lê o pedido cru, a fala e o kit da marca e escreve o brief que vai guiar a edição. Não edite nada agora.
+
+Pedido cru (formato ${o.formato || "9:16"}, ${w}x${h}):
+"""${o.pedido.slice(0, 2500)}"""
+${o.fala ? `\nFala com tempos (segundos):\n${o.fala.slice(0, 8000)}\n` : ""}${o.regras ? `\nRegras do kit: ${JSON.stringify(o.regras).slice(0, 1500)}\n` : ""}${o.briefAnterior ? `\nBrief anterior (reescreva só o que o ajuste pede):\n${JSON.stringify(o.briefAnterior).slice(0, 6000)}\n` : ""}${o.ajuste ? `\nAjuste pedido pela pessoa: """${o.ajuste.slice(0, 1500)}"""\n` : ""}
+${GUIA_REFINAR_EDICAO}
+Regras: corte entre frases, nunca dentro de uma; cenas com início e fim que existem na fala; texto na tela só o que foi dito ou veio do pedido; português do Brasil, frases curtas, sem clichês de IA.
+Sempre inclua em "nunca", além do que for específico: legenda sobre a boca; corte no meio de palavra; ${NUNCA_PADRAO.slice(3, 5).join("; ")}; ${NUNCA_PADRAO[8]}.
+Sempre inclua em "conferir": ${CONFERIR_PADRAO.slice(1, 3).join("; ")}; ouvir os cortes em sequência: nenhum corta respiração no meio ou come sílaba.
+
+Responda SOMENTE com JSON:
+{"tipo":"edicao","titulo":"nome curto","regua":"...","formato":{"largura":${w},"altura":${h},"duracao":30,"fps":30,"fundo":"solido","zona_segura":"..."},
+"ideia":"...","visual":{"cores":[{"nome":"...","hex":"#RRGGBB","uso":"..."}],"letras":[{"nome":"...","uso":"..."}],"grafismos":["..."],"regras":["..."]},
+"movimento":["..."],"nunca":["..."],"conferir":["..."],
+"cenas":[{"inicio":0,"fim":1.5,"o_que":"...","texto":"...","movimento":"...","fala":"..."}],
+"edicao":{${Object.keys(CAMPOS_EDICAO).map((k) => `"${k}":"..."`).join(",")}},
+"falta_da_cliente":["..."]}`;
+}
