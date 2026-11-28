@@ -6,7 +6,7 @@ import { I } from "./icons";
    Estratégia junto do Raio-X. Tendências e Automações saíram do menu; as rotas continuam. */
 const items = [
   { href: "/creator", label: "Visão geral", Icon: I.grid },
-  { href: "/creator/perfis", label: "Perfis & briefing", Icon: I.user, group: "Base" },
+  { href: "/creator/perfis", label: "Perfis & briefing", Icon: I.user, group: "Base", also: ["/creator/entrevista"] },
   { href: "/creator/desempenho", label: "Desempenho & insights", Icon: I.chart, group: "01 · Análise" },
   { href: "/creator/referencias", label: "Referências", Icon: I.bookmark, group: "01 · Análise" },
   { href: "/creator/diagnostico", label: "Raio-X e estratégia", Icon: I.target, group: "01 · Análise", also: ["/creator/estrategia"] },
