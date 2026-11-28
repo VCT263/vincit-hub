@@ -152,7 +152,7 @@ export default function Perfil() {
   return (
     <>
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-        <Link href="/creator/perfis" className="inline-flex items-center gap-2 text-sm text-fog hover:text-paper"><I.back className="w-4 h-4" />Perfis & marca</Link>
+        <Link href="/creator/perfis" className="inline-flex items-center gap-2 text-sm text-fog hover:text-paper"><I.back className="w-4 h-4" />Perfis e marcas</Link>
         {accounts.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto scroll-thin -mx-1 px-1">
             {accounts.map((a) => (
@@ -169,7 +169,7 @@ export default function Perfil() {
         <div className="flex items-center gap-4 min-w-0">
           {acc.profile_picture_url ? <img loading="lazy" decoding="async" src={acc.profile_picture_url} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-mint/40" /> : <div className="w-16 h-16 rounded-full bg-panel2 grid place-items-center font-display text-2xl font-bold text-mint">{acc.username[0]?.toUpperCase()}</div>}
           <div className="min-w-0">
-            <p className="font-mono text-[11px] text-mint tracking-widest uppercase">Creator · Desempenho & insights</p>
+            <p className="font-mono text-[11px] text-mint tracking-widest uppercase">Creator · Perfis e marcas</p>
             <h1 className="font-display text-3xl font-extrabold tracking-tight truncate">@{acc.username}</h1>
             <p className="text-fog text-sm">{fmt(acc.followers_count)} seguidores{acc.media_count ? ` · ${fmt(acc.media_count)} posts` : ""}{acc.last_synced_at && ` · sincronizado ${new Date(acc.last_synced_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`}</p>
           </div>
@@ -196,7 +196,7 @@ export default function Perfil() {
         </div>
 
         {!acc.connected ? (
-          <div className="card p-6 text-sm text-fog">Perfil manual. Conecte pela Meta em <Link href="/creator/perfis" className="text-mint underline">Perfis & marca</Link> para ver alcance, visualizações e seguidores por dia.</div>
+          <div className="card p-6 text-sm text-fog">Perfil manual. Conecte pela Meta em <Link href="/creator/perfis" className="text-mint underline">Perfis e marcas</Link> para ver alcance, visualizações e seguidores por dia.</div>
         ) : insErr ? (
           <div className="card p-5 text-sm"><p className="text-danger">{insErr}</p><button onClick={loadIns} className="btn btn-ghost btn-sm mt-3"><I.refresh className="w-3.5 h-3.5" />Tentar de novo</button></div>
         ) : (
