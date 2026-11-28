@@ -11,5 +11,5 @@ const items = [
 ];
 
 export default function AgencyNav() {
-  return <HubNav title="Gestor" desc="Clientes, financeiro e propostas" root="/agency" items={items} />;
+  return <HubNav title="Gestor" desc="Saúde do negócio, clientes, financeiro e propostas" root="/agency" items={items} />;
 }

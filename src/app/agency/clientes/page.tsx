@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTable } from "@/lib/useTable";
+import type { Contrato } from "@/lib/gestao";
 import { DEFAULT_ONBOARDING, brl, dtShort, stageLabel } from "@/lib/agency";
 import PageHead from "@/components/PageHead";
 import Modal from "@/components/agency/Modal";
@@ -29,15 +30,27 @@ export default function Clientes() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [newStep, setNewStep] = useState("");
+  const [ct, setCt] = useState<Contrato | null>(null);
+  const [receita12, setReceita12] = useState(0);
+  useEffect(() => {
+    const de = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+    createClient().from("ag_transactions").select("amount").eq("kind", "entrada").eq("paid", true).is("transfer_id", null).not("client_id", "is", null).gte("due_date", de)
+      .then(({ data }) => setReceita12((data || []).reduce((a, t) => a + Number(t.amount), 0)));
+  }, []);
 
   useEffect(() => {
     if (!sel) return;
     const s = createClient();
     Promise.all([
       s.from("ag_projects").select("id,title,stage,value,due_date").eq("client_id", sel.id).order("created_at", { ascending: false }),
-      s.from("ag_transactions").select("kind,amount,paid").eq("client_id", sel.id),
+      s.from("ag_transactions").select("kind,amount,paid,due_date").eq("client_id", sel.id),
     ]).then(([a, b]) => setDetail({ projects: a.data || [], tx: b.data || [] }));
+    setCt(null);
   }, [sel?.id]);
+  async function saveContract() {
+    const v = ct && (Number(ct.valor_mensal) || (ct.escopo || []).length) ? { ...ct, valor_mensal: Number(ct.valor_mensal) || 0, dia_vencimento: Number(ct.dia_vencimento) || null, escopo: (ct.escopo || []).filter((e) => e.item?.trim()) } : null;
+    setSel({ ...sel, contract: v }); setCt(null); await c.patch(sel.id, { contract: v });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +74,11 @@ export default function Clientes() {
   const obDone = ob.filter((x: any) => x.done).length;
   const paid = detail.tx.filter((t) => t.kind === "entrada" && t.paid).reduce((a, t) => a + Number(t.amount), 0);
   const open = detail.tx.filter((t) => t.kind === "entrada" && !t.paid).reduce((a, t) => a + Number(t.amount), 0);
+  const de12 = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const paid12 = detail.tx.filter((t) => t.kind === "entrada" && t.paid && t.due_date >= de12).reduce((a, t) => a + Number(t.amount), 0);
+  const share = receita12 ? (paid12 / receita12) * 100 : 0;
+  const k: Contrato | null = sel?.contract || null;
+  const diasFim = k?.fim ? Math.round((new Date(k.fim + "T12:00").getTime() - Date.now()) / 864e5) : null;
 
   return (
     <>
@@ -112,7 +130,38 @@ export default function Clientes() {
               <div className="bg-panel2 rounded-lg p-3"><p className="text-[11px] text-fog">Total recebido</p><p className="font-mono text-mint">{brl(paid)}</p></div>
               <div className="bg-panel2 rounded-lg p-3"><p className="text-[11px] text-fog">Em aberto</p><p className="font-mono">{brl(open)}</p></div>
             </div>
+            <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+              <div className="bg-panel2 rounded-lg p-3"><p className="text-[11px] text-fog">Recebido em 12 meses</p><p className="font-mono">{brl(paid12)}</p></div>
+              <div className="bg-panel2 rounded-lg p-3"><p className="text-[11px] text-fog">Peso na receita</p><p className={`font-mono ${share >= 50 ? "text-danger" : ""}`}>{Math.round(share)}%</p></div>
+            </div>
             {sel.notes && <p className="text-sm text-fog mt-4 whitespace-pre-wrap">{sel.notes}</p>}
+
+            <div className="flex items-center justify-between mt-7 mb-3"><h3 className="font-display font-bold">Contrato</h3><button className="text-xs text-fog hover:text-mint" onClick={() => setCt(ct ? null : { valor_mensal: 0, escopo: [], ...(k || {}) })}>{ct ? "Cancelar" : k ? "Editar" : "Registrar contrato"}</button></div>
+            {ct ? (
+              <div className="space-y-2 bg-panel2 rounded-xl p-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="label">Valor mensal (R$)</label><input type="number" step="0.01" className="input" value={ct.valor_mensal ?? ""} onChange={(e) => setCt({ ...ct, valor_mensal: e.target.value as any })} /></div>
+                  <div><label className="label">Dia do vencimento</label><input type="number" min={1} max={28} className="input" value={ct.dia_vencimento ?? ""} onChange={(e) => setCt({ ...ct, dia_vencimento: e.target.value as any })} /></div>
+                  <div><label className="label">Início</label><input type="date" className="input" value={ct.inicio || ""} onChange={(e) => setCt({ ...ct, inicio: e.target.value })} /></div>
+                  <div><label className="label">Fim / renovação</label><input type="date" className="input" value={ct.fim || ""} onChange={(e) => setCt({ ...ct, fim: e.target.value })} /></div>
+                </div>
+                <label className="label">Escopo do mês (o que está incluído)</label>
+                {(ct.escopo || []).map((e2, i) => (
+                  <div key={i} className="flex gap-2"><input type="number" min={0} className="input !w-20" value={e2.qtd} onChange={(ev) => { const es = [...(ct.escopo || [])]; es[i] = { ...es[i], qtd: Number(ev.target.value) || 0 }; setCt({ ...ct, escopo: es }); }} />
+                    <input className="input" placeholder="Ex.: reels, posts, diária de gravação" value={e2.item} onChange={(ev) => { const es = [...(ct.escopo || [])]; es[i] = { ...es[i], item: ev.target.value }; setCt({ ...ct, escopo: es }); }} />
+                    <button className="text-fog hover:text-danger" onClick={() => setCt({ ...ct, escopo: (ct.escopo || []).filter((_, j) => j !== i) })}><I.trash className="w-4 h-4" /></button></div>
+                ))}
+                <button className="btn btn-ghost btn-sm" onClick={() => setCt({ ...ct, escopo: [...(ct.escopo || []), { item: "", qtd: 1 }] })}><I.plus className="w-4 h-4" />Item do escopo</button>
+                <textarea className="input" rows={2} placeholder="Observações (reajuste, multa, extras cobrados à parte)" value={ct.observacoes || ""} onChange={(e) => setCt({ ...ct, observacoes: e.target.value })} />
+                <div className="flex justify-end"><button className="btn btn-mint btn-sm" onClick={saveContract}>Salvar contrato</button></div>
+              </div>
+            ) : k ? (
+              <div className="bg-panel2 rounded-xl p-4 text-sm">
+                <div className="flex flex-wrap gap-x-6 gap-y-1"><p><span className="text-fog">Mensal </span><b className="font-mono">{brl(k.valor_mensal)}</b></p>{k.dia_vencimento && <p><span className="text-fog">Vence dia </span>{k.dia_vencimento}</p>}{k.inicio && <p><span className="text-fog">Desde </span>{dtShort(k.inicio)}</p>}{k.fim && <p className={diasFim !== null && diasFim <= 30 ? "text-danger" : ""}><span className="text-fog">Até </span>{dtShort(k.fim)}{diasFim !== null && diasFim <= 30 ? ` · renovar (${Math.max(0, diasFim)} dias)` : ""}</p>}</div>
+                {!!k.escopo?.length && <ul className="mt-3 flex flex-wrap gap-1.5">{k.escopo.map((e2, i) => <li key={i} className="chip">{e2.qtd}× {e2.item}</li>)}</ul>}
+                {k.observacoes && <p className="text-xs text-fog mt-2 whitespace-pre-wrap">{k.observacoes}</p>}
+              </div>
+            ) : <p className="text-sm text-fog">Sem contrato. Registre valor, vencimento e o que está incluído para o Gestor acompanhar a receita fixa e a renovação.</p>}
 
             <h3 className="font-display font-bold mt-7 mb-3">Onboarding <span className="text-fog font-normal text-sm">{obDone}/{ob.length}</span></h3>
             <ul className="space-y-1.5">

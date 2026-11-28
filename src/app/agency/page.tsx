@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import PageHead from "@/components/PageHead";
 import { brl, brlShort, dtShort, stageLabel, EVENT_KINDS, DEAL_STAGES } from "@/lib/agency";
+import { saude } from "@/lib/gestao";
+import SaudeNegocio from "@/components/agency/SaudeNegocio";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +22,18 @@ export default async function AgencyHome() {
     s.from("ag_events").select("id,title,kind,starts_at").gte("starts_at", now.toISOString().slice(0, 10)).lte("starts_at", in14).order("starts_at").limit(6),
     s.from("ag_tasks").select("id,title,due_date,done,assignee").eq("done", false).order("due_date", { ascending: true }).limit(50),
     s.from("ag_deals").select("value,stage"),
-    s.from("ag_clients").select("id,name,status"),
+    s.from("ag_clients").select("id,name,status,contract"),
   ]);
+  // saúde do negócio: 12 meses de lançamentos, notas e saldo das contas
+  const anoAtras = new Date(now.getFullYear(), now.getMonth() - 12, 1).toISOString().slice(0, 10);
+  const [{ data: tx12 }, { data: notas }, { data: contas }, { data: pagos }] = await Promise.all([
+    s.from("ag_transactions").select("kind,amount,due_date,paid,category,client_id,transfer_id,description,ag_clients(name)").gte("due_date", anoAtras),
+    s.from("ag_invoices").select("number,client_id,amount,issued_at,status").gte("issued_at", anoAtras),
+    s.from("fin_accounts").select("id,kind,opening_balance,archived"),
+    s.from("ag_transactions").select("account_id,kind,amount").eq("paid", true),
+  ]);
+  const saldo = (contas || []).filter((a) => a.kind !== "cartao" && !a.archived).reduce((acc, a) => acc + Number(a.opening_balance || 0) + (pagos || []).filter((t) => t.account_id === a.id).reduce((x, t) => x + (t.kind === "entrada" ? 1 : -1) * Number(t.amount), 0), 0);
+  const sn = saude({ tx: (tx12 || []) as any, notas: (notas || []) as any, saldo, aloc: settings?.alocacao, clientes: (clients || []) as any, hoje: today });
 
   const T = tx || [];
   const month = T.filter((t) => t.due_date.startsWith(today.slice(0, 7)));
@@ -57,7 +69,8 @@ export default async function AgencyHome() {
 
   return (
     <>
-      <PageHead kicker="GESTOR" title="Visão geral" desc={`Operação e caixa da produtora em ${monthName}.`} />
+      <PageHead kicker="GESTOR" title="Visão geral" desc={`Saúde do negócio nos últimos 12 meses e o caixa de ${monthName}.`} />
+      <SaudeNegocio s={sn} saldo={saldo} />
 
       <section className="card p-6 md:p-7 mb-5 relative overflow-hidden rise">
         <div className="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-mint/10 blur-3xl" />
