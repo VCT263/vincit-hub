@@ -2,7 +2,7 @@
 export type Tool = { key: string; label: string; hub: "creator" | "agency" | "audiovisual" | "ecommerce" | "design" | "geral"; path?: string };
 
 export const TOOLS: Tool[] = [
-  { key: "creator:perfis", label: "Perfis & marca", hub: "creator", path: "/creator/perfis" },
+  { key: "creator:perfis", label: "Perfis e marcas", hub: "creator", path: "/creator/perfis" },
   { key: "creator:desempenho", label: "Desempenho", hub: "creator", path: "/creator/desempenho" },
   { key: "creator:tendencias", label: "Tendências", hub: "creator", path: "/creator/tendencias" },
   { key: "creator:referencias", label: "Referências", hub: "creator", path: "/creator/referencias" },
