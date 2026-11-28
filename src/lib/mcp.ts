@@ -13,6 +13,7 @@ import { FORMATO_ROTEIRO, rowsFromScript } from "@/lib/roteiro";
 import { AD_RULES_TEXT } from "@/lib/anuncio";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 import { kitsComMarca } from "./kitMarca";
+import { CLAUDE_PANEL_URL, HUB_URL, PAINEL_URI } from "@/lib/painelApp";
 
 /**
  * Ferramentas do conector VINCIT HUB para o Claude (MCP).
@@ -28,6 +29,7 @@ type Tool = {
   inputSchema: any;
   readOnly?: boolean;
   needs?: string; // ferramenta do plano exigida
+  meta?: Record<string, any>; // _meta do MCP (ex.: painel desenhado na conversa)
   run: (ctx: Ctx, a: any) => Promise<any>;
 };
 
@@ -87,6 +89,7 @@ export const TOOLS: Tool[] = [
     title: "Começar no HUB",
     description: "Chame uma vez no começo da conversa. Traz a conta do HUB, os perfis (briefing pronto em %, se há manual da marca), as pendências (pedidos de IA na fila, entrevistas em andamento) e as novidades de IA desde a última visita desta pessoa, e marca as novidades como vistas.",
     inputSchema: { type: "object", properties: {} },
+    meta: { ui: { resourceUri: PAINEL_URI }, "ui/resourceUri": PAINEL_URI },
     run: async (ctx) => {
       const [{ data: perfis }, { data: marcas }, { count: pedidos }, { data: ents }, { data: visto }] = await Promise.all([
         ctx.sb.from("ig_accounts").select("id, username, name, niche, briefing, connected").order("created_at"),
@@ -108,6 +111,8 @@ export const TOOLS: Tool[] = [
         },
         versao_ia: VERSAO_IA,
         novidades: novas,
+        ultimas: novas.length ? [] : NOVIDADES.slice(0, 3),
+        painel: { na_conversa: "Este resultado aparece como o painel da VINCIT aqui na conversa, com o botão Atualizar.", completo: CLAUDE_PANEL_URL, hub: HUB_URL },
         dica: novas.length ? "Conte as novidades em 2 ou 3 linhas antes de seguir." : "Sem novidades desde a última visita.",
         prompts_prontos: ["Começar no HUB", "Dossiê do perfil", "Plano do mês", "Pacote da semana", "Análise do perfil", "Refazer aberturas", "Responder pedidos de IA", "Entrevista de marca"],
       };
@@ -681,6 +686,7 @@ export function listTools(acc: Access) {
     description: t.description,
     inputSchema: t.inputSchema,
     annotations: { title: t.title, readOnlyHint: !!t.readOnly, destructiveHint: false, idempotentHint: !!t.readOnly, openWorldHint: false },
+    ...(t.meta ? { _meta: t.meta } : {}),
   }));
 }
 
