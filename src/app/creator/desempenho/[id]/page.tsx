@@ -11,6 +11,7 @@ import { pct, taxas } from "@/lib/mixModa";
 import { AreaChart, Spark, SignalColumns, HBar, LILAS, num } from "@/components/creator/Graficos";
 import CompartilharPerfil from "@/components/creator/CompartilharPerfil";
 import RemoverPerfil from "@/components/creator/RemoverPerfil";
+import FichaPerfil, { AbasPerfil, ABAS, type Aba } from "@/components/creator/FichaPerfil";
 
 const FORMATOS: Record<string, string> = { REELS: "Reels", CAROUSEL_ALBUM: "Carrossel", IMAGE: "Foto", VIDEO: "Vídeo" };
 const formato = (t?: string) => FORMATOS[t || ""] || t || "Outro";
@@ -47,6 +48,10 @@ export default function Perfil() {
   const [hist, setHist] = useState<any[]>([]);
   const [rankBy, setRankBy] = useState<"formato" | "pilar">("formato");
   const ai = useAI();
+  // ficha do perfil em abas, na ordem do fluxo (28/11). ?aba=resultado abre direto no desempenho
+  const [aba, setAbaS] = useState<Aba>("plano");
+  useEffect(() => { const a = new URLSearchParams(location.search).get("aba"); if (ABAS.some(([k]) => k === a)) setAbaS(a as Aba); }, []);
+  const setAba = (a: Aba) => { setAbaS(a); const u = new URL(location.href); u.searchParams.set("aba", a); history.replaceState(null, "", u); };
 
   const load = useCallback(async () => {
     const s = createClient();
@@ -176,12 +181,44 @@ export default function Perfil() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {acc.connected && <button onClick={sync} disabled={syncing} className="btn btn-ghost"><I.refresh className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />{syncing ? "Sincronizando…" : "Sincronizar"}</button>}
-          {/* o diagnóstico mora no Raio-X (27/11); aqui ficam só os números */}
-          <Link href={`/creator/diagnostico?perfil=${id}`} className="btn btn-mint"><I.target className="w-4 h-4" />Raio-X e estratégia</Link>
         </div>
       </div>
       {msg && <div className="card px-4 py-3 mb-5 text-sm text-mint border-mint-dim">{msg}</div>}
       {ai.error && <div className="card px-4 py-3 mb-5 text-sm text-danger border-danger/40">{ai.error}</div>}
+
+      <AbasPerfil aba={aba} setAba={setAba} />
+      {aba !== "resultado" ? (
+        <FichaPerfil aba={aba} acc={acc}
+          marcaEVoz={<>
+      {/* contexto e voz: o que a IA usa */}
+      <div className="grid lg:grid-cols-2 gap-3">
+        <section className="card p-5">
+          <div className="flex items-center justify-between mb-3"><h2 className="font-display font-bold">Contexto do perfil</h2><button className="text-xs text-fog hover:text-mint" onClick={() => (edit ? save() : setEdit(true))}>{edit ? "Salvar" : "Editar"}</button></div>
+          {edit ? (
+            <div className="space-y-3">
+              <div><label className="label">Nicho</label><input className="input" value={acc.niche || ""} onChange={(e) => setAcc({ ...acc, niche: e.target.value })} /></div>
+              <div><label className="label">Objetivos</label><textarea className="input" value={acc.goals || ""} onChange={(e) => setAcc({ ...acc, goals: e.target.value })} /></div>
+              {!acc.connected && <div><label className="label">Seguidores</label><input type="number" className="input" value={acc.followers_count || ""} onChange={(e) => setAcc({ ...acc, followers_count: Number(e.target.value) || null })} /></div>}
+              <p className="text-xs text-fog">Para remover ou apagar o perfil, use o cartão no fim da aba Plano.</p>
+            </div>
+          ) : (
+            <div className="text-sm space-y-2"><p><span className="text-fog">Nicho:</span> {acc.niche || "não definido"}</p><p><span className="text-fog">Objetivos:</span> {acc.goals || "não definidos"}</p><p className="text-xs text-fog pt-2">A IA usa esse contexto em todas as análises.</p></div>
+          )}
+        </section>
+        <section className="card p-5">
+          <div className="flex items-center justify-between mb-2"><h2 className="font-display font-bold">Voz da marca</h2><button className="text-xs text-fog hover:text-mint" onClick={() => (voiceEdit ? saveVoice() : setVoiceEdit(true))}>{voiceEdit ? "Salvar" : acc.brand_voice ? "Editar" : "Definir"}</button></div>
+          {voiceEdit ? (
+            <div className="space-y-3">
+              <div><label className="label">Como a marca escreve (a IA segue isso em tudo)</label><textarea className="input min-h-[130px]" value={acc.brand_voice || ""} onChange={(e) => setAcc({ ...acc, brand_voice: e.target.value })} placeholder="Ex.: tom próximo e confiante, frases curtas, fala 'a gente', sem emojis, nunca usa 'top' ou 'incrível'…" /></div>
+              <div><label className="label">Ou gere a partir de 3 textos seus</label><textarea className="input min-h-[110px]" value={samples} onChange={(e) => setSamples(e.target.value)} placeholder="Cole 3 legendas ou roteiros que tenham a cara da marca." />
+                <button type="button" disabled={ai.busy || samples.length < 80} onClick={genVoice} className="btn btn-ghost btn-sm mt-2"><I.spark className="w-3.5 h-3.5" />{ai.busy ? "Lendo…" : "Extrair voz da marca"}</button></div>
+            </div>
+          ) : <p className="text-sm whitespace-pre-wrap line-clamp-6">{acc.brand_voice || <span className="text-fog">Ainda não definida. Com ela, legendas, roteiros e respostas saem com o jeito da marca.</span>}</p>}
+        </section>
+      </div>
+          </>}
+          cadastro={<div className="mt-3 grid lg:grid-cols-2 gap-3"><CompartilharPerfil accountId={acc.id} ownerId={acc.owner_id} /><RemoverPerfil acc={acc} /></div>} />
+      ) : (<>
 
       {/* 1. Resultados da conta */}
       <section className="mb-8">
@@ -376,34 +413,8 @@ export default function Perfil() {
           <Markdown text={diag} />
         </section>
       )}
+      </>)}
 
-      {/* contexto e voz: o que a IA usa */}
-      <div className="grid lg:grid-cols-2 gap-3">
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-3"><h2 className="font-display font-bold">Contexto do perfil</h2><button className="text-xs text-fog hover:text-mint" onClick={() => (edit ? save() : setEdit(true))}>{edit ? "Salvar" : "Editar"}</button></div>
-          {edit ? (
-            <div className="space-y-3">
-              <div><label className="label">Nicho</label><input className="input" value={acc.niche || ""} onChange={(e) => setAcc({ ...acc, niche: e.target.value })} /></div>
-              <div><label className="label">Objetivos</label><textarea className="input" value={acc.goals || ""} onChange={(e) => setAcc({ ...acc, goals: e.target.value })} /></div>
-              {!acc.connected && <div><label className="label">Seguidores</label><input type="number" className="input" value={acc.followers_count || ""} onChange={(e) => setAcc({ ...acc, followers_count: Number(e.target.value) || null })} /></div>}
-              <p className="text-xs text-fog">Para remover ou apagar o perfil, use o cartão no fim da página.</p>
-            </div>
-          ) : (
-            <div className="text-sm space-y-2"><p><span className="text-fog">Nicho:</span> {acc.niche || "não definido"}</p><p><span className="text-fog">Objetivos:</span> {acc.goals || "não definidos"}</p><p className="text-xs text-fog pt-2">A IA usa esse contexto em todas as análises.</p></div>
-          )}
-        </section>
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-2"><h2 className="font-display font-bold">Voz da marca</h2><button className="text-xs text-fog hover:text-mint" onClick={() => (voiceEdit ? saveVoice() : setVoiceEdit(true))}>{voiceEdit ? "Salvar" : acc.brand_voice ? "Editar" : "Definir"}</button></div>
-          {voiceEdit ? (
-            <div className="space-y-3">
-              <div><label className="label">Como a marca escreve (a IA segue isso em tudo)</label><textarea className="input min-h-[130px]" value={acc.brand_voice || ""} onChange={(e) => setAcc({ ...acc, brand_voice: e.target.value })} placeholder="Ex.: tom próximo e confiante, frases curtas, fala 'a gente', sem emojis, nunca usa 'top' ou 'incrível'…" /></div>
-              <div><label className="label">Ou gere a partir de 3 textos seus</label><textarea className="input min-h-[110px]" value={samples} onChange={(e) => setSamples(e.target.value)} placeholder="Cole 3 legendas ou roteiros que tenham a cara da marca." />
-                <button type="button" disabled={ai.busy || samples.length < 80} onClick={genVoice} className="btn btn-ghost btn-sm mt-2"><I.spark className="w-3.5 h-3.5" />{ai.busy ? "Lendo…" : "Extrair voz da marca"}</button></div>
-            </div>
-          ) : <p className="text-sm whitespace-pre-wrap line-clamp-6">{acc.brand_voice || <span className="text-fog">Ainda não definida. Com ela, legendas, roteiros e respostas saem com o jeito da marca.</span>}</p>}
-        </section>
-      </div>
-      <div className="mt-3 grid lg:grid-cols-2 gap-3"><CompartilharPerfil accountId={acc.id} ownerId={acc.owner_id} /><RemoverPerfil acc={acc} /></div>
     </>
   );
 }

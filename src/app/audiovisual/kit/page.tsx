@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { kitFrom } from "@/lib/design";
 import Link from "next/link";
 import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
@@ -12,8 +11,9 @@ import {
 } from "@/lib/editor/model";
 import { ESTILOS, estiloByNum, estiloTags, kitComEstilo, projetoDoEstilo, type Estilo } from "@/lib/editor/styles";
 import { apagarComLixeira } from "@/lib/lixeira";
+import { kitComMarca } from "@/lib/kitMarca";
 
-type Row = { id?: string; name: string; account_id?: string | null; data: Kit };
+type Row = { id?: string; name: string; account_id?: string | null; data: Kit; marca?: { id: string; title?: string } };
 
 const EMPTY: Row = { name: "", data: { ...structuredClone(DEFAULT_KIT), mogrts: { legenda: "", gancho: "", cta: "", lower_third: "" } } };
 
@@ -118,7 +118,9 @@ export default function KitPage() {
       s.from("design_projects").select("id,title,data").eq("kind", "marca").is("archived_at", null).order("updated_at", { ascending: false }),
     ]);
     setBrands(b || []);
-    setKits((k as Row[]) || []);
+    // kit ligado a uma marca do Design (marca.data.kit_id): cores e fonte de título vêm da marca, ao vivo
+    const porKit = new Map((b || []).filter((m: any) => m.data?.kit_id).map((m: any) => [m.data.kit_id, m]));
+    setKits(((k as Row[]) || []).map((x) => kitComMarca(x, x.id ? porKit.get(x.id) : null)));
     setProfiles(p || []);
   }, []);
   useEffect(() => {
@@ -153,6 +155,28 @@ export default function KitPage() {
   const toggle = (path: string[], list: string[] | undefined, v: string) => set(path, (list || []).includes(v) ? (list || []).filter((x) => x !== v) : [...(list || []), v]);
   const open = (k: Row) => { setMsg(null); setCamada("identidade"); setEdit(structuredClone({ ...k, data: { ...mergeKit(k.data), mogrts: { ...EMPTY.data.mogrts, ...(k.data?.mogrts || {}) } } })); };
   const d = edit ? mergeKit(edit.data) : null;
+  // ?kit=<id> ou ?perfil=<id> (vindo de Perfis & marca): abre o kit direto
+  const aberto = useRef(false);
+  useEffect(() => {
+    if (!kits || aberto.current) return;
+    aberto.current = true;
+    const q = new URLSearchParams(location.search);
+    const k = kits.find((x) => x.id === q.get("kit")) || (q.get("perfil") ? kits.find((x) => x.account_id === q.get("perfil")) : null);
+    if (k) open(k);
+  }, [kits]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function ligarMarca(brandId: string) {
+    if (!edit?.id) { setMsg("Salve o kit primeiro e depois ligue à marca."); return; }
+    const b = brands.find((x) => x.id === brandId);
+    if (!b) return;
+    const s = createClient();
+    // um kit por marca: a marca aponta para este kit (a ligação antiga, se houver, sai)
+    const { error } = await s.from("design_projects").update({ data: { ...(b.data || {}), kit_id: edit.id, perfil_id: b.data?.perfil_id || edit.account_id || null }, updated_at: new Date().toISOString() }).eq("id", b.id);
+    if (error) { setMsg(error.message); return; }
+    const k = kitComMarca(edit, { ...b, data: { ...(b.data || {}), kit_id: edit.id } });
+    setEdit(structuredClone({ ...k, data: { ...mergeKit(k.data), mogrts: { ...EMPTY.data.mogrts, ...(k.data?.mogrts || {}) } } }) as Row);
+    setMsg(`Kit ligado à marca ${b.title}. Cores e fonte de título agora vêm dela.`);
+    load();
+  }
 
   // o que a prévia mostra na camada aberta
   const demo: Demo = useMemo(() => {
@@ -187,7 +211,7 @@ export default function KitPage() {
                   <KitThumb kit={mergeKit(k.data)} />
                   <p className="font-semibold mt-3">{k.name}</p>
                   <p className="text-xs text-fog mt-0.5">{k.data?.estilo ? `Estilo ${k.data.estilo} · ` : ""}{k.data?.fontes?.titulo} · legenda {k.data?.legenda?.estilo} · câmera {CAMERA_LEVELS[mergeKit(k.data).camera?.intensidade ?? 0].toLowerCase()}</p>
-                  {k.account_id && <p className="text-xs text-mint mt-1">@{profiles.find((p) => p.id === k.account_id)?.username}</p>}
+                  {k.account_id && <p className="text-xs text-mint mt-1">@{profiles.find((p) => p.id === k.account_id)?.username}{k.marca ? ` · marca ${k.marca.title}` : ""}</p>}
                 </button>
               ))}
               {!kits.length && <p className="text-sm text-fog">Nenhum kit ainda. Crie aqui ou peça ao Claude: &quot;crie o kit de estilo da ISYS&quot;.</p>}
@@ -230,16 +254,18 @@ export default function KitPage() {
                   <p className="text-xs text-fog mt-1.5">{estiloByNum(d.estilo) ? estiloByNum(d.estilo)!.resumo : "O Editor e o Claude usam este estilo quando nada mais for pedido. As cores continuam as do kit."}</p>
                 </Group>
                 <Group title="Cores">
-                  {/* a identidade vem da marca do Design; o kit guarda o que é de edição (27/11) */}
+                  {/* a identidade vem da marca do Design, ao vivo (28/11); o kit guarda o que é de edição */}
+                  {edit.marca ? (
+                    <div className="rounded-xl border border-mint-dim bg-mint/5 p-3 flex items-center gap-3 flex-wrap">
+                      <div className="flex gap-1">{(["destaque", "texto", "fundo"] as const).map((c) => <span key={c} className="w-7 h-7 rounded-lg border border-line" style={{ background: (d.cores as any)?.[c] }} />)}</div>
+                      <p className="text-sm min-w-0 flex-1">Vêm da marca <b>{edit.marca.title}</b> no Design. Mudou lá, muda aqui.</p>
+                      <Link href={`/design/marcas/${edit.marca.id}?etapa=cores`} className="chip">Editar na marca</Link>
+                    </div>
+                  ) : (<>
                   {!!brands.length && (
-                    <select className="input mb-3" value="" onChange={(e) => {
-                      const k = kitFrom(brands.find((x) => x.id === e.target.value));
-                      set(["cores"], { ...d.cores, destaque: k.colors["Primária"], texto: k.colors["Claro"], fundo: k.colors["Escuro"] });
-                      set(["fontes", "titulo"], k.title);
-                      setMsg(`Cores e fonte de título copiadas da marca ${k.name || ""}. Salve o kit para usar.`);
-                    }}>
-                      <option value="">Usar cores e fonte da marca criada no Design…</option>
-                      {brands.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
+                    <select className="input mb-3" value="" onChange={(e) => ligarMarca(e.target.value)}>
+                      <option value="">Ligar à marca criada no Design (cores e fonte ao vivo)…</option>
+                      {brands.map((b) => <option key={b.id} value={b.id}>{b.title}{b.data?.kit_id && b.data.kit_id !== edit.id ? " (troca o kit dela)" : ""}</option>)}
                     </select>
                   )}
                   <div className="grid grid-cols-3 gap-3">
@@ -250,10 +276,11 @@ export default function KitPage() {
                       </label>
                     ))}
                   </div>
+                  </>)}
                 </Group>
                 <Group title="Tipografia">
                   <div className="grid sm:grid-cols-2 gap-3">
-                    <FontPick label="Títulos, lettering e motion" value={d.fontes?.titulo || "Anton"} onChange={(v) => set(["fontes", "titulo"], v)} />
+                    {edit.marca ? <Field label="Títulos, lettering e motion"><p className="input !text-fog">{d.fontes?.titulo} · da marca {edit.marca.title}</p></Field> : <FontPick label="Títulos, lettering e motion" value={d.fontes?.titulo || "Anton"} onChange={(v) => set(["fontes", "titulo"], v)} />}
                     <FontPick label="Legenda" value={d.fontes?.legenda || "Inter Black"} onChange={(v) => set(["fontes", "legenda"], v)} />
                   </div>
                 </Group>

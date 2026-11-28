@@ -19,6 +19,7 @@ import { aiFetch } from "@/lib/aiFetch";
 import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type Cena, type MotionSpec } from "@/lib/motion/engine";
 import { aplicarVocabulario, motionEnd, type MotionClip } from "@/lib/editor/model";
 import AreaSegura from "@/components/av/AreaSegura";
+import { kitsComMarca } from "@/lib/kitMarca";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -82,7 +83,7 @@ export default function Editor() {
   /* ---------- dados do HUB ---------- */
   useEffect(() => {
     const s = createClient();
-    s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
+    s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(async ({ data }) => setKits((await kitsComMarca(s, (data as any) || [])) as any));
     s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url,ec_action_id").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
       setContents(data || []);
       // veio do card do Quadro (?c=): o conteúdo já entra escolhido

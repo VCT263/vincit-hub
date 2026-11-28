@@ -29,6 +29,7 @@ export default function Referencias() {
   const [q, setQ] = useState("");
   const ai = useAI();
   const [tab, setTab] = useState<"perfis" | "posts">("perfis");
+  useEffect(() => { if (new URLSearchParams(location.search).get("tab") === "posts") setTab("posts"); }, []); // vindo de Perfis & marca (estilos do perfil)
 
   const load = useCallback(async () => {
     const { data } = await createClient().from("references_lib").select("*").order("created_at", { ascending: false });

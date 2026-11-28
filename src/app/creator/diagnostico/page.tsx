@@ -96,7 +96,8 @@ export default function Diagnostico() {
 
   return (
     <>
-      <PageHead kicker="CREATOR · 01 ANÁLISE" title="Raio-X e estratégia" desc="Diagnóstico estratégico do perfil, do mercado e do nicho em 5 eixos de crescimento. Usa só dados reais: métricas, briefing, referências e pesquisa de mercado." />
+      {accId && <Link href={`/creator/desempenho/${accId}?aba=plano`} className="inline-flex items-center gap-2 text-sm text-fog hover:text-paper mb-3"><I.back className="w-4 h-4" />Perfis & marca{acc ? ` · @${acc.username}` : ""}</Link>}
+      <PageHead kicker="CREATOR · PERFIS & MARCA · PLANO" title="Raio-X e estratégia" desc="Diagnóstico estratégico do perfil, do mercado e do nicho em 5 eixos de crescimento. Usa só dados reais: métricas, briefing, referências e pesquisa de mercado." />
 
       <div className="grid md:grid-cols-3 gap-2 mb-5">
         {STEPS.map((s, i) => {

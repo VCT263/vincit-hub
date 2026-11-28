@@ -40,7 +40,9 @@ function Motion() {
   const [accounts, setAccounts] = useState<{ id: string; username: string }[]>([]);
   const [pedido, setPedido] = useState("");
   const [formato, setFormato] = useState<MotionFormat>("9:16");
-  const [conta, setConta] = useState("");
+  // ?perfil=<id> (vindo de Perfis & marca): mostra só os motions do perfil e já cria para ele
+  const [perfilF, setPerfilF] = useState(() => q.get("perfil") || "");
+  const [conta, setConta] = useState(() => q.get("perfil") || "");
   const [msg, setMsg] = useState<string | null>(null);
   const [falhas, setFalhas] = useState<Record<string, string>>({});
   const tentados = useRef(new Set<string>());
@@ -263,6 +265,7 @@ function Motion() {
           <div className="flex flex-wrap gap-1 mb-3">{([["todas", "Todas"], ["aprovado", "Aprovadas"], ["descartado", "Descartadas"]] as const).map(([k, l]) => <button key={k} onClick={() => setFiltro(k)} className={`chip ${filtro === k ? "chip-mint" : ""}`}>{l} ({k === "todas" ? rows.length : rows.filter((r) => r.spec?.avaliacao === k).length})</button>)}</div>
         )}
         <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          {perfilF && <button onClick={() => setPerfilF("")} className="chip chip-mint">@{accounts.find((a) => a.id === perfilF)?.username || "perfil"} ✕</button>}
           <button onClick={() => setPasta("")} className={`chip ${pasta === "" ? "!border-mint text-mint" : ""}`}>Todas ({rows?.length || 0})</button>
           {pastas.map((n) => <button key={n} onClick={() => setPasta(n)} className={`chip ${pasta === n ? "!border-mint text-mint" : ""}`}><I.folder className="w-3 h-3 inline -mt-0.5 mr-1" />{n} ({(rows || []).filter((r) => r.pasta === n).length})</button>)}
           {(rows || []).some((r) => !r.pasta) && pastas.length > 0 && <button onClick={() => setPasta(SEM)} className={`chip ${pasta === SEM ? "!border-mint text-mint" : ""}`}>Sem pasta ({(rows || []).filter((r) => !r.pasta).length})</button>}
@@ -270,7 +273,7 @@ function Motion() {
         </div>
         {pastaAtual && <p className="text-xs text-fog -mt-2 mb-3">Os motions que você criar agora (pedido ao Claude ou modelo) entram na pasta &quot;{pastaAtual}&quot;.{campanhaAtual ? <> A pasta é da <Link href={`/ecommerce/acoes/campanha?id=${campanhaAtual}`} className="text-mint">campanha no E-commerce</Link>: o Claude lê o conceito dela no pedido, e o Editor abre esta pasta quando o vídeo é de um card da campanha.</> : " No Editor, a aba Motion também filtra por pasta."}</p>}
         {(pasta === "" && pastas.length ? [...pastas, SEM] : [pasta || SEM]).map((grupo) => {
-          const lista = (rows || []).filter((r) => filtro === "todas" || r.spec?.avaliacao === filtro).filter((r) => (pasta === "" && !pastas.length) ? true : grupo === SEM ? !r.pasta : r.pasta === grupo);
+          const lista = (rows || []).filter((r) => !perfilF || r.account_id === perfilF).filter((r) => filtro === "todas" || r.spec?.avaliacao === filtro).filter((r) => (pasta === "" && !pastas.length) ? true : grupo === SEM ? !r.pasta : r.pasta === grupo);
           if (!lista.length) return pasta === "" ? null : <p key={grupo} className="text-sm text-fog py-6 text-center">Pasta vazia. Crie um motion com a pasta aberta ou mova um para cá pelo seletor do card.</p>;
           return (
         <div key={grupo} className="mb-5 last:mb-0">
