@@ -21,6 +21,7 @@ export const AJUDA_TELA: Record<string, Dica> = {
   "/creator/diagnostico": { titulo: "Raio-X e estratégia", texto: "Diagnóstico do perfil em 5 eixos de crescimento, só com dados reais. Vira prioridades e um plano de 30/60/90 dias." },
   "/creator/referencias": { titulo: "Referências", texto: "Estude perfis e posts que funcionaram. A IA desmonta o que deu certo e adapta para o seu briefing; mande as melhores ideias para o Quadro." },
   "/creator/tendencias": { titulo: "Tendências", texto: "Pesquisa o que está em alta no seu nicho. Pedidos com pesquisa na web são respondidos no chat do Claude." },
+  "/creator/agendar": { titulo: "Agendar publicações", texto: "Agende posts, carrosséis, Reels e Stories. O HUB publica no horário marcado e move o card do Quadro para Publicado. O horário sugerido é o pico dos seus seguidores online." },
   "/creator/automacoes": { titulo: "Automações", texto: "Respostas automáticas no direct e publicações agendadas no Instagram. Só funciona com o Instagram conectado." },
   "/creator/estrategia": { titulo: "Estratégia de crescimento", texto: "Plano de 30/60/90 dias feito do briefing, das métricas e do último Raio-X." },
 
@@ -30,6 +31,7 @@ export const AJUDA_TELA: Record<string, Dica> = {
   "/audiovisual/ordem-do-dia": { titulo: "Ordem do dia", texto: "Cada diária com horário, local, equipe, equipamento, planos e checklist. A equipe abre pelo link no celular, sem login." },
   "/audiovisual/midia": { titulo: "Banco de mídia", texto: "Sua pasta do Google Drive vira o acervo: Técnico (trilhas, efeitos, LUTs) e Meus conteúdos.", passos: ["Precisa do Google conectado em Minha conta.", "Escolha a pasta raiz do Drive e sincronize."] },
   "/audiovisual/kit": { titulo: "Kit de estilo", texto: "Cores, letras e legendas de cada marca para o editor e o Premiere. Dá para copiar de uma marca do Design." },
+  "/audiovisual/luts": { titulo: "Biblioteca de LUTs", texto: "Prévia de como cada LUT deixa o vídeo, separada por marca (Blackmagic, Kodak, Canon, Sony, Fujifilm). O arquivo original é baixado no site oficial.", passos: ["Escolha a marca e a LUT e compare antes e depois.", "Baixe pelo link oficial e, se quiser conferir, use Testar a LUT que baixei."] },
   "/audiovisual/premiere": { titulo: "Premiere com o Claude", texto: "O plugin do Premiere manda a timeline para o HUB; o Claude devolve o plano de edição e o plugin aplica.", passos: ["Baixe o plugin (.ccx) e instale com dois cliques.", "Abra o painel VINCIT HUB no Premiere e entre com o login do HUB."] },
   "/audiovisual/editor": { titulo: "Editor", texto: "Edição rápida no navegador com legenda, câmera que segue a fala e o Kit de estilo da marca." },
   "/audiovisual/ferramentas": { titulo: "Ferramentas", texto: "Para resolver problemas pontuais, como recuperar vídeo que não abre. Tudo roda no seu computador." },

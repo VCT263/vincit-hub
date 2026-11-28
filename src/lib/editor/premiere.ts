@@ -57,7 +57,7 @@ export function planoPremiere(p: Project, media: Media[], kit: Kit, screens: Scr
   // motion e instruções de estilo vão como marcadores com nota
   const marcadores: { inicio: number; fim?: number; texto: string }[] = [];
   const leg = kit.legenda || {};
-  marcadores.push({ inicio: 0, texto: `VINCIT · ${estilo ? `Estilo ${estilo.num} ${estilo.nome} · ` : ""}legenda ${leg.estilo || "impacto"}${leg.animacao ? ` (${leg.animacao})` : ""}, ${leg.palavras_por_tela || 3} palavras por tela${leg.caixa_alta ? ", caixa alta" : ""} · fontes ${kit.fontes?.titulo || ""} / ${kit.fontes?.legenda || ""} · destaque ${kit.cores?.destaque || ""}${p.look && p.look !== "natural" ? ` · look ${p.look}` : ""}${p.transicao && p.transicao !== "corte" ? ` · transição ${p.transicao}` : ""}` });
+  marcadores.push({ inicio: 0, texto: `VINCIT · ${estilo ? `Estilo ${estilo.num} ${estilo.nome} · ` : ""}legenda ${leg.estilo || "impacto"}${leg.animacao ? ` (${leg.animacao})` : ""}, ${leg.palavras_por_tela || 3} palavras por tela${leg.caixa_alta ? ", caixa alta" : ""} · fontes ${kit.fontes?.titulo || ""} / ${kit.fontes?.legenda || ""} · destaque ${kit.cores?.destaque || ""}${p.look && p.look !== "natural" ? ` · look ${p.look}` : ""}${p.logCamera ? ` · log ${p.logCamera} (LUT de entrada)` : ""}${p.lut ? ` · LUT ${p.lut}` : ""}${p.transicao && p.transicao !== "corte" ? ` · transição ${p.transicao}` : ""}` });
 
   // cenas e motions por cima (pacote de cenas do roteiro, vinhetas): marcador com o texto, para pôr o MP4 do HUB em V3
   for (const m of p.motions || []) {

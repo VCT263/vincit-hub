@@ -4,6 +4,7 @@
  */
 
 import { drawMotion as drawMotionSpec, motionDuration, type MotionSpec } from "@/lib/motion/engine";
+import { applyLutToCanvas } from "@/lib/luts/gl";
 export type Word = { s: number; e: number; t: string }; // tempo no arquivo de origem (segundos)
 export type Media = { id: string; name: string; file: File; url: string; duration: number; width: number; height: number; words?: Word[]; image?: boolean; broll?: boolean };
 export type Segment = { id: string; mediaId: string; in: number; out: number };
@@ -46,6 +47,10 @@ export type Project = { segments: Segment[]; titles: Title[]; zooms: Zoom[]; cap
   fade?: boolean;
   /** cor do vídeo (natural, quente, frio, contraste, filme, pb) */
   look?: string;
+  /** vídeo gravado em log: perfil da câmera para converter para Rec.709 (ids de LOG_PROFILES em src/lib/luts/core.ts) */
+  logCamera?: string;
+  /** estilo da Biblioteca de LUTs (/audiovisual/luts), aplicado depois da conversão e antes do look */
+  lut?: string;
   /** transição nos cortes entre trechos */
   transicao?: string;
   /** grão de filme mesmo sem o look filme */
@@ -69,7 +74,20 @@ export type Kit = {
   fontes?: { titulo?: string; legenda?: string };
   /** animacao: como cada tela de legenda entra; posicao: fixa ou muda a cada frase */
   legenda?: { estilo?: string; palavras_por_tela?: number; caixa_alta?: boolean; altura?: number; altura_h?: number; animacao?: string; posicao?: string };
-  regras?: { corte_max_s?: number; silencio_ms?: number; trilha_db?: number };
+  /**
+   * Regras de edição (base: playbook do herk-edit-kit, MIT, medido em 27 reels).
+   * folga_ms: respiro mantido antes e depois da fala; batida_ms: pausa natural que fica (depois de vírgula, "primeiro");
+   * vicios: só saem com silêncio dos dois lados; plano_medio_s e primeiro_corte_s: ritmo do reel;
+   * lufs e pico_dbtp: volume final medido no arquivo; sfx: "acao" = efeito só em ação visível
+   */
+  regras?: {
+    corte_max_s?: number; silencio_ms?: number; trilha_db?: number;
+    folga_ms?: number; batida_ms?: number; vicios?: string[]; tomada?: "ultima" | "melhor";
+    plano_medio_s?: number; primeiro_corte_s?: number; max_sem_rosto_s?: number;
+    lufs?: number; pico_dbtp?: number; sfx?: "acao" | "nenhum";
+  };
+  /** grafia certa de marcas e nomes que a transcrição erra: uma troca por linha, "errado = certo" */
+  vocabulario?: string;
   /** movimentos: quais movimentos o Editor pode sugerir */
   camera?: { intensidade?: number; movimentos?: string[] };
   /** camadas que o Editor sugere a partir da fala: quais tipos e com que frequência (pouco, medio, muito) */
@@ -98,7 +116,11 @@ export const DEFAULT_KIT: Kit = {
   cores: { destaque: "#F5C84C", texto: "#FFFFFF", fundo: "#0C0C0D" },
   fontes: { titulo: "Anton", legenda: "Inter Black" },
   legenda: { estilo: "impacto", palavras_por_tela: 3, caixa_alta: true, altura: 0.64 },
-  regras: { corte_max_s: 4, silencio_ms: 350, trilha_db: -18 },
+  regras: {
+    corte_max_s: 4, silencio_ms: 350, trilha_db: -18,
+    folga_ms: 100, batida_ms: 300, vicios: ["é", "éé", "ãh", "hã", "ah", "hum", "hmm", "tipo", "né"], tomada: "ultima",
+    plano_medio_s: 1.3, primeiro_corte_s: 0.8, max_sem_rosto_s: 3.5, lufs: -14, pico_dbtp: -1.5, sfx: "acao",
+  },
   camera: { intensidade: 2, movimentos: ["punch", "push", "tremida"] },
   lettering: { tipos: ["gancho", "palavra", "vazado", "riscado", "frase", "cta"], frequencia: "medio" },
   insercao: { modo: "cheia", frequencia: "medio" },
@@ -118,6 +140,7 @@ export function mergeKit(k?: Kit | null): Kit {
     motion: { ...d.motion, ...(k?.motion || {}) },
     estilo: k?.estilo,
     mogrts: k?.mogrts,
+    vocabulario: k?.vocabulario,
   };
 }
 
@@ -658,6 +681,7 @@ function grainTile() {
   return (grain = c);
 }
 export function drawLook(ctx: Ctx, p: Project, t: number) {
+  if (p.logCamera || p.lut) applyLutToCanvas(ctx, { log: p.logCamera, look: p.lut }, W, H);
   const look = p.look || "natural";
   if (look !== "natural" && LOOK_FILTER[look]) { ctx.save(); ctx.filter = LOOK_FILTER[look]; ctx.drawImage(ctx.canvas as CanvasImageSource, 0, 0, W, H); ctx.restore(); }
   if (look === "filme" || look === "pb" || p.grao) {
@@ -1141,4 +1165,22 @@ export function applyCuts(p: Project, cuts: { inicio: number; fim: number }[]): 
     for (const [a, b] of pieces) out.push({ id: uid(), mediaId: l.seg.mediaId, in: l.seg.in + (a - l.start), out: l.seg.in + (b - l.start) });
   }
   return out;
+}
+
+
+/** lê o vocabulário do kit ("errado = certo", uma troca por linha) */
+export function parseVocabulario(v?: string): [RegExp, string][] {
+  return String(v || "").split(/\n/).map((l) => l.split("=").map((x) => x.trim())).filter((x) => x.length === 2 && x[0] && x[1])
+    .map(([a, b]) => [new RegExp(`^${a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([.,!?;:]*)$`, "i"), b] as [RegExp, string]);
+}
+
+/** troca na transcrição as palavras que o Whisper escreve errado (nomes de marca, peças); só palavra inteira */
+export function aplicarVocabulario(words: Word[], v?: string): Word[] {
+  const regras = parseVocabulario(v);
+  if (!regras.length) return words;
+  return words.map((w) => {
+    const lead = (w.t.match(/^\s*/) || [""])[0];
+    for (const [re, certo] of regras) { const m = w.t.trim().match(re); if (m) return { ...w, t: lead + certo + (m[1] || "") }; }
+    return w;
+  });
 }

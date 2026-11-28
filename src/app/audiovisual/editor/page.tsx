@@ -1,5 +1,8 @@
 "use client";
+import { briefEmTexto, normalizeBrief } from "@/lib/briefs";
+import { salvarNoDrive } from "@/lib/drive";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LOGS as LUT_LOGS, TODAS as LUT_TODAS } from "@/lib/luts/catalog";
 import Ajuda from "@/components/ajuda/Ajuda";
 import Link from "next/link";
 import { I } from "@/components/icons";
@@ -14,7 +17,7 @@ import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from
 import MotionStudio, { MotionThumb, fileToDataUrl, type MotionDoc } from "@/components/av/MotionStudio";
 import { aiFetch } from "@/lib/aiFetch";
 import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type Cena, type MotionSpec } from "@/lib/motion/engine";
-import { motionEnd, type MotionClip } from "@/lib/editor/model";
+import { aplicarVocabulario, motionEnd, type MotionClip } from "@/lib/editor/model";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -27,7 +30,8 @@ export default function Editor() {
   const [playing, setPlaying] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [tab, setTab] = useState<"clipes" | "legenda" | "textos" | "estilo" | "motion">("clipes");
-  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec }[]>([]);
+  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec; pasta?: string | null; html?: boolean }[]>([]);
+  const [motionPasta, setMotionPasta] = useState("");
   const [studio, setStudio] = useState<Partial<MotionDoc> | null>(null);
   const [kits, setKits] = useState<{ id: string; name: string; data: Kit }[]>([]);
   const [kitId, setKitId] = useState("");
@@ -37,6 +41,7 @@ export default function Editor() {
   const [busy, setBusy] = useState<Busy>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; size: number } | null>(null);
+  const [drive, setDrive] = useState<{ busy?: boolean; ok?: boolean; card?: boolean; link?: string; caminho?: string; error?: string; needsScope?: boolean } | null>(null);
   const [preset, setPreset] = useState("");
   const [addAs, setAddAs] = useState<"fala" | "broll">("fala");
   const [ask, setAsk] = useState("");
@@ -70,7 +75,12 @@ export default function Editor() {
   useEffect(() => {
     const s = createClient();
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
-    s.from("content_ideas").select("id,title,hook,format,body").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
+    s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
+      setContents(data || []);
+      // veio do card do Quadro (?c=): o conteúdo já entra escolhido
+      const c = new URLSearchParams(window.location.search).get("c");
+      if (c && (data || []).some((x: any) => x.id === c)) setContentId(c);
+    });
     if (document.fonts) FONTS_LOAD.forEach((f) => document.fonts.load(f).catch(() => {}));
     loadMotions().then((list) => {
       const id = new URLSearchParams(window.location.search).get("motion");
@@ -79,13 +89,51 @@ export default function Editor() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function loadMotions() {
-    const { data } = await createClient().from("av_motions").select("id,titulo,spec").eq("status", "pronto").order("updated_at", { ascending: false }).limit(40);
-    const list = ((data as any) || []).map((r: any) => ({ ...r, spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec }[];
+    const { data } = await createClient().from("av_motions").select("id,titulo,spec,pasta").eq("status", "pronto").order("updated_at", { ascending: false }).limit(120);
+    const list = ((data as any) || []).map((r: any) => ({ ...r, html: r.spec?.motor === "html", spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec; pasta?: string | null; html?: boolean }[];
     setMotions(list);
     return list;
   }
 
+  /** guarda o vídeo exportado no Drive: Meus conteúdos > Projetos e entregas > perfil > AAAA-MM */
+  async function salvarDrive() {
+    if (!result) return;
+    setDrive({ busy: true });
+    const c = contents.find((x) => x.id === contentId);
+    const nome = `${(c?.title || "video").replace(/[\\/:*?"<>|]+/g, "").slice(0, 60)}.mp4`;
+    const blob = await fetch(result.url).then((r) => r.blob());
+    const r = await salvarNoDrive({ kind: "interno", nome, blob, accountId: c?.account_id || null });
+    setDrive(r.ok ? { ok: true, caminho: r.caminho, link: r.link } : { error: r.error, needsScope: r.needsScope });
+    // o link do Drive vira a "versão final" do card (sem apagar um link que a pessoa já colou)
+    if (r.ok && r.link && c && !c.final_url) {
+      await createClient().from("content_ideas").update({ final_url: r.link }).eq("id", c.id);
+      setContents((l) => l.map((x) => (x.id === c.id ? { ...x, final_url: r.link } : x)));
+      setDrive((d) => ({ ...d, card: true }));
+    }
+  }
+
   /* ---------- importar arquivos ---------- */
+  /** duração e tamanho do vídeo. No iPhone o <video> solto não carrega os metadados (o Safari ignora preload),
+      então ele entra mudo e inline, com load(); se em 6 s não vier nada, lê o arquivo com o mediabunny. */
+  async function metaDoVideo(file: File, url: string): Promise<{ d: number; w: number; h: number }> {
+    const peloVideo = new Promise<{ d: number; w: number; h: number }>((res) => {
+      const v = document.createElement("video");
+      v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.preload = "metadata";
+      v.onloadedmetadata = () => res({ d: isFinite(v.duration) ? v.duration : 0, w: v.videoWidth, h: v.videoHeight });
+      v.onerror = () => res({ d: 0, w: 0, h: 0 });
+      v.src = url; v.load();
+      setTimeout(() => res({ d: 0, w: 0, h: 0 }), 6000);
+    });
+    const m = await peloVideo;
+    if (m.d) return m;
+    try {
+      const { ALL_FORMATS, BlobSource, Input } = await import("mediabunny");
+      const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+      const vt = await input.getPrimaryVideoTrack();
+      const d = await input.computeDuration();
+      return { d, w: vt?.displayWidth || 1080, h: vt?.displayHeight || 1920 };
+    } catch { return { d: 0, w: 0, h: 0 }; }
+  }
   async function addFiles(files: FileList | null, as: "fala" | "broll" = addAs) {
     if (!files?.length) return;
     const added: Media[] = [];
@@ -96,12 +144,7 @@ export default function Editor() {
       const url = URL.createObjectURL(file);
       const meta = isImg
         ? await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; })
-        : await new Promise<{ d: number; w: number; h: number }>((res) => {
-          const v = document.createElement("video");
-          v.preload = "metadata"; v.src = url;
-          v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight });
-          v.onerror = () => res({ d: 0, w: 0, h: 0 });
-        });
+        : await metaDoVideo(file, url);
       if (!meta.d) { setMsg(`Não consegui abrir ${file.name}. Use MP4 ou MOV em H.264/H.265, ou JPG/PNG.`); continue; }
       added.push({ id: uid(), name: file.name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: isImg, broll: as === "broll" });
     }
@@ -308,7 +351,7 @@ export default function Editor() {
     const { transcribe } = await import("@/lib/editor/transcribe");
     try {
       for (const [i, m] of pending.entries()) {
-        const words = await transcribe(m.file, (f, msgx) => setBusy({ f, msg: `${msgx} (${i + 1}/${pending.length})` }));
+        const words = aplicarVocabulario(await transcribe(m.file, (f, msgx) => setBusy({ f, msg: `${msgx} (${i + 1}/${pending.length})` })), kit.vocabulario);
         setMedia((all) => all.map((x) => (x.id === m.id ? { ...x, words } : x)));
       }
       setMsg("Legenda pronta. Confira o texto na aba Legenda.");
@@ -366,7 +409,7 @@ export default function Editor() {
       const { exportMp4 } = await import("@/lib/editor/export");
       const blob = await exportMp4(p, media, kit, (f, m) => setBusy({ f, msg: m }), cancelRef.current);
       if (result) URL.revokeObjectURL(result.url);
-      setResult({ url: URL.createObjectURL(blob), size: blob.size });
+      setResult({ url: URL.createObjectURL(blob), size: blob.size }); setDrive(null);
       setMsg("Vídeo exportado. Baixe abaixo da prévia.");
     } catch (e: any) { setMsg(e.message); }
     setBusy(null);
@@ -417,7 +460,7 @@ export default function Editor() {
       const file = new File([blob], name, { type: blob.type });
       const url = URL.createObjectURL(file);
       const meta = isVid
-        ? await new Promise<{ d: number; w: number; h: number }>((res) => { const v = document.createElement("video"); v.preload = "metadata"; v.src = url; v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); v.onerror = () => res({ d: 0, w: 0, h: 0 }); })
+        ? await metaDoVideo(file, url)
         : await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; });
       if (!meta.d) throw new Error("arquivo não abriu");
       const m: Media = { id: uid(), name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: !isVid, broll: true };
@@ -568,7 +611,7 @@ export default function Editor() {
               </div>
               <label className="block border border-dashed border-line rounded-xl p-4 text-center text-sm text-fog cursor-pointer hover:border-mint-dim">
                 <input type="file" accept={addAs === "broll" ? "video/*,image/*,.mov,.mp4" : "video/*,.mov,.mp4"} multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos do computador"}
+                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos (computador ou celular)"}
               </label>
               {selSeg && selMedia ? (
                 <div className="rounded-xl border border-line p-3 space-y-2">
@@ -659,8 +702,20 @@ export default function Editor() {
               )}
               <p className="font-mono text-[10px] tracking-[.14em] text-fog uppercase">Meus motions</p>
               {motions.length === 0 && <p className="text-xs text-fog">Nenhum motion salvo ainda.</p>}
+              {motions.some((m) => m.pasta) && (
+                <select value={motionPasta} onChange={(e) => setMotionPasta(e.target.value)} aria-label="Pasta dos motions" className="input text-xs">
+                  <option value="">Todas as pastas</option>
+                  {Array.from(new Set(motions.map((m) => m.pasta).filter(Boolean) as string[])).sort().map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              )}
               <div className="grid grid-cols-2 gap-2">
-                {motions.map((m) => (
+                {motions.filter((m) => !motionPasta || m.pasta === motionPasta).map((m) => m.html ? (
+                  <div key={m.id} className="rounded-xl border border-line p-1.5">
+                    <div className="aspect-[9/12] rounded-lg bg-white/5 grid place-items-center text-[10px] text-fog text-center p-2">Peça HyperFrames: exporte em WebM transparente ou MP4 no Motion e traga como mídia</div>
+                    <p className="text-[11px] font-semibold truncate mt-1">{m.titulo}</p>
+                    <Link href={`/audiovisual/motion?id=${m.id}`} className="chip !text-[10px] mt-1 inline-block">Exportar no Motion</Link>
+                  </div>
+                ) : (
                   <div key={m.id} className="rounded-xl border border-line p-1.5">
                     <MotionThumb spec={m.spec} />
                     <p className="text-[11px] font-semibold truncate mt-1">{m.titulo}</p>
@@ -732,6 +787,9 @@ export default function Editor() {
             <div className="w-full max-w-[320px] rounded-xl border border-mint-dim p-3 text-sm">
               <p className="font-semibold">Vídeo pronto · {(result.size / 1048576).toFixed(1)} MB</p>
               <a href={result.url} download={`${(contents.find((c) => c.id === contentId)?.title || "video").replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 60)}.mp4`} className="mt-2 inline-flex px-3 py-1.5 rounded-lg bg-mint text-ink font-semibold">Baixar MP4</a>
+              <button disabled={drive?.busy || drive?.ok} onClick={salvarDrive} className="mt-2 ml-2 inline-flex px-3 py-1.5 rounded-lg border border-mint-dim text-mint font-semibold disabled:opacity-50">{drive?.busy ? "Salvando…" : drive?.ok ? "No Drive" : "Salvar no Drive"}</button>
+              {drive?.ok && <p className="mt-2 text-xs text-fog">Salvo em {drive.caminho}{drive.card ? " e ligado ao card do Quadro" : ""}{drive.link && <> · <a href={drive.link} target="_blank" rel="noreferrer" className="text-mint">abrir</a></>}</p>}
+              {drive?.error && <p className="mt-2 text-xs text-amber-300">{drive.error}{drive.needsScope && <> Libere em <Link href="/audiovisual/midia" className="text-mint">Banco de mídia</Link>, "Liberar organização do Drive".</>}</p>}
             </div>
           )}
           {!media.length && <p className="text-sm text-fog text-center">Comece adicionando os takes na aba Clipes.</p>}
@@ -826,6 +884,15 @@ export default function Editor() {
                 <select value={p.transicao || "corte"} onChange={(e) => update((pp) => ({ ...pp, transicao: e.target.value }))} className="input !py-1 text-xs mt-0.5">{TRANSITIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
               </label>
             </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <label className="text-[11px] text-fog">Gravado em log
+                <select value={p.logCamera || ""} onChange={(e) => update((pp) => ({ ...pp, logCamera: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Não (vídeo normal)</option>{LUT_LOGS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}</select>
+              </label>
+              <label className="text-[11px] text-fog">LUT da biblioteca
+                <select value={p.lut || ""} onChange={(e) => update((pp) => ({ ...pp, lut: e.target.value || undefined }))} className="input !py-1 text-xs mt-0.5"><option value="">Nenhuma</option>{LUT_TODAS.filter((x) => x.look).map((x) => <option key={x.id} value={x.look}>{x.marca} · {x.nome}</option>)}</select>
+              </label>
+            </div>
+            <a href="/audiovisual/luts" className="text-[11px] text-fog underline mt-1 inline-block">Ver as LUTs com prévia e onde baixar</a>
             <label className="flex items-center gap-1.5 text-xs mt-1.5"><input type="checkbox" checked={!!p.grao} onChange={(e) => update((pp) => ({ ...pp, grao: e.target.checked }))} />Grão de filme</label>
             {camLevel > 0 && media.length > 0 && !words.length && <p className="text-[11px] text-amber-300 mt-1.5">Gere a legenda (aba Legenda) para a câmera seguir a fala.</p>}
           </div>
@@ -849,6 +916,7 @@ export default function Editor() {
             ) : (
               <div className="mt-2 space-y-2">
                 {plan.plan?.resumo && <p className="text-paper">{plan.plan.resumo}</p>}
+                {plan.plan?.brief && <details className="mt-1"><summary className="cursor-pointer text-purple-300">Brief da edição</summary><pre className="mt-1 whitespace-pre-wrap text-[11px] text-fog">{briefEmTexto(normalizeBrief(plan.plan.brief, "edicao"))}</pre></details>}
                 <p className="text-fog">{["cortes", "zooms", "titulos"].map((k) => `${(plan.plan?.[k] || []).length} ${k}`).join(" · ")}</p>
                 {(plan.plan?.insercoes || []).length > 0 && <ul className="text-fog list-disc pl-4">{plan.plan.insercoes.slice(0, 6).map((x: any, i: number) => <li key={i}>B-roll em {fmt(+x.inicio)}: {x.midia}</li>)}</ul>}
                 <div className="flex gap-2"><button onClick={applyPlan} className="px-3 py-1.5 rounded-lg bg-purple-400 text-ink font-semibold">Aplicar</button><button onClick={() => setPlan(null)} className="px-3 py-1.5 rounded-lg border border-line">Descartar</button></div>

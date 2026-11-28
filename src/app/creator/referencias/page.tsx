@@ -8,6 +8,7 @@ import PageHead from "@/components/PageHead";
 import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import RefProfiles from "@/components/creator/RefProfiles";
+import { EdicaoPanel, JuntarRefs, RefEdicaoNovo } from "@/components/creator/RefEdicao";
 import { apagarComLixeira } from "@/lib/lixeira";
 
 const empty = { title: "", url: "", handle: "", format: "Reels", content: "", tags: "", views: "", followers: "", median_views: "" };
@@ -61,6 +62,9 @@ export default function Referencias() {
       <div className="flex gap-1 border-b border-line mb-6">{([["perfis", "Perfis (roube como um artista)"], ["posts", "Posts que funcionaram"]] as const).map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`px-4 py-2.5 text-sm border-b-2 -mb-px ${tab === k ? "border-mint text-mint" : "border-transparent text-fog hover:text-paper"}`}>{l}</button>)}</div>
       {tab === "perfis" ? <RefProfiles /> : <>
 
+      <RefEdicaoNovo onCreated={(id) => { load(); if (id) setOpen(id); }} />
+      <JuntarRefs refs={list} onDone={load} />
+
       <form onSubmit={analyze} className="card p-5 grid md:grid-cols-3 gap-4 mb-8">
         <div><label className="label">Título</label><input required className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Reels bastidores com 2M views" /></div>
         <div><label className="label">Perfil (@)</label><input className="input" value={f.handle} onChange={(e) => setF({ ...f, handle: e.target.value })} placeholder="@referencia" /></div>
@@ -84,13 +88,15 @@ export default function Referencias() {
           return (
             <div key={r.id} className={`card ${isOpen ? "border-mint-dim" : ""}`}>
               <button onClick={() => setOpen(isOpen ? null : r.id)} className="w-full text-left p-4 md:p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-lg bg-panel2 grid place-items-center font-mono text-mint shrink-0">{a.nota ?? "–"}</div>
+                <div className="w-11 h-11 rounded-lg bg-panel2 grid place-items-center font-mono text-mint shrink-0">{a.nota ?? (r.edicao ? "✂" : "–")}</div>
                 <div className="flex-1 min-w-0"><p className="font-semibold truncate">{r.title}</p><p className="text-xs text-fog mt-0.5">{r.format}{r.handle ? ` · ${r.handle}` : ""} · {new Date(r.created_at).toLocaleDateString("pt-BR")}</p></div>
                 {(() => { const o = outlier(r); return o ? <span title={`views ÷ ${o.base}`} className={`chip ${o.x >= 3 ? "chip-mint" : ""}`}>{o.x >= 10 ? Math.round(o.x) : o.x.toFixed(1)}x {o.base === "mediana" ? "mediana" : "seg."}</span> : null; })()}
                 <div className="hidden md:flex gap-1">{(r.tags || []).slice(0, 3).map((t: string) => <span key={t} className="chip">{t}</span>)}</div>
               </button>
               {isOpen && (
                 <div className="px-4 md:px-5 pb-5 grid md:grid-cols-2 gap-5 border-t border-line pt-5">
+                  <div className="md:col-span-2"><EdicaoPanel r={r} onChange={load} /></div>
+                  {r.analysis && <>
                   <div className="space-y-4 text-sm">
                     <div><p className="label text-mint">Gancho</p><p>{a.gancho}</p></div>
                     <div><p className="label text-mint">Estrutura</p><ol className="list-decimal ml-5 space-y-1">{(a.estrutura || []).map((s: string, i: number) => <li key={i}>{s}</li>)}</ol></div>
@@ -110,6 +116,11 @@ export default function Referencias() {
                       <button onClick={() => del(r.id)} className="btn btn-ghost btn-sm"><I.trash className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
+                  </>}
+                  {!r.analysis && <div className="md:col-span-2 flex flex-wrap gap-2">
+                    {r.url && <a href={r.url} target="_blank" className="btn btn-ghost btn-sm"><I.link className="w-3.5 h-3.5" />Abrir</a>}
+                    <button onClick={() => del(r.id)} className="btn btn-ghost btn-sm"><I.trash className="w-3.5 h-3.5" /></button>
+                  </div>}
                 </div>
               )}
             </div>

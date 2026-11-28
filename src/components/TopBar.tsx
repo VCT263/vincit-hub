@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo from "./Logo";
@@ -36,10 +37,36 @@ export default function TopBar() {
       ))}
     </nav>
   );
+  /* iPhone com a escala do modo compacto (viewport 0,8): ao rolar, o Safari recolhe a barra de
+     endereço e o "fundo" do position:fixed fica fora do fundo visível; a barra subia no meio da tela.
+     Aqui ela acompanha o fundo da área visível (visualViewport). */
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const vv = window.visualViewport; const el = navRef.current;
+    if (!vv || !el) return;
+    let raf = 0;
+    const fit = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        // mede onde a barra está de fato (sem o ajuste atual) e leva o fundo dela para o fundo visível
+        const cur = parseFloat(el.dataset.dy || "0");
+        const gap = parseFloat(getComputedStyle(el).bottom) || 0;
+        const base = el.getBoundingClientRect().bottom - cur;
+        const d = Math.round(vv.offsetTop + vv.height - gap - base);
+        el.dataset.dy = String(Math.abs(d) > 1 ? d : 0);
+        el.style.transform = Math.abs(d) > 1 ? `translateY(${d}px)` : "";
+      });
+    };
+    fit();
+    vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); window.addEventListener("scroll", fit, { passive: true });
+    return () => { cancelAnimationFrame(raf); vv.removeEventListener("resize", fit); vv.removeEventListener("scroll", fit); window.removeEventListener("scroll", fit); };
+  }, []);
   /* celular: barra fixa embaixo só com ícones, como aplicativo (nome em aria-label e no title) */
   const bottom = (
-    <nav aria-label="Áreas do HUB" className="bottom-nav md:hidden print:hidden fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/95 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex items-stretch justify-around px-2 h-14">
+    <nav ref={navRef} aria-label="Áreas do HUB" className="bottom-nav md:hidden print:hidden fixed z-40 rounded-2xl border border-line bg-panel shadow-[0_8px_30px_rgba(0,0,0,.45)]"
+      // solta das bordas: os cantos arredondados do iPhone e a barra de gestos não cortam os ícones
+      style={{ left: "max(14px, env(safe-area-inset-left))", right: "max(14px, env(safe-area-inset-right))", bottom: "max(12px, calc(env(safe-area-inset-bottom) + 6px))" }}>
+      <div className="flex items-stretch justify-around px-1.5 h-14">
         {visible.map(({ href, label, Icon }) => {
           const on = isActive(href);
           return (
@@ -57,13 +84,13 @@ export default function TopBar() {
   return (
     <>
     <header className="print:hidden sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
-      <div className="h-16 flex items-center gap-6 px-4 md:px-6">
+      <div className="h-16 flex items-center gap-3 md:gap-6 px-3 md:px-6">
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           <Logo className="h-5" />
-          <span className="font-mono text-[10px] text-fog border border-line rounded-md px-1.5 py-0.5">HUB</span>
+          <span className="hidden min-[400px]:inline font-mono text-[10px] text-fog border border-line rounded-md px-1.5 py-0.5">HUB</span>
         </Link>
         <div className="hidden md:block">{nav}</div>
-        <form action="/auth/signout" method="post" className="ml-auto flex items-center gap-2">
+        <form action="/auth/signout" method="post" className="ml-auto flex items-center gap-1 sm:gap-2 min-w-0">
           <span data-tour="sino" className="inline-flex"><Bell /></span>
           {acc?.role === "superadmin" && <Link href="/admin" className="btn btn-ghost btn-sm text-mint">Admin</Link>}
           <Link href="/conta/lixeira" data-tour="lixeira" className="btn btn-ghost btn-sm" aria-label="Lixeira" title="Lixeira"><I.trash className="w-3.5 h-3.5" /></Link>

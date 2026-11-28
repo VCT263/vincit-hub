@@ -38,7 +38,7 @@ export default function ClaudeQueueBanner() {
   const elapsed = secs < 60 ? `${secs} s` : `${Math.floor(secs / 60)} min`;
 
   return (
-    <div role="status" aria-live="polite" className="print:hidden fixed z-50 bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-4 right-4 left-4 sm:left-auto sm:w-[320px] card px-4 py-3 shadow-2xl border border-mint/40">
+    <div role="status" aria-live="polite" className="print:hidden fixed z-50 bottom-[calc(88px+env(safe-area-inset-bottom))] md:bottom-4 right-4 left-4 sm:left-auto sm:w-[320px] card px-4 py-3 shadow-2xl border border-mint/40">
       {cur ? (
         <>
           <div className="flex items-center gap-3">

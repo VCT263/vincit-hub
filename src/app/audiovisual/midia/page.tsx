@@ -5,8 +5,9 @@ import Modal from "@/components/agency/Modal";
 import { I } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { GROUPS, KINDS, groupOf, inferKind, subPath } from "@/lib/drive";
+import { aiFetch } from "@/lib/aiFetch";
 
-type St = { configured: boolean; google: boolean; drive: boolean; needsScope?: boolean; email?: string; cfg?: any };
+type St = { configured: boolean; google: boolean; drive: boolean; escrita?: boolean; needsScope?: boolean; email?: string; cfg?: any };
 const AUDIO = (m?: string) => !!m && m.startsWith("audio/");
 const VIDEO = (m?: string) => !!m && m.startsWith("video/");
 const IMAGE = (m?: string) => !!m && m.startsWith("image/");
@@ -41,6 +42,7 @@ export default function MidiaPage() {
   const [client, setClient] = useState("");
   const [sel, setSel] = useState<any>(null);
   const [syncing, setSyncing] = useState(false);
+  const [organizando, setOrganizando] = useState(false);
   const [msg, setMsg] = useState<{ t: string; ok?: boolean } | null>(null);
   const [picker, setPicker] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
@@ -66,6 +68,25 @@ export default function MidiaPage() {
     if (ns) setSt(ns);
   }, [loadItems]);
 
+  /** cria a estrutura e organiza a pasta Entrada: regras primeiro, o que sobrar vai ao Claude pela fila */
+  const organizar = useCallback(async (quiet = false) => {
+    setOrganizando(true);
+    const r = await fetch("/api/av/drive/organizar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(quiet ? { estrutura: false } : {}) }).then((x) => x.json()).catch(() => ({ error: "Falha de conexão" }));
+    if (r.error) { setOrganizando(false); if (!quiet) setMsg({ t: r.error }); return; }
+    let movidos = r.movidos?.length || 0, sobra = r.duvidas?.length || 0;
+    // ao abrir a página (quiet) não recria as pastas (uns 20 pedidos ao Drive) nem chama o Claude: senão cada visita poria um pedido novo na fila pelos mesmos arquivos
+    if (sobra && !quiet) {
+      setMsg({ t: `${movidos} arquivo(s) organizados. Pedi ao Claude para decidir ${sobra} que as regras não souberam…`, ok: true });
+      const res = await aiFetch("/api/av/drive/organizar", { task: "drive_organizar", claude: true, estrutura: false, duvidas: r.duvidas });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok) { movidos += j.movidos?.length || 0; sobra = j.duvidas?.length || 0; }
+    }
+    setOrganizando(false);
+    if (quiet && sobra && !movidos) setMsg({ t: `${sobra} arquivo(s) na Entrada esperando lugar. Toque em Organizar Entrada para o Claude decidir.`, ok: true });
+    else if (!quiet || movidos) setMsg({ t: movidos || sobra ? `Entrada: ${movidos} arquivo(s) foram para a pasta certa${sobra ? `, ${sobra} ficaram na Entrada para você ver` : ""}.` : "Estrutura conferida. A Entrada está vazia.", ok: true });
+    if (movidos) await sync(true);
+  }, [sync]);
+
   useEffect(() => {
     (async () => {
       const qs = new URLSearchParams(window.location.search);
@@ -75,10 +96,13 @@ export default function MidiaPage() {
       setSt(s);
       await loadItems();
       // sincroniza sozinho ao abrir, se a última leitura tiver mais de 10 minutos
-      if (s.drive && s.cfg?.drive_folder_id && (!s.cfg.last_sync_at || Date.now() - new Date(s.cfg.last_sync_at).getTime() > 10 * 60000)) sync(true);
+      const velho = !s.cfg?.last_sync_at || Date.now() - new Date(s.cfg.last_sync_at).getTime() > 10 * 60000;
+      // com acesso de organização: arruma a Entrada antes de ler (a organização já relê o Drive se mover algo)
+      if (s.drive && s.escrita && s.cfg?.drive_folder_id) organizar(true).then(() => velho && sync(true));
+      else if (s.drive && s.cfg?.drive_folder_id && velho) sync(true);
       if (s.drive && !s.cfg?.drive_folder_id) setPicker(true);
     })();
-  }, [loadItems, sync]);
+  }, [loadItems, sync, organizar]);
 
   const counts = useMemo(() => { const c: Record<string, number> = {}; (items || []).forEach((i) => { c[i.kind] = (c[i.kind] || 0) + 1; const g = "g:" + groupOf(i.kind); c[g] = (c[g] || 0) + 1; }); return c; }, [items]);
   // o que está no lado e na área escolhidos, com a subpasta de cada arquivo
@@ -138,8 +162,16 @@ export default function MidiaPage() {
     <>
       <PageHead kicker="04 · ACERVO" title="Banco de mídia" desc="Sua pasta do Google Drive vira o banco da produtora, em dois lados: Técnico (efeitos, trilhas, inserções de banco, transições, LUTs, modelos) e Meus conteúdos (fotos, vídeos e inserções que você gravou), cada um com as suas subpastas.">
         {ready && <button onClick={() => setPicker(true)} className="btn btn-ghost"><I.folder className="w-4 h-4" />{st!.cfg.drive_folder_name}</button>}
+        {ready && st!.escrita && <button onClick={() => organizar()} disabled={organizando} className="btn btn-ghost" title="Cria as pastas que faltarem e leva o que estiver na pasta Entrada para o lugar certo">{organizando ? "Organizando…" : "Organizar Entrada"}</button>}
         {ready && <button onClick={() => sync()} disabled={syncing} className="btn btn-mint"><I.refresh className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />{syncing ? "Lendo o Drive…" : "Sincronizar"}</button>}
       </PageHead>
+
+      {ready && !st!.escrita && (
+        <section className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+          <p className="text-sm flex-1 min-w-[240px]">O HUB agora monta as pastas, salva os exports das fotos, do Editor e do Motion no lugar certo e organiza a pasta <b>Entrada</b>. Para isso, reconecte o Google e marque o acesso ao Drive.</p>
+          <button onClick={connect} className="btn btn-mint btn-sm">Liberar organização do Drive</button>
+        </section>
+      )}
 
       {msg && <p className={`text-sm mb-4 ${msg.ok ? "text-mint" : "text-danger"}`}>{msg.t}</p>}
 
@@ -157,7 +189,7 @@ export default function MidiaPage() {
           ) : (
             <>
               <button onClick={connect} className="btn btn-mint mt-5">{st.google ? "Liberar acesso ao Drive" : "Conectar com o Google"}</button>
-              <p className="text-xs text-fog mt-3">{st.google ? `Sua conta Google${st.email ? ` (${st.email})` : ""} já está conectada para a Agenda; falta permitir a leitura do Drive.` : "O HUB só lê os arquivos. Ele não altera nem apaga nada no seu Drive."}</p>
+              <p className="text-xs text-fog mt-3">{st.google ? `Sua conta Google${st.email ? ` (${st.email})` : ""} já está conectada para a Agenda; falta permitir a leitura do Drive.` : "O HUB lê os arquivos, cria as pastas da estrutura e organiza a pasta Entrada. Ele não apaga nada no seu Drive."}</p>
             </>
           )}
         </section>
@@ -232,7 +264,7 @@ export default function MidiaPage() {
           <div className="flex flex-col md:flex-row gap-2 md:items-center mt-3">
             <div className="relative md:w-72">
               <I.search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fog" />
-              <input className="input pl-9" placeholder="Buscar no banco: whoosh, café, logo…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input className="input !pl-9" placeholder="Buscar no banco: whoosh, café, logo…" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <button onClick={reorganize} disabled={reorg || !items?.length} className="btn btn-ghost btn-sm md:ml-auto" title="Põe cada arquivo na área indicada pelo nome da pasta. Também desfaz trocas feitas à mão.">{reorg ? "Organizando…" : "Reorganizar pelas pastas"}</button>
           </div>

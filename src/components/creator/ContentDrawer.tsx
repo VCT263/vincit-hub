@@ -141,7 +141,7 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           })}
         </div>
 
-        <input className="w-full bg-transparent font-display font-extrabold text-2xl leading-tight outline-none border-b border-transparent focus:border-line mb-3" value={f.title || ""} onChange={(e) => set("title", e.target.value)} aria-label="Título" />
+        <textarea rows={Math.min(3, Math.max(1, Math.ceil((f.title || "").length / 26)))} onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }} className="w-full resize-none [field-sizing:content] bg-transparent font-display font-extrabold text-2xl leading-tight outline-none border-b border-transparent focus:border-line mb-3" value={f.title || ""} onChange={(e) => set("title", e.target.value.replace(/\n/g, " "))} aria-label="Título" />
         <div className="flex flex-wrap gap-1.5 mb-4">
           {f.format && <span className="chip">{f.format}</span>}
           {f.planned_for && <span className="chip"><I.calendar className="w-3 h-3" />{new Date(f.planned_for + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</span>}
@@ -230,8 +230,8 @@ export default function ContentDrawer({ item, statuses, accounts, clients, pilla
           <Section title="Publicação">
             <label className="label">Link do post</label>
             <input className="input" value={f.post_url || ""} onChange={(e) => set("post_url", e.target.value)} placeholder="https://www.instagram.com/p/…" />
-            <p className="text-xs text-fog mt-2">Publicou fora do HUB? Cole o link do post. Para publicar pelo HUB, agende em Automações.</p>
-            <Link href="/creator/automacoes?tab=agendar" className="btn btn-ghost btn-sm mt-3">Agendar publicação</Link>
+            <p className="text-xs text-fog mt-2">Publicou fora do HUB? Cole o link do post. Para publicar pelo HUB, agende aqui.</p>
+            <Link href={`/creator/agendar?c=${item.id}`} className="btn btn-ghost btn-sm mt-3">Agendar publicação</Link>
           </Section>
         )}
 
@@ -285,10 +285,10 @@ function NextStep({ stage, f, itemId, onSheet, onShare, copied, next, onAdvance,
     ideia: { t: "Escrever o roteiro", d: "Gancho, falas e direção técnica na folha A4.", a: <button type="button" onClick={onSheet} className="btn btn-mint btn-sm"><I.pen className="w-4 h-4" />Abrir roteiro</button> },
     roteiro: { t: "Fechar o roteiro e marcar a gravação", d: "Confira a folha e defina a data de gravação abaixo.", a: <button type="button" onClick={onSheet} className="btn btn-mint btn-sm"><I.pen className="w-4 h-4" />Abrir roteiro</button> },
     producao: { t: "Gravar", d: "Teleprompter no celular e a ordem do dia para a equipe.", a: <><Link href={`/audiovisual/teleprompter?c=${itemId}`} className="btn btn-mint btn-sm"><I.prompter className="w-4 h-4" />Teleprompter</Link><Link href={`/audiovisual/ordem-do-dia?c=${itemId}`} className="btn btn-ghost btn-sm"><I.calendar className="w-4 h-4" />Ordem do dia</Link></> },
-    edicao: { t: "Editar", d: "Edite no Editor do HUB e cole o link da versão final.", a: <Link href="/audiovisual/editor" className="btn btn-mint btn-sm"><I.video className="w-4 h-4" />Abrir Editor</Link> },
+    edicao: { t: "Editar", d: "Edite no Editor do HUB. Salvando no Drive, o link da versão final entra aqui sozinho.", a: <Link href={`/audiovisual/editor?c=${itemId}`} className="btn btn-mint btn-sm"><I.video className="w-4 h-4" />Abrir Editor</Link> },
     revisao: { t: "Revisar e escrever a legenda", d: "Primeira linha até 125 caracteres, até 5 hashtags." },
     aprovacao: { t: "Enviar para o cliente aprovar", d: "O cliente abre o link sem login.", a: <button type="button" onClick={onShare} className="btn btn-mint btn-sm"><I.link className="w-4 h-4" />{copied ? "Link copiado" : "Copiar link"}</button> },
-    agendado: { t: "Publicar", d: "Depois de postar, cole o link do post para puxar as métricas." },
+    agendado: { t: "Agendar a publicação", d: "O HUB publica no horário marcado e move o card para Publicado. Postou pelo app? Cole o link do post abaixo.", a: <Link href={`/creator/agendar?c=${itemId}`} className="btn btn-mint btn-sm"><I.calendar className="w-4 h-4" />Agendar no HUB</Link> },
     publicado: { t: "Acompanhar os resultados", d: "A análise de 7 dias usa o link do post.", a: f.post_url ? <a href={f.post_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">Ver post ↗</a> : null },
   };
   const m = map[stage || "ideia"];
