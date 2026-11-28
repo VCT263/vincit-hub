@@ -2,6 +2,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { I } from "@/components/icons";
+import Modal from "@/components/agency/Modal";
 import { createClient } from "@/lib/supabase/client";
 import { aiFetch } from "@/lib/aiFetch";
 import { apagarComLixeira } from "@/lib/lixeira";
@@ -17,7 +18,8 @@ import {
 
 type Estado = { auto: boolean; estilo: string; intensidade: number; finos: Partial<Ajustes>; manterCor: boolean };
 type Foto = {
-  key: string; nome: string; img: HTMLImageElement; base: ImageData; mini: ImageData; analise: Analise; autoAj: Partial<Ajustes>;
+  key: string; nome: string; img: HTMLImageElement; mini: ImageData; analise: Analise; autoAj: Partial<Ajustes>;
+  driveId?: string; drivePasta?: string;
   estado: Estado; dbId?: string; originalUrl?: string; resultadoUrl?: string; sugestao?: any;
 };
 type Linha = { id: string; tipo: "foto" | "estilo"; titulo: string; original_url: string | null; resultado_url: string | null; spec: any; updated_at: string };
@@ -64,12 +66,16 @@ function Fotos() {
   const [nomeEstilo, setNomeEstilo] = useState("");
   const [refEstilo, setRefEstilo] = useState<Estilo | null>(null);
   const [drive, setDrive] = useState<{ escrita: boolean; pasta?: string } | null>(null);
+  const [pastas, setPastas] = useState<{ folder: string; n: number; capa: string; recente: string }[] | null>(null);
+  const [verPastas, setVerPastas] = useState(false);
   const canvas = useRef<HTMLCanvasElement>(null);
   const inputFotos = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const foto = fotos[atual] as Foto | undefined;
   const estado = foto?.estado || ESTADO0;
+  // prévia grande só da foto aberta (numa sessão com dezenas de fotos, guardar todas pesa no celular)
+  const base = useMemo(() => (foto ? lerImagem(foto.img, PREVIA) : null), [foto?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     const { data } = await createClient().from("av_fotos").select("id,tipo,titulo,original_url,resultado_url,spec,updated_at").order("updated_at", { ascending: false }).limit(80);
@@ -90,13 +96,13 @@ function Fotos() {
   // prévia grande: redesenha no próximo quadro quando algo muda
   const raf = useRef(0);
   useEffect(() => {
-    if (!foto || !canvas.current) return;
+    if (!foto || !base || !canvas.current) return;
     cancelAnimationFrame(raf.current);
     raf.current = requestAnimationFrame(() => {
-      const c = canvas.current!; c.width = foto.base.width; c.height = foto.base.height;
-      c.getContext("2d")!.putImageData(antes ? foto.base : render(foto.base, final(foto), estado.manterCor), 0, 0);
+      const c = canvas.current!; c.width = base.width; c.height = base.height;
+      c.getContext("2d")!.putImageData(antes ? base : render(base, final(foto), estado.manterCor), 0, 0);
     });
-  }, [foto, estado, antes, final]);
+  }, [foto, base, estado, antes, final]);
 
   // miniaturas do catálogo na própria foto
   const thumbs = useMemo(() => {
@@ -117,9 +123,9 @@ function Fotos() {
   function fino(k: keyof Ajustes, v: number) { mudar({ finos: { ...estado.finos, [k]: v } }); }
 
   async function prepara(img: HTMLImageElement, nome: string, extra: Partial<Foto> = {}): Promise<Foto> {
-    const base = lerImagem(img, PREVIA), mini = lerImagem(img, MINI);
-    const analise = analisar(base.data);
-    return { key: uid(), nome, img, base, mini, analise, autoAj: autoCorrecao(analise), estado: { ...ESTADO0 }, ...extra };
+    const mini = lerImagem(img, MINI);
+    const analise = analisar(lerImagem(img, 400).data);
+    return { key: uid(), nome, img, mini, analise, autoAj: autoCorrecao(analise), estado: { ...ESTADO0 }, ...extra };
   }
   async function adicionar(files: FileList | null) {
     if (!files?.length) return;
@@ -135,6 +141,56 @@ function Fotos() {
     setFotos((fs) => { const n = [...fs, ...novas.map((x) => (base ? { ...x, estado: { ...base } } : x))]; setAtual(fs.length); return n; });
     setOcupado(null);
   }
+  /** pastas do Banco de mídia que têm fotos: cada uma pode virar uma sessão para editar junta */
+  async function abrirPastas() {
+    setVerPastas(true);
+    const { data } = await createClient().from("av_media").select("drive_id,name,mime,folder,modified_at").eq("missing", false).like("mime", "image/%").limit(5000);
+    const m = new Map<string, { folder: string; n: number; capa: string; recente: string }>();
+    for (const r of (data as any[]) || []) {
+      const k = r.folder || "";
+      const g = m.get(k) || { folder: k, n: 0, capa: r.drive_id, recente: "" };
+      g.n++; if ((r.modified_at || "") > g.recente) { g.recente = r.modified_at || ""; g.capa = r.drive_id; }
+      m.set(k, g);
+    }
+    setPastas([...m.values()].sort((a, b) => b.recente.localeCompare(a.recente)));
+  }
+  async function abrirSessao(folder: string) {
+    setVerPastas(false);
+    const { data } = await createClient().from("av_media").select("drive_id,name,mime,size").eq("missing", false).eq("folder", folder).like("mime", "image/%").order("name").limit(80);
+    const itens = (data as any[]) || [];
+    if (!itens.length) { setMsg("Essa pasta não tem fotos."); return; }
+    const novas: Foto[] = [];
+    let falhas = 0;
+    for (let i = 0; i < itens.length; i += 4) {
+      setOcupado(`Abrindo a sessão: ${Math.min(i + 4, itens.length)} de ${itens.length} fotos…`);
+      const lote = await Promise.all(itens.slice(i, i + 4).map(async (r) => {
+        // JPG, PNG e WEBP abrem o original; HEIC, RAW e arquivos enormes usam a versão de 2400 px que o Drive gera
+        const direto = /^image\/(jpeg|png|webp|gif)$/.test(r.mime || "") && (r.size || 0) < 25e6;
+        const urls = direto ? [`/api/av/drive/file/${r.drive_id}`, `/api/av/drive/thumb/${r.drive_id}?s=2400`] : [`/api/av/drive/thumb/${r.drive_id}?s=2400`];
+        for (const u of urls) { try { return await prepara(await carregar(u), semExt(r.name), { driveId: r.drive_id, drivePasta: folder }); } catch {} }
+        falhas++; return null;
+      }));
+      novas.push(...(lote.filter(Boolean) as Foto[]));
+    }
+    const ini = foto?.estado;
+    setFotos((fs) => { setAtual(fs.length); return [...fs, ...novas.map((x) => (ini ? { ...x, estado: { ...ini } } : x))]; });
+    setOcupado(null);
+    setMsg(`Sessão "${folder.split("/").pop() || "pasta"}" aberta com ${novas.length} fotos${falhas ? ` (${falhas} não abriram)` : ""}. Edite uma, toque em "Mesma edição em todas" e salve a sessão no Drive.`);
+  }
+  /** salva as fotos da sessão no Drive, numa subpasta "Editadas" ao lado das originais */
+  async function salvarSessao() {
+    const da = fotos.filter((f) => f.drivePasta != null);
+    if (!drive?.escrita) { setMsg("Libere a organização do Drive no Banco de mídia para salvar lá."); return; }
+    let ok = 0, ultimo = "", erro = "";
+    for (const [i, f] of da.entries()) {
+      setOcupado(`Salvando no Drive: ${i + 1} de ${da.length}…`);
+      const d = await salvarNoDrive({ kind: "foto", nome: `${f.nome || "foto"}.jpg`, blob: await renderSaida(f), caminho: [...(f.drivePasta || "").split("/").filter(Boolean), "Editadas"] });
+      if (d.ok) { ok++; ultimo = d.caminho || ""; } else erro = d.error || "";
+    }
+    setOcupado(null);
+    setMsg(`${ok} de ${da.length} fotos salvas no Drive${ultimo ? ` (${ultimo})` : ""}.${erro ? ` Erro: ${erro}` : ""}`);
+  }
+
   async function abrirSalva(l: Linha) {
     if (!l.original_url) return;
     setOcupado("Abrindo…");
@@ -231,7 +287,7 @@ function Fotos() {
     if (!file || !foto) return;
     try {
       const ref = await carregar(URL.createObjectURL(file));
-      const corrigida = render(foto.base, combinar(estado.auto ? foto.autoAj : null, null, 0, {}), false);
+      const corrigida = render(base || lerImagem(foto.img, PREVIA), combinar(estado.auto ? foto.autoAj : null, null, 0, {}), false);
       const aj = estiloDaReferencia(analisar(lerImagem(ref, 600).data), analisar(corrigida.data));
       const e: Estilo = { id: "referencia", nome: "Da referência", desc: `Look tirado de ${file.name}`, ajustes: aj, mexeCor: true };
       setRefEstilo(e);
@@ -276,6 +332,7 @@ function Fotos() {
         </div>
         <div className="flex gap-2">
           <input ref={inputFotos} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { adicionar(e.target.files); e.target.value = ""; }} />
+          <button onClick={abrirPastas} className="btn btn-ghost"><I.folder className="w-4 h-4" />Pasta do Banco</button>
           <button onClick={() => inputFotos.current?.click()} className="btn btn-mint"><I.plus className="w-4 h-4" />Abrir fotos</button>
         </div>
       </div>
@@ -286,7 +343,7 @@ function Fotos() {
         <button onClick={() => inputFotos.current?.click()} className="card w-full p-10 mb-4 text-center border-dashed hover:border-mint">
           <I.camera className="w-8 h-8 mx-auto text-mint" />
           <p className="font-display text-lg font-extrabold mt-3">Abra uma ou várias fotos</p>
-          <p className="text-sm text-fog mt-1">Do celular ou do computador. Com várias, a mesma edição vale para todas (lote).</p>
+          <p className="text-sm text-fog mt-1">Do celular ou do computador. Com várias, a mesma edição vale para todas (lote). Para editar uma sessão inteira do Drive, use &quot;Pasta do Banco&quot;.</p>
         </button>
       )}
 
@@ -312,6 +369,7 @@ function Fotos() {
               <div className="flex flex-wrap gap-2 mt-3">
                 <button onClick={() => salvar([foto])} disabled={!!ocupado} className="btn btn-mint btn-sm">{drive?.escrita ? "Salvar no HUB e no Drive" : "Salvar no HUB"}</button>
                 <button onClick={() => baixarFotos([foto])} disabled={!!ocupado} className="btn btn-ghost btn-sm"><I.download className="w-4 h-4" />Baixar JPG</button>
+                {fotos.some((f) => f.drivePasta != null) && <button onClick={salvarSessao} disabled={!!ocupado} className="btn btn-mint btn-sm">Salvar sessão no Drive ({fotos.filter((f) => f.drivePasta != null).length})</button>}
                 {fotos.length > 1 && <>
                   <button onClick={aplicarATodas} className="btn btn-ghost btn-sm">Mesma edição em todas</button>
                   <button onClick={() => salvar(fotos)} disabled={!!ocupado} className="btn btn-ghost btn-sm">Salvar as {fotos.length}</button>
@@ -436,6 +494,19 @@ function Fotos() {
           </>
         )}
       </section>
+      <Modal open={verPastas} title="Abrir uma sessão do Banco de mídia" onClose={() => setVerPastas(false)} wide>
+        {pastas === null && <p className="text-sm text-fog">Carregando…</p>}
+        {pastas?.length === 0 && <p className="text-sm text-fog">Nenhuma foto no Banco de mídia ainda. Ponha a sessão numa pasta do Drive (ou na Entrada) e sincronize o Banco.</p>}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto">
+          {pastas?.map((p) => (
+            <button key={p.folder} onClick={() => abrirSessao(p.folder)} className="text-left rounded-xl border border-line p-2 hover:border-mint min-w-0">
+              <img src={`/api/av/drive/thumb/${p.capa}?s=480`} alt="" loading="lazy" className="w-full aspect-[4/3] object-cover rounded-lg bg-white/5" />
+              <p className="text-sm font-semibold truncate mt-2">{p.folder.split("/").pop() || "Pasta do banco"}</p>
+              <p className="text-[11px] text-fog truncate">{p.n} foto(s) · {p.folder || "raiz"}</p>
+            </button>
+          ))}
+        </div>
+      </Modal>
     </>
   );
 }

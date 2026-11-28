@@ -27,7 +27,9 @@ export async function POST(request: Request) {
   if (!(await podeEscrever(auth.token))) return NextResponse.json({ error: "Falta liberar o HUB para salvar no Drive.", needsScope: true }, { status: 400 });
   try {
     const raiz = await raizDoUsuario(s, auth.token, user.id);
-    const caminho = destino(kind, await nomePerfil(s, meta.account_id), mesDe(), meta.sub ? String(meta.sub) : undefined);
+    // caminho explícito (ex.: a pasta de uma sessão de fotos + "Editadas"); senão, área › perfil › mês
+    const explicito = Array.isArray(meta.caminho) ? meta.caminho.slice(0, 8).map((x: any) => limparNome(String(x))).filter(Boolean) : [];
+    const caminho = explicito.length ? explicito : destino(kind, await nomePerfil(s, meta.account_id), mesDe(), meta.sub ? String(meta.sub) : undefined);
     const pasta = await garantirCaminho(auth.token, raiz.id, caminho);
     const texto = [raiz.nome, ...caminho].join(" › ");
     if (multipart) {
