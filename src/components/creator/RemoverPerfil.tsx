@@ -18,7 +18,7 @@ export default function RemoverPerfil({ acc }: { acc: { id: string; owner_id: st
   const nome = `@${acc.username}`;
 
   async function remover() {
-    const ok = await apagarComLixeira({ tabela: "ig_accounts", filtro: { id: acc.id }, oque: `${nome} do Creator, com posts, automações e histórico dele`, rotulo: `Perfil: ${nome}`, link: "/creator/perfis" });
+    const ok = await apagarComLixeira({ tabela: "ig_accounts", filtro: { id: acc.id }, oque: `${nome} do Creator, com posts, automações e histórico dele`, rotulo: `Perfil: ${nome}`, link: "/creator/perfis", risco: true });
     if (ok) router.push("/creator/perfis");
   }
   async function apagar() {
