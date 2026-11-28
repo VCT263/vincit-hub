@@ -148,6 +148,6 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 
 /* barra de áreas fixa embaixo no celular (TopBar): o conteúdo não fica escondido atrás dela */
 @media screen and (max-width: 767px) {
-  body:has(.bottom-nav) { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  body:has(.bottom-nav) { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   body:has(.brainstorm) .bottom-nav { display: none; }
 }
