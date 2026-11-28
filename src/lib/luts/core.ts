@@ -1,7 +1,7 @@
 /* Motor das LUTs do Audiovisual.
  * Tudo é calculado aqui, no navegador: a conversão de cada log (curvas e gamuts publicados pelos fabricantes),
  * os estilos e as aproximações das LUTs de cada marca. O mesmo cálculo gera a prévia da Biblioteca de LUTs e a cor
- * aplicada no Editor do HUB. O HUB não hospeda nem gera arquivo .cube: a LUT original é baixada no site de quem fez. */
+ * aplicada no Editor do HUB. As LUTs de marca o HUB não hospeda: a original é baixada no site de quem fez. Só as autorais VINCIT viram .cube (rota /api/luts). */
 
 export type RGB = [number, number, number];
 type M3 = number[]; // 3x3, linha a linha
@@ -306,6 +306,33 @@ export const LOOK_FNS: Record<string, LookFn> = {
     c = split(c, [0.44, 0.5, 0.52], 0.25, [0.53, 0.51, 0.48], 0.1);
     return sat(contrast(c, 0.3, 0.42), 0.72);
   },
+  // mais filmes (aproximações) e autorais VINCIT
+  "kodak-portra160": (c) => { c = hueShift(c, 25, 35, -2, 1.02); c = hueShift(c, 110, 60, -8, 0.8); return levels(sat(contrast(c, -0.1), 0.86), 0.05, 0.99); },
+  "kodak-portra800": (c) => { c = gain(c, 1.05, 1.0, 0.92); c = hueShift(c, 110, 60, -10, 0.85); return levels(sat(contrast(c, 0.04), 0.95), 0.05, 0.97); },
+  "kodachrome": (c) => { c = hueShift(c, 0, 30, 2, 1.25); c = hueShift(c, 220, 50, 4, 1.15); c = gain(c, 1.03, 1.0, 0.94); return levels(sat(contrast(c, 0.3, 0.42), 1.12), 0.02, 0.97); },
+  "ektachrome": (c) => { c = gain(c, 0.97, 1.0, 1.05); c = hueShift(c, 210, 60, -4, 1.2); return sat(contrast(c, 0.26), 1.18); },
+  "trix": (c) => contrast(bw(c, [0.35, 0.55, 0.1]), 0.55, 0.42),
+  "cinestill": (c) => { c = split(c, [0.38, 0.48, 0.62], 0.55, [0.66, 0.52, 0.42], 0.35); c = gain(c, 0.97, 0.99, 1.05); return levels(sat(contrast(c, 0.18), 1.05), 0.03, 0.98); },
+  "fuji-provia": (c) => sat(contrast(c, 0.14), 1.1),
+  "fuji-astia": (c) => { c = hueShift(c, 25, 35, -2, 0.95); return levels(sat(contrast(c, -0.06), 1.0), 0.02, 0.99); },
+  "fuji-pro400h": (c) => { c = hueShift(c, 110, 70, 18, 0.85); c = split(c, [0.46, 0.54, 0.54], 0.3, [0.54, 0.53, 0.5], 0.15); return levels(sat(contrast(c, -0.12), 0.85), 0.07, 0.99); },
+  "fuji-superia": (c) => { c = gain(c, 0.97, 1.03, 0.98); c = split(c, [0.46, 0.55, 0.48], 0.35, [0.53, 0.53, 0.47], 0.15); return sat(contrast(c, 0.12), 1.05); },
+  "fuji-acros": (c) => levels(contrast(bw(c, [0.25, 0.65, 0.1]), 0.3, 0.45), 0.02, 0.98),
+  "fuji-proneghi": (c) => { c = hueShift(c, 25, 35, -2, 0.95); return sat(contrast(c, 0.28, 0.45), 0.92); },
+  "blue-pink": (c) => { c = split(c, [0.4, 0.44, 0.66], 0.55, [0.66, 0.5, 0.58], 0.35); return sat(contrast(c, 0.12), 1.05); },
+  "peaky": (c) => { const g = bw(c, [0.3, 0.59, 0.11]); c = mix(c, g, 0.45); c = split(c, [0.42, 0.5, 0.52], 0.4, [0.62, 0.55, 0.46], 0.25); return contrast(c, 0.35, 0.42); },
+  "isys-creme": (c) => {
+    c = hueShift(c, 0, 25, 2, 1.12); // vinho e vermelho da marca mais ricos
+    c = split(c, [0.52, 0.48, 0.46], 0.25, [0.6, 0.56, 0.48], 0.3);
+    c = gain(c, 1.03, 1.0, 0.95);
+    return levels(sat(contrast(c, 0.04), 0.94), 0.05, 0.98);
+  },
+  "vlog-cinema": (c) => {
+    c = hueShift(c, 25, 35, -3, 1.05);
+    c = hueShift(c, 110, 60, 10, 0.8);
+    c = split(c, [0.42, 0.52, 0.55], 0.4, [0.62, 0.54, 0.44], 0.3);
+    return levels(sat(contrast(c, 0.2), 0.92), 0.03, 0.97);
+  },
 };
 
 /* ---------- montar a LUT ---------- */
@@ -331,6 +358,13 @@ export function buildLut(s: LutSpec, n = 33): Float32Array {
   }
   lutCache.set(key, t);
   return t;
+}
+/** arquivo .cube (Adobe/Resolve), 33 pontos. Só para as LUTs autorais VINCIT: as de marca o HUB não gera. */
+export function toCube(s: LutSpec, title: string, n = 33): string {
+  const t = buildLut(s, n);
+  const lines = [`TITLE "${title.replace(/"/g, "")}"`, "# VINCIT HUB · LUT autoral", `LUT_3D_SIZE ${n}`, "DOMAIN_MIN 0.0 0.0 0.0", "DOMAIN_MAX 1.0 1.0 1.0"];
+  for (let i = 0; i < t.length; i += 3) lines.push(`${t[i].toFixed(5)} ${t[i + 1].toFixed(5)} ${t[i + 2].toFixed(5)}`);
+  return lines.join("\n") + "\n";
 }
 /** lê um .cube 3D qualquer (para testar uma LUT baixada de fora na prévia) */
 export function parseCube(text: string): { n: number; data: Float32Array } | null {

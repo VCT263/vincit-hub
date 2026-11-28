@@ -5,6 +5,8 @@ import PageHead from "@/components/PageHead";
 import { I } from "@/components/icons";
 import { applyTable, buildLut, buildToLog, parseCube } from "@/lib/luts/core";
 import { LOGS, MARCAS, type Lut } from "@/lib/luts/catalog";
+import { tabelaDe, type Tabela } from "@/lib/luts/previa";
+import CorTabs from "@/components/av/CorTabs";
 
 /* Biblioteca de LUTs: só a prévia de como cada LUT deixa o vídeo, separada por marca.
  * O HUB não hospeda os arquivos: cada LUT leva ao site oficial, e a LUT baixada pode ser testada aqui. */
@@ -82,9 +84,18 @@ export default function Luts() {
   const antesRef = useRef<HTMLCanvasElement>(null);
   const depoisRef = useRef<HTMLCanvasElement>(null);
   const thumbs = useRef<Record<string, HTMLCanvasElement | null>>({});
+  const [tabs, setTabs] = useState<Record<string, Tabela>>({});
 
   const marca = MARCAS.find((m) => m.id === marcaId) || MARCAS[0];
   const lut = marca.luts.find((l) => l.id === lutId) || marca.luts[0];
+
+  // LUTs com o arquivo original reduzido (looks do app Blackmagic Camera)
+  useEffect(() => {
+    let vivo = true;
+    marca.luts.filter((l) => l.tabela && !tabs[l.id]).forEach((l) => tabelaDe(l).then((t) => { if (vivo) setTabs((x) => ({ ...x, [l.id]: t })); }).catch(() => {}));
+    return () => { vivo = false; };
+  }, [marca, tabs]);
+  const tabelaPara = useCallback((l: Lut): Tabela | null => (l.tabela ? tabs[l.id] || null : { n: 33, data: buildLut({ log: l.entrada || undefined, look: l.look }, 33) }), [tabs]);
 
   const escolherMarca = (id: string) => { const m = MARCAS.find((x) => x.id === id)!; setMarcaId(id); setLutId(m.luts[0].id); setExterna(null); };
 
@@ -129,9 +140,9 @@ export default function Luts() {
     if (!antes) return null;
     const img = copia(antes);
     if (externa) applyTable(img, externa.data, externa.n);
-    else applyTable(img, buildLut({ log: lut.entrada || undefined, look: lut.look }), 33);
+    else { const t = tabelaPara(lut); if (t) applyTable(img, t.data, t.n); }
     return img;
-  }, [antes, lut, externa]);
+  }, [antes, lut, externa, tabelaPara]);
   useEffect(() => { desenhar(antesRef.current, antes); desenhar(depoisRef.current, depois); }, [antes, depois]);
 
   // miniaturas das LUTs da marca escolhida
@@ -143,23 +154,26 @@ export default function Luts() {
       const l = marca.luts[i++];
       if (!l || !vivo) return;
       const img = antesPara(l, peq, meuLog);
-      applyTable(img, buildLut({ log: l.entrada || undefined, look: l.look }), 33);
+      const t = tabelaPara(l);
+      if (t) applyTable(img, t.data, t.n);
       desenhar(thumbs.current[l.id] || null, img);
       requestAnimationFrame(passo);
     };
     passo();
     return () => { vivo = false; };
-  }, [quadro, marca, meuLog]);
+  }, [quadro, marca, meuLog, tabelaPara]);
 
   const rotuloAntes = lut.entrada && !(meuLog && meuLog === lut.entrada) ? `Antes · ${NOME_LOG[lut.entrada]} (simulado)` : lut.entrada ? `Antes · ${NOME_LOG[lut.entrada]}` : "Antes · Rec.709";
 
   return (
     <>
-      <PageHead kicker="AUDIOVISUAL · ACERVO" title="Biblioteca de LUTs"
+      <PageHead kicker="AUDIOVISUAL · COR" title="Biblioteca de LUTs"
         desc="Veja como cada LUT deixa o vídeo antes de baixar. Separadas por marca; o arquivo original você baixa grátis no site oficial, pelo link de cada uma.">
+        <Link href="/audiovisual/fotos" className="chip"><I.camera className="w-3.5 h-3.5" />Usar em fotos</Link>
         <Link href="/audiovisual/editor" className="chip"><I.video className="w-3.5 h-3.5" />Usar no Editor</Link>
       </PageHead>
 
+      <CorTabs />
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {MARCAS.map((m) => (
           <button key={m.id} onClick={() => escolherMarca(m.id)} className={`chip shrink-0 ${marca.id === m.id ? "!border-mint !text-mint" : ""}`}>{m.nome}</button>
@@ -189,7 +203,7 @@ export default function Luts() {
               <span className="absolute top-2 right-2 chip !bg-black/60 !text-white text-[11px]">{externa ? "Sua LUT" : "Prévia"}</span>
               <input type="range" min={0} max={100} value={corte} onChange={(e) => setCorte(+e.target.value)} aria-label="Comparar antes e depois" className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize" />
             </div>
-            <p className="text-xs text-fog mt-2">Arraste sobre a imagem para comparar. A prévia é uma aproximação feita pelo HUB; a original pode variar um pouco. Para ver a original de verdade, baixe e use &quot;Testar a LUT que baixei&quot;.</p>
+            <p className="text-xs text-fog mt-2">Arraste sobre a imagem para comparar. {lut.tabela ? "Esta prévia usa o arquivo original da LUT." : lut.autoral ? "LUT nossa: o arquivo baixado é o mesmo da prévia." : "A prévia é uma aproximação feita pelo HUB; a original pode variar um pouco."} Para ver a original de verdade, baixe e use &quot;Testar a LUT que baixei&quot;.</p>
           </div>
 
           <div className="space-y-4 min-w-0">
@@ -198,7 +212,9 @@ export default function Luts() {
               <p className="font-display text-xl font-extrabold mt-1">{externa ? externa.nome : lut.nome}</p>
               <p className="text-sm text-fog mt-1">{lut.desc}</p>
               <p className="text-xs mt-2"><span className="text-fog">Entra:</span> {lut.entrada ? NOME_LOG[lut.entrada] : "vídeo já convertido (Rec.709)"}</p>
-              <a href={lut.onde.url} target="_blank" rel="noreferrer" className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-mint text-ink"><I.link className="w-4 h-4" />Baixar em {lut.onde.label}</a>
+              {lut.autoral
+                ? <a href={lut.onde.url} download className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-mint text-ink"><I.download className="w-4 h-4" />Baixar .cube</a>
+                : <a href={lut.onde.url} target="_blank" rel="noreferrer" className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold bg-mint text-ink"><I.link className="w-4 h-4" />Baixar em {lut.onde.label}</a>}
               <p className="text-xs text-fog mt-1.5">{lut.passo}</p>
             </div>
 

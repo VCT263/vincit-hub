@@ -304,10 +304,75 @@
   }
   const isBusy = (id) => $(id).classList.contains("off");
 
+
+  /* ---------- cor (LUT): a Biblioteca de LUTs do HUB ---------- */
+  const HUBWEB = "https://vincit-hub.vercel.app";
+  const LUT_PASTA = "vincit-hub-pasta-luts";
+  let lutCat = [], lutMarca = "vincit", lutId = "";
+  async function loadLuts() {
+    try { const r = await fetch(HUBWEB + "/api/luts/catalogo"); lutCat = ((await r.json()) || {}).marcas || []; } catch (e) { lutCat = []; }
+    if (!lutCat.some((m) => m.id === lutMarca) && lutCat[0]) lutMarca = lutCat[0].id;
+    renderLuts();
+  }
+  const lutAtual = () => { const m = lutCat.find((x) => x.id === lutMarca); return m ? m.luts.find((x) => x.id === lutId) : null; };
+  function renderLuts() {
+    pills("lutMarcas", lutCat.map((m) => [m.id, m.nome]), lutMarca, (id) => { lutMarca = id; lutId = ""; renderLuts(); });
+    const box = $("lutList");
+    clear(box);
+    const m = lutCat.find((x) => x.id === lutMarca);
+    if (!m) box.appendChild(el("div", "empty", "Não consegui ler as LUTs do HUB."));
+    (m ? m.luts : []).forEach((l) => {
+      const r = el("div", "tr" + (l.id === lutId ? " on" : ""));
+      r.appendChild(el("span", "txt", l.nome));
+      r.appendChild(el("span", "fmt", l.autoral ? "instala" : l.tipo));
+      r.addEventListener("click", () => { lutId = l.id; renderLuts(); });
+      box.appendChild(r);
+    });
+    const l = lutAtual();
+    $("lutInfo").textContent = !l ? "Escolha uma LUT." : l.autoral ? l.desc : `${l.desc} Baixe no site oficial; o painel deixa o passo num marcador.`;
+    if (!isBusy("btnLut")) $("btnLut").textContent = l && !l.autoral ? "Abrir onde baixar" : "Aplicar em V1";
+  }
+  async function pastaLuts() {
+    const fs = require("uxp").storage.localFileSystem;
+    try { const tok = localStorage.getItem(LUT_PASTA); if (tok) return await fs.getEntryForPersistentToken(tok); } catch (e) {}
+    say("Escolha a pasta das LUTs (sugestão: /Library/Application Support/Adobe/Common/LUTs/Creative).");
+    const f = await fs.getFolder();
+    if (!f) throw new Error("Nenhuma pasta escolhida.");
+    try { localStorage.setItem(LUT_PASTA, await fs.createPersistentToken(f)); } catch (e) {}
+    return f;
+  }
+  async function applyLut() {
+    const l = lutAtual();
+    if (!l) { say("Escolha uma LUT."); return; }
+    if (!l.autoral) {
+      try { require("uxp").shell.openExternal(l.url); } catch (e) {}
+      try { await PR.noteMarker(`🎨 LUT ${l.nome}: baixar e pôr no Lumetri`, `${l.onde}: ${l.url} · ${l.passo}`); } catch (e) {}
+      say(`Abri ${l.onde}. Depois de baixar: Lumetri › ${l.entrada ? "Correção básica › LUT de entrada" : "Criativo › Look"} › Procurar.`, "ok");
+      return;
+    }
+    busy("btnLut", true, "Aplicando…");
+    try {
+      const r = await fetch(HUBWEB + l.url);
+      if (!r.ok) throw new Error("O HUB não entregou a LUT.");
+      const texto = await r.text();
+      const pasta = await pastaLuts();
+      const nome = `VINCIT_${l.nome.normalize("NFD").replace(/[^\w ]/g, "").trim().replace(/ +/g, "_")}.cube`;
+      const arq = await pasta.createFile(nome, { overwrite: true });
+      await arq.write(texto);
+      const res = await PR.applyLut(arq.nativePath, l.nome);
+      say(res.lut === res.clipes
+        ? `LUT ${l.nome} aplicada em ${res.lut} clipes de V1. Cmd+Z desfaz.`
+        : `LUT salva em ${arq.nativePath}${res.lumetri ? ` e Lumetri posto em ${res.lumetri} clipes` : ""}. O Premiere não deixou o painel escolher o arquivo: em Lumetri › Criativo › Look › Procurar, escolha ${nome} (deixei um marcador no início).`, "ok");
+    } catch (e) { say(e.message, "err"); }
+    busy("btnLut", false);
+    renderLuts();
+  }
+
   async function boot() {
     watchSeq();
     renderRitmo();
     checkTranscript();
+    loadLuts();
     try {
       const [c, k] = await Promise.all([HUB.contents(), HUB.kits()]);
       contents = c || []; kits = k || [];
@@ -407,6 +472,7 @@
   $("btnLogout").addEventListener("click", () => { clearInterval(poll); clearInterval(seqPoll); clearInterval(waitTimer); HUB.logout(); current = null; show(); });
   $("btnRefresh").addEventListener("click", () => { watchSeq(); checkTranscript(); boot(); });
   $("btnHist").addEventListener("click", loadHistory);
+  $("btnLut").addEventListener("click", () => { if (!isBusy("btnLut")) applyLut(); });
   $("contentSearch").addEventListener("input", renderContents);
   $("lnkHub").addEventListener("click", () => {
     try { require("uxp").shell.openExternal("https://vincit-hub.vercel.app/audiovisual/premiere"); } catch (e) { say("Abra vincit-hub.vercel.app/audiovisual/premiere no navegador."); }

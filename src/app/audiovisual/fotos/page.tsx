@@ -7,6 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { aiFetch } from "@/lib/aiFetch";
 import { apagarComLixeira } from "@/lib/lixeira";
 import { salvarNoDrive } from "@/lib/drive";
+import { MARCAS, lutPorId, type Lut } from "@/lib/luts/catalog";
+import { aplicarNaFoto, tabelaDe, temVisual, type Tabela } from "@/lib/luts/previa";
+import CorTabs from "@/components/av/CorTabs";
 import {
   CONTROLES, ESTILOS, ZERO, analisar, aplicar, autoCorrecao, combinar, estiloDaReferencia, gerarCube, lerImagem,
   type Ajustes, type Analise, type Estilo,
@@ -16,7 +19,10 @@ import {
    correção automática + catálogo de estilos com prévia + ajustes básicos (luz, contraste, sombras, cor).
    Tudo roda no navegador, sem custo. O Claude (pela fila) olha a foto e escolhe estilo e ajustes. */
 
-type Estado = { auto: boolean; estilo: string; intensidade: number; finos: Partial<Ajustes>; manterCor: boolean };
+type Estado = { auto: boolean; estilo: string; intensidade: number; finos: Partial<Ajustes>; manterCor: boolean; lut?: string; lutForca?: number };
+type CorLut = { lut: Lut; t: Tabela; forca: number } | null;
+/* marcas da Biblioteca de LUTs que mudam o visual de uma foto (as conversões puras deixariam igual) */
+const MARCAS_FOTO = MARCAS.map((m) => ({ ...m, luts: m.luts.filter(temVisual) })).filter((m) => m.luts.length);
 type Foto = {
   key: string; nome: string; img: HTMLImageElement; mini: ImageData; analise: Analise; autoAj: Partial<Ajustes>;
   driveId?: string; drivePasta?: string;
@@ -31,10 +37,27 @@ const PREVIA = 1100, MINI = 150, SAIDA = 3000;
 function carregar(src: string): Promise<HTMLImageElement> {
   return new Promise((ok, erro) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => ok(i); i.onerror = () => erro(new Error("Não consegui abrir a imagem.")); i.src = src; });
 }
-function render(base: ImageData, a: Ajustes, manterCor: boolean) {
+function render(base: ImageData, a: Ajustes, manterCor: boolean, cor: CorLut = null) {
   const out = new ImageData(new Uint8ClampedArray(base.data), base.width, base.height);
   aplicar(out, a, { manterCor });
+  if (cor) {
+    const antes = manterCor ? new Uint8ClampedArray(out.data) : null;
+    aplicarNaFoto(out, cor.lut, cor.t, cor.forca);
+    if (antes) protegerCor(out.data, base.data, antes);
+  }
   return out;
+}
+/** "Manter cor da peça" também vale para a LUT: nos pontos saturados da foto original volta o tom de antes da LUT, com a luz nova */
+function protegerCor(d: Uint8ClampedArray, orig: Uint8ClampedArray, antes: Uint8ClampedArray) {
+  for (let i = 0; i < d.length; i += 4) {
+    const R = orig[i], G = orig[i + 1], B = orig[i + 2];
+    const mx = Math.max(R, G, B), mn = Math.min(R, G, B);
+    const w = Math.min(1, Math.max(0, ((mx ? (mx - mn) / mx : 0) - 0.22) / 0.25));
+    if (!w) continue;
+    const L0 = antes[i] * 0.299 + antes[i + 1] * 0.587 + antes[i + 2] * 0.114 || 1, L1 = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    const k = L1 / L0;
+    for (let c = 0; c < 3; c++) d[i + c] = d[i + c] * (1 - w) + antes[i + c] * k * w;
+  }
 }
 function paraBlob(img: ImageData, q = 0.9): Promise<Blob> {
   const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
@@ -55,7 +78,9 @@ function Fotos() {
   const q = useSearchParams();
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [atual, setAtual] = useState(0);
-  const [aba, setAba] = useState<"estilos" | "ajustes" | "referencia" | "claude">("estilos");
+  const [aba, setAba] = useState<"estilos" | "luts" | "ajustes" | "referencia" | "claude">("estilos");
+  const [lutMarca, setLutMarca] = useState(MARCAS_FOTO[0]?.id || "");
+  const [tabs, setTabs] = useState<Record<string, Tabela>>({});
   const [antes, setAntes] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -93,6 +118,35 @@ function Fotos() {
   const estiloDe = useCallback((id: string) => catalogo.find((e) => e.id === id) || ESTILOS[0], [catalogo]);
   const final = useCallback((f: Foto, e: Estado = f.estado) => combinar(e.auto ? f.autoAj : null, estiloDe(e.estilo).ajustes, e.intensidade, e.finos), [estiloDe]);
 
+  // LUT da biblioteca por cima da edição (mesma prévia da Biblioteca de LUTs)
+  const precisaTabela = useCallback((l: Lut) => {
+    if (tabs[l.id]) return;
+    tabelaDe(l).then((t) => setTabs((x) => ({ ...x, [l.id]: t }))).catch(() => {});
+  }, [tabs]);
+  const corLut = useCallback((e: Estado): CorLut => {
+    const l = e.lut ? lutPorId(e.lut) : undefined;
+    if (!l) return null;
+    const t = tabs[l.id];
+    return t ? { lut: l, t, forca: e.lutForca ?? 100 } : null;
+  }, [tabs]);
+  useEffect(() => { fotos.forEach((f) => { const l = f.estado.lut && lutPorId(f.estado.lut); if (l) precisaTabela(l); }); }, [fotos, precisaTabela]);
+  const marcaLut = MARCAS_FOTO.find((m) => m.id === lutMarca) || MARCAS_FOTO[0];
+  useEffect(() => { if (aba === "luts") marcaLut?.luts.forEach(precisaTabela); }, [aba, marcaLut, precisaTabela]);
+  const lutThumbs = useMemo(() => {
+    const out: Record<string, string> = {};
+    if (!foto || aba !== "luts" || !marcaLut) return out;
+    const c = document.createElement("canvas"); c.width = foto.mini.width; c.height = foto.mini.height;
+    const x = c.getContext("2d")!;
+    const a = final(foto);
+    for (const l of marcaLut.luts) {
+      const t = tabs[l.id];
+      if (!t) continue;
+      x.putImageData(render(foto.mini, a, estado.manterCor, { lut: l, t, forca: 100 }), 0, 0);
+      out[l.id] = c.toDataURL("image/jpeg", 0.8);
+    }
+    return out;
+  }, [foto?.key, aba, marcaLut, tabs, estado.auto, estado.estilo, estado.intensidade, estado.finos, estado.manterCor]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // prévia grande: redesenha no próximo quadro quando algo muda
   const raf = useRef(0);
   useEffect(() => {
@@ -100,9 +154,9 @@ function Fotos() {
     cancelAnimationFrame(raf.current);
     raf.current = requestAnimationFrame(() => {
       const c = canvas.current!; c.width = base.width; c.height = base.height;
-      c.getContext("2d")!.putImageData(antes ? base : render(base, final(foto), estado.manterCor), 0, 0);
+      c.getContext("2d")!.putImageData(antes ? base : render(base, final(foto), estado.manterCor, corLut(estado)), 0, 0);
     });
-  }, [foto, base, estado, antes, final]);
+  }, [foto, base, estado, antes, final, corLut]);
 
   // miniaturas do catálogo na própria foto
   const thumbs = useMemo(() => {
@@ -223,7 +277,7 @@ function Fotos() {
     return g;
   }
   async function renderSaida(f: Foto) {
-    return paraBlob(render(lerImagem(f.img, SAIDA), final(f), f.estado.manterCor), 0.92);
+    return paraBlob(render(lerImagem(f.img, SAIDA), final(f), f.estado.manterCor, corLut(f.estado)), 0.92);
   }
   async function salvar(fs: Foto[]) {
     setOcupado(fs.length > 1 ? `Salvando ${fs.length} fotos…` : "Salvando…");
@@ -324,9 +378,10 @@ function Fotos() {
 
   return (
     <>
+      <CorTabs />
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <p className="font-mono text-[11px] tracking-[.2em] text-mint uppercase">Audiovisual · Pós-produção</p>
+          <p className="font-mono text-[11px] tracking-[.2em] text-mint uppercase">Audiovisual · Cor</p>
           <h1 className="font-display text-3xl font-extrabold tracking-tight mt-1">Fotos</h1>
           <p className="text-sm text-fog mt-1 max-w-2xl">Correção automática, catálogo de estilos com prévia e os ajustes básicos de luz, contraste, sombras e cor. Para qualquer foto: produto, ensaio, evento, bastidor. Roda no navegador, sem custo. O Claude pode olhar a foto e escolher o estilo e os ajustes.</p>
         </div>
@@ -354,7 +409,7 @@ function Fotos() {
               <div className="relative rounded-xl overflow-hidden bg-black/40 grid place-items-center select-none"
                 onPointerDown={() => setAntes(true)} onPointerUp={() => setAntes(false)} onPointerLeave={() => setAntes(false)} onContextMenu={(e) => e.preventDefault()}>
                 <canvas ref={canvas} className="max-w-full max-h-[62vh] w-auto h-auto block touch-none" />
-                <span className="absolute left-2 top-2 chip !bg-black/60">{antes ? "Antes" : estiloAtual.nome}</span>
+                <span className="absolute left-2 top-2 chip !bg-black/60">{antes ? "Antes" : estiloAtual.nome + (estado.lut && lutPorId(estado.lut) ? ` + ${lutPorId(estado.lut)!.nome}` : "")}</span>
                 <span className="absolute right-2 bottom-2 text-[10px] text-white/70 bg-black/50 rounded px-1.5 py-0.5">Segure para ver o antes</span>
               </div>
               {fotos.length > 1 && (
@@ -383,7 +438,7 @@ function Fotos() {
 
             <div className="min-w-0">
               <div className="flex gap-1 mb-3 overflow-x-auto">
-                {([["estilos", "Estilos"], ["ajustes", "Ajustes"], ["referencia", "Referência"], ["claude", "Claude"]] as const).map(([k, n]) => (
+                {([["estilos", "Estilos"], ["luts", "LUTs"], ["ajustes", "Ajustes"], ["referencia", "Referência"], ["claude", "Claude"]] as const).map(([k, n]) => (
                   <button key={k} onClick={() => setAba(k)} className={`chip shrink-0 ${aba === k ? "chip-mint" : ""}`}>{n}</button>
                 ))}
               </div>
@@ -434,6 +489,31 @@ function Fotos() {
                       ))}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {aba === "luts" && (
+                <div>
+                  <p className="text-xs text-fog">As mesmas LUTs da <a href="/audiovisual/luts" className="text-mint underline">Biblioteca</a>, por cima da edição. Assim a foto sai com o mesmo look do vídeo.</p>
+                  <div className="flex gap-1 overflow-x-auto mt-2 pb-1">
+                    {MARCAS_FOTO.map((m) => <button key={m.id} onClick={() => setLutMarca(m.id)} className={`chip shrink-0 text-xs ${marcaLut?.id === m.id ? "!border-mint !text-mint" : ""}`}>{m.nome}</button>)}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 max-h-[40vh] overflow-y-auto pr-1 mt-2">
+                    <button onClick={() => mudar({ lut: undefined })} className={`text-left rounded-lg border-2 overflow-hidden ${!estado.lut ? "border-mint" : "border-transparent"}`}>
+                      <div className="w-full aspect-square bg-black/40 grid place-items-center text-[11px] text-fog">Sem LUT</div>
+                    </button>
+                    {marcaLut?.luts.map((l) => (
+                      <button key={l.id} onClick={() => mudar({ lut: l.id, lutForca: 100 })} title={l.desc} className={`text-left rounded-lg border-2 overflow-hidden ${estado.lut === l.id ? "border-mint" : "border-transparent"}`}>
+                        {lutThumbs[l.id] ? <img src={lutThumbs[l.id]} alt="" className="w-full aspect-square object-cover" /> : <div className="w-full aspect-square bg-black/40 animate-pulse" />}
+                        <p className="text-[10px] leading-tight px-1 py-0.5 truncate">{l.nome}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {estado.lut && lutPorId(estado.lut) && <>
+                    <p className="text-[11px] text-fog mt-2">{lutPorId(estado.lut)!.desc}</p>
+                    <label className="text-xs text-fog block mt-3">Força da LUT: {estado.lutForca ?? 100}%</label>
+                    <input type="range" min={0} max={100} value={estado.lutForca ?? 100} onChange={(e) => mudar({ lutForca: +e.target.value })} className="w-full accent-[var(--color-mint)]" />
+                  </>}
                 </div>
               )}
 
