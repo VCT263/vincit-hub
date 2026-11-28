@@ -7,6 +7,7 @@ import CopyButton from "@/components/CopyButton";
 import { I } from "@/components/icons";
 import StoreGate from "@/components/ec/StoreGate";
 import ActionDrawer from "@/components/ec/ActionDrawer";
+import MotionsDaCampanha from "@/components/ec/MotionsDaCampanha";
 import { TIPOS_MODA, TIPO_KEYS, mixDe, type TipoModa } from "@/lib/mixModa";
 import { addDays, brl, daysBetween, fmtDay, goalMath, KINDS, PHASE_COLOR, STATUS, todayBR, type EcAction, type Item } from "@/lib/ecommerce";
 
@@ -71,7 +72,7 @@ function Studio({ ctx }: { ctx: any }) {
     const { data: profs } = await sb.from("ig_accounts").select("id,username,name");
     const prof = (profs || []).find((x: any) => [x.username, x.name].some((n) => n && n.toLowerCase().replace(/[^a-z0-9]/g, "").includes(key)));
     const { error } = await sb.from("content_ideas").insert(posts.map((p) => ({
-      account_id: prof?.id || null, caption: p.legenda || null,
+      account_id: prof?.id || null, caption: p.legenda || null, ec_action_id: a!.id,
       kind: "plano", status: "backlog", title: `${ctx.store.name} · ${p.titulo}`.slice(0, 120), format: p.formato || null, planned_for: p.data, hook: p.gancho || null, pillar: (p.tipo && TIPOS_MODA[p.tipo]?.label) || a!.title,
       body: `**Ação:** ${a!.title} (${fmtDay(a!.date)})\n**Fase:** ${p.fase} · **Canal:** ${p.canal}${p.tipo && TIPOS_MODA[p.tipo] ? ` · **Tipo:** ${TIPOS_MODA[p.tipo].label}` : ""}${p.fora_do_padrao ? " · **Fora do padrão**" : ""}\n\n**Gancho:** ${p.gancho || "-"}\n\n**Roteiro:**\n${p.roteiro || "-"}\n\n**Legenda:**\n${p.legenda || "-"}\n\n**CTA:** ${p.cta || "-"}`,
     })));
@@ -163,6 +164,7 @@ function Studio({ ctx }: { ctx: any }) {
 
         <aside className="space-y-4">
           <MixCard pieces={pieces.filter((x) => x.canal === "Instagram" || x.canal === "TikTok")} />
+          <MotionsDaCampanha actionId={a.id} pasta={`${a.title} ${ctx.store?.name || ""}`.trim()} />
           <section className="card p-5">
             <p className="font-mono text-[10px] uppercase tracking-widest text-mint mb-2">Conceito</p>
             {c.conceito ? <p className="font-display font-bold text-xl">{c.conceito}</p> : <p className="text-sm text-fog">Sem conceito ainda. Peça a campanha ao Claude no chat do projeto (sem custo) ou crie as peças à mão no dia a dia.</p>}
