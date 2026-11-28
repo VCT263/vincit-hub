@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Ajuda from "@/components/ajuda/Ajuda";
+import { NOVIDADES, VERSAO_IA } from "@/lib/novidades";
 
 /** link do painel do HUB publicado no Claude (artifact) */
 export const CLAUDE_PANEL_URL = "https://claude.ai/artifact/AWg3shE2RQH28mLQnnLQsx";
@@ -37,6 +38,18 @@ export default function ClaudeSettings() {
         <a href="https://claude.ai/settings/connectors" target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Abrir conectores do Claude</a>
         {CLAUDE_PANEL_URL && <a href={CLAUDE_PANEL_URL} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">Abrir o painel do HUB no Claude</a>}
       </div>
+      <p className="text-sm text-fog">No Claude, escolha o prompt <span className="text-paper">Começar no HUB</span> (botão + › VINCIT HUB). Regras, ferramentas e prompts se atualizam sozinhos a cada versão do HUB.</p>
+      <details className="rounded-lg border border-line p-3">
+        <summary className="cursor-pointer text-sm font-semibold">Novidades de IA <span className="font-mono text-[11px] text-fog ml-1">versão {VERSAO_IA}</span></summary>
+        <ul className="mt-3 space-y-3">
+          {NOVIDADES.map((n) => (
+            <li key={n.versao} className="text-sm">
+              <p className="font-semibold">{n.titulo} <span className="font-mono text-[11px] text-fog">{n.data.split("-").reverse().join("/")}</span></p>
+              <p className="text-fog">{n.texto}</p>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

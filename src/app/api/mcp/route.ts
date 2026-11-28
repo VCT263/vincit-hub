@@ -3,7 +3,8 @@ import { createClient as createPlain } from "@supabase/supabase-js";
 import type { Access } from "@/lib/access";
 import { CORS, siteOrigin } from "@/lib/oauth";
 import { TOOLS, allowed, isUserError, listTools, type Ctx } from "@/lib/mcp";
-import { promptConector } from "@/lib/entrevista";
+import { PROMPTS } from "@/lib/mcpPrompts";
+import { VERSAO_IA } from "@/lib/novidades";
 
 /**
  * Conector VINCIT HUB para o Claude (servidor MCP, transporte HTTP "streamable", sem sessão).
@@ -14,6 +15,7 @@ export const maxDuration = 30;
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const INSTRUCTIONS = [
+  "No começo de cada conversa sobre o HUB, chame comecar_no_hub uma vez: traz a conta, os perfis, as pendências e as novidades de IA desde a última visita. Se vierem novidades, conte em 2 ou 3 linhas antes de seguir. As regras, ferramentas e prompts deste conector são atualizados pelo HUB; siga sempre a versão mais recente.",
   "Conector do VINCIT HUB (plataforma de conteúdo e gestão da produtora VINCIT). Responda em português do Brasil.",
   "Antes de criar conteúdo, chame listar_perfis e respeite nicho, objetivos, voz da marca e briefing do perfil. Quando o perfil tiver direcionamento_marca (manual da marca criado no Design), siga-o à risca em posts, legendas, roteiros e planos de edição: voz, frases, palavras proibidas, cores, letras e regras.",
   "Para análises, use ler_desempenho e cite só números reais; nunca invente métricas.",
@@ -26,16 +28,6 @@ const INSTRUCTIONS = [
   "Entrevista de marca: quando a pessoa pedir a entrevista (ou usar o prompt entrevista_de_marca), chame entrevista_abrir, conduza uma pergunta por vez seguindo as regras dela, registre cada resposta com entrevista_registrar sem pedir confirmação e, no fim, mostre a proposta e chame entrevista_concluir com o ok.",
   "Quando a pessoa pedir para responder os pedidos de IA do HUB, chame listar_pedidos_ia e responda cada pedido com responder_pedido_ia, seguindo as instruções e o formato do prompt (JSON quando pedido); não precisa confirmar cada um.",
 ].join(" ");
-
-/** prompts prontos que aparecem no Claude de quem liga o conector */
-const PROMPTS = [
-  {
-    name: "entrevista_de_marca", title: "Entrevista de marca",
-    description: "Conversa (por voz ou texto) que entrevista o dono da marca, questiona respostas vagas e propõe o briefing do perfil no HUB.",
-    arguments: [{ name: "perfil", description: "@ do perfil (opcional)", required: false }],
-    text: (a: any) => promptConector(a?.perfil ? String(a.perfil).slice(0, 60) : undefined),
-  },
-];
 
 const json = (body: any, status = 200, extra: Record<string, string> = {}) => NextResponse.json(body, { status, headers: { ...CORS, ...extra } });
 
@@ -70,7 +62,7 @@ async function handle(msg: any, ctx: Ctx) {
   switch (method) {
     case "initialize": {
       const v = VERSIONS.includes(params?.protocolVersion) ? params.protocolVersion : VERSIONS[1];
-      return ok({ protocolVersion: v, capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } }, serverInfo: { name: "vincit-hub", title: "VINCIT HUB", version: "1.0.0" }, instructions: INSTRUCTIONS });
+      return ok({ protocolVersion: v, capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } }, serverInfo: { name: "vincit-hub", title: "VINCIT HUB", version: VERSAO_IA }, instructions: INSTRUCTIONS });
     }
     case "ping":
       return ok({});
