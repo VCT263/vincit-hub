@@ -33,7 +33,7 @@ export default function Editor() {
   const [grade, setGrade] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [tab, setTab] = useState<"clipes" | "legenda" | "textos" | "estilo" | "motion">("clipes");
-  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean }[]>([]);
+  const [motions, setMotions] = useState<{ id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean; raw?: any }[]>([]);
   const [motionPasta, setMotionPasta] = useState("");
   const [studio, setStudio] = useState<Partial<MotionDoc> | null>(null);
   const [kits, setKits] = useState<{ id: string; name: string; data: Kit }[]>([]);
@@ -104,7 +104,7 @@ export default function Editor() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   async function loadMotions() {
     const { data } = await createClient().from("av_motions").select("id,titulo,spec,pasta,ec_action_id").eq("status", "pronto").order("updated_at", { ascending: false }).limit(120);
-    const list = ((data as any) || []).map((r: any) => ({ ...r, html: r.spec?.motor === "html", spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean }[];
+    const list = ((data as any) || []).map((r: any) => ({ ...r, html: r.spec?.motor === "html" && !!r.spec?.html, raw: r.spec?.motor === "html" ? r.spec : undefined, spec: normalizeSpec(r.spec) })) as { id: string; titulo: string; spec: MotionSpec; pasta?: string | null; ec_action_id?: string | null; html?: boolean; raw?: any }[];
     setMotions(list);
     return list;
   }
@@ -205,6 +205,40 @@ export default function Editor() {
         return { ...pp, segments: [seg, ...pp.segments], titles: pp.titles.map(sh), zooms: pp.zooms.map(sh), overlays: (pp.overlays || []).map(sh), motions: (pp.motions || []).map(sh) };
       });
       setMsg(`"${m.titulo}" entrou como clipe no ${where === "fim" ? "fim" : "começo"} (${dur.toFixed(1)} s).`);
+    } catch (e: any) { setMsg(e.message); }
+    setBusy(null);
+  }
+  /** motion HyperFrames (Motion novo): vira vídeo no navegador e entra por cima (WebM transparente) ou como clipe (MP4) */
+  async function motionHtml(m: { id: string; titulo: string; raw?: any }, where: "cima" | "inicio" | "fim") {
+    const html: string | undefined = m.raw?.html;
+    if (!html) return;
+    const start = Math.max(0, Math.min(tRef.current, Math.max(0, total - 0.3)));
+    if (where === "cima" && !total) { setMsg("Adicione o vídeo antes de pôr o motion por cima."); return; }
+    try {
+      cancelRef.current.cancel = false;
+      const tipo = where === "cima" ? "webm" : "mp4";
+      setBusy({ f: 0, msg: `Gerando "${m.titulo}"…` });
+      const { exportarHtml, infoComposicao } = await import("@/lib/motion/html");
+      const blob = await exportarHtml(html, m.raw?.valores || {}, { tipo, onProgress: (f) => setBusy({ f, msg: `Gerando "${m.titulo}"… ${Math.round(f * 100)}%` }), signal: cancelRef.current });
+      const inf = infoComposicao(html);
+      const nome = `${m.titulo.replace(/[\\/:*?"<>|]+/g, "")}.${tipo}`;
+      const file = new File([blob], nome, { type: tipo === "webm" ? "video/webm" : "video/mp4" });
+      const dur = inf.duracao;
+      const md: Media = { id: uid(), name: nome, file, url: URL.createObjectURL(file), duration: dur, width: inf.w, height: inf.h, words: [], broll: where === "cima" };
+      setMedia((all) => [...all, md]);
+      if (where === "cima") {
+        const end = Math.min(total, start + dur);
+        update((pp) => ({ ...pp, overlays: [...(pp.overlays || []), { id: uid(), mediaId: md.id, start, end, in: 0, mode: "motion" as OverlayMode }] }));
+        setMsg(`"${m.titulo}" entrou por cima em ${fmt(start)} (transparente, ${dur.toFixed(1)} s). Ele aparece na faixa B-ROLL.`);
+      } else {
+        const seg = { id: uid(), mediaId: md.id, in: 0, out: dur };
+        update((pp) => {
+          if (where === "fim") return { ...pp, segments: [...pp.segments, seg] };
+          const sh = <T extends { start: number }>(x: T) => ({ ...x, start: x.start + dur, ...("end" in x ? { end: (x as any).end + dur } : {}) });
+          return { ...pp, segments: [seg, ...pp.segments], titles: pp.titles.map(sh), zooms: pp.zooms.map(sh), overlays: (pp.overlays || []).map(sh), motions: (pp.motions || []).map(sh) };
+        });
+        setMsg(`"${m.titulo}" entrou como clipe no ${where === "fim" ? "fim" : "começo"} (${dur.toFixed(1)} s).`);
+      }
     } catch (e: any) { setMsg(e.message); }
     setBusy(null);
   }
@@ -655,6 +689,7 @@ export default function Editor() {
                     <div key={o.id} className="rounded-xl border border-line p-2 space-y-1.5">
                       <div className="flex justify-between text-xs"><span className="truncate">{media.find((m) => m.id === o.mediaId)?.name}</span><button onClick={() => update((pp) => ({ ...pp, overlays: (pp.overlays || []).filter((x) => x.id !== o.id) }))} className="text-red-400">Apagar</button></div>
                       <select className="input !py-1 text-xs" value={o.mode} onChange={(e) => setOv(o.id, { mode: e.target.value as OverlayMode })}>
+                        {o.mode === "motion" && <option value="motion">Motion (por cima, transparente)</option>}
                         {OVERLAY_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                       </select>
                       <div className="grid grid-cols-3 gap-1.5">
@@ -725,9 +760,14 @@ export default function Editor() {
               <div className="grid grid-cols-2 gap-2">
                 {motions.filter((m) => !motionPasta || m.pasta === motionPasta).map((m) => m.html ? (
                   <div key={m.id} className="rounded-xl border border-line p-1.5">
-                    <div className="aspect-[9/12] rounded-lg bg-white/5 grid place-items-center text-[10px] text-fog text-center p-2">Peça HyperFrames: exporte em WebM transparente ou MP4 no Motion e traga como mídia</div>
+                    <div className="aspect-[9/12] rounded-lg bg-white/5 grid place-items-center text-[10px] text-fog text-center p-2">Motion HyperFrames<br />{m.pasta || ""}</div>
                     <p className="text-[11px] font-semibold truncate mt-1">{m.titulo}</p>
-                    <Link href={`/audiovisual/motion?id=${m.id}`} className="chip !text-[10px] mt-1 inline-block">Exportar no Motion</Link>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <button disabled={!total || !!busy} onClick={() => motionHtml(m, "cima")} className="chip !text-[10px] disabled:opacity-40">Por cima</button>
+                      <button disabled={!!busy} onClick={() => motionHtml(m, "inicio")} className="chip !text-[10px]">Clipe no início</button>
+                      <button disabled={!!busy} onClick={() => motionHtml(m, "fim")} className="chip !text-[10px]">No fim</button>
+                      <Link href={`/audiovisual/motion?id=${m.id}`} className="chip !text-[10px]">Editar</Link>
+                    </div>
                   </div>
                 ) : (
                   <div key={m.id} className="rounded-xl border border-line p-1.5">
@@ -949,7 +989,7 @@ export default function Editor() {
             <Track name="TEXTO">{p.titles.map((x) => <Block key={x.id} left={pct(x.start)} width={pct(x.end - x.start)} cls="bg-purple-400 text-ink">{x.text}</Block>)}</Track>
             <Track name="LEGENDA">{p.captionsOn && screens.map((s, i) => <Block key={i} left={pct(s.start)} width={pct(s.end - s.start)} cls="bg-amber-300/80 text-ink">{s.words.map((w) => w.t).join(" ")}</Block>)}</Track>
             <Track name="ZOOM">{p.zooms.map((z) => <Block key={z.id} left={pct(z.start)} width={pct(z.end - z.start)} cls="border border-dashed border-mint text-mint">{CAMERA_MOVES.find((m) => m[0] === (z.tipo || "punch"))?.[1]} {z.scale}%</Block>)}</Track>
-            {(p.overlays || []).length > 0 && <Track name="B-ROLL">{(p.overlays || []).map((o) => <Block key={o.id} left={pct(o.start)} width={pct(o.end - o.start)} cls="bg-sky-400/80 text-ink">{OVERLAY_MODES.find(([v]) => v === o.mode)?.[1]} · {media.find((m) => m.id === o.mediaId)?.name}</Block>)}</Track>}
+            {(p.overlays || []).length > 0 && <Track name="B-ROLL">{(p.overlays || []).map((o) => <Block key={o.id} left={pct(o.start)} width={pct(o.end - o.start)} cls="bg-sky-400/80 text-ink">{o.mode === "motion" ? "Motion" : OVERLAY_MODES.find(([v]) => v === o.mode)?.[1]} · {media.find((m) => m.id === o.mediaId)?.name}</Block>)}</Track>}
             {(p.motions || []).length > 0 && <Track name="MOTION">{(p.motions || []).map((m) => <Block key={m.id} left={pct(m.start)} width={pct(Math.min(total, motionEnd(m)) - m.start)} onClick={(e) => { e.stopPropagation(); setTab("motion"); seek(m.start + 0.01); }} cls="bg-pink-400/80 text-ink">{m.nome}</Block>)}</Track>}
             <Track name="CÂMERA">{cam.moves.map((m, i) => <Block key={i} left={pct(m.start)} width={pct(m.end - m.start)} cls={`border ${m.to >= m.from ? "border-sky-400/70 text-sky-300" : "border-orange-400/70 text-orange-300"}`}>{m.to >= m.from ? "zoom in" : "zoom out"} {Math.round(m.to * 100)}%</Block>)}{cam.hits.map((h, i) => <span key={`h${i}`} className="absolute top-2 w-2 h-2 -ml-1 rounded-full bg-sky-300 pointer-events-none" style={{ left: pct(h.t) }} />)}</Track>
             <Track name="VÍDEO">

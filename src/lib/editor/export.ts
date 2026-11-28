@@ -118,7 +118,7 @@ function insertReader(p: Project, byId: Map<string, Media>) {
     if (!vt) { r.failed = true; return r; }
     const sw = vt.displayWidth, sh = vt.displayHeight;
     const sc = Math.min(1, 1920 / Math.max(sw, sh));
-    const sink = new CanvasSink(vt, { width: Math.round(sw * sc), height: Math.round(sh * sc), fit: "fill" });
+    const sink = new CanvasSink(vt, { width: Math.round(sw * sc), height: Math.round(sh * sc), fit: "fill", alpha: ov.mode === "motion" });
     const n = Math.max(1, Math.round((ov.end - ov.start) * FPS));
     const times = Array.from({ length: n }, (_, i) => Math.min(m.duration - 0.05, ov.in + i / FPS));
     r.it = sink.canvasesAtTimestamps(times)[Symbol.asyncIterator]();
