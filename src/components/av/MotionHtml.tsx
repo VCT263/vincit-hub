@@ -10,8 +10,11 @@ import { createClient } from "@/lib/supabase/client";
 import { normalizeBrief, type Brief } from "@/lib/briefs";
 import { salvarNoDrive } from "@/lib/drive";
 import { MotionFrame, exportarHtml, infoComposicao, montarDoc, variaveisDeclaradas } from "@/lib/motion/html";
+import { eventosHtml, mixarEventos } from "@/lib/motion/som";
+import { ehEstiloSom } from "@/lib/editor/som";
+import { EstiloSomSelect } from "@/components/av/EstiloSom";
 
-export type HtmlRow = { id: string; titulo: string; spec: any; status: string; account_id?: string | null };
+export type HtmlRow = { id: string; titulo: string; spec: any; status: string; account_id?: string | null; kit_id?: string | null };
 
 export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
   row: HtmlRow;
@@ -35,18 +38,27 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
   const [ultimo, setUltimo] = useState<{ blob: Blob; nome: string } | null>(null);
   const [driveLink, setDriveLink] = useState<string | null>(null);
 
+  // estilo de som (28/11): o da peça; sem escolha, o do Kit de estilo (regras.som_estilo). "nenhum" = mudo
+  const [som, setSom] = useState<string | undefined>(spec.som);
+  useEffect(() => {
+    if (spec.som || !row.kit_id) return;
+    createClient().from("av_style_kits").select("data").eq("id", row.kit_id).maybeSingle().then(({ data }) => { const e = (data as any)?.data?.regras?.som_estilo; if (ehEstiloSom(e)) setSom((s) => s || e); });
+  }, [row.kit_id, spec.som]);
+  const somAtivo = ehEstiloSom(som) ? som : undefined;
+  const cenas = useMemo(() => (brief?.cenas || []).map((c) => ({ inicio: c.inicio })), [brief]);
+
   const vars = useMemo(() => variaveisDeclaradas(html), [html]);
   const info = useMemo(() => infoComposicao(html), [html]);
 
   async function salvar() {
-    await createClient().from("av_motions").update({ titulo, spec: { ...spec, valores }, updated_at: new Date().toISOString() }).eq("id", row.id);
+    await createClient().from("av_motions").update({ titulo, spec: { ...spec, valores, som: som || undefined }, updated_at: new Date().toISOString() }).eq("id", row.id);
     setMsg("Salvo."); onSaved?.();
   }
   async function exportar(tipo: "mp4" | "webm") {
     cancel.current.cancel = false;
     setBusy("Preparando…");
     try {
-      const blob = await exportarHtml(html, valores, { tipo, onProgress: (f) => setBusy(`Gerando o vídeo… ${Math.round(f * 100)}%`), signal: cancel.current });
+      const blob = await exportarHtml(html, valores, { tipo, som: somAtivo, cenas, onProgress: (f) => setBusy(`Gerando o vídeo… ${Math.round(f * 100)}%`), signal: cancel.current });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = `${(titulo || "motion").replace(/[^\w\-À-ú ]+/g, "").trim() || "motion"} ${info.w}x${info.h}.${tipo}`;
@@ -78,7 +90,7 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
       </div>
 
       <div className={`grid gap-5 mt-4 ${html ? "lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]" : ""}`}>
-        {html && <Previa html={html} valores={valores} w={info.w} h={info.h} duracao={info.duracao} />}
+        {html && <Previa html={html} valores={valores} w={info.w} h={info.h} duracao={info.duracao} som={somAtivo} cenas={cenas} />}
 
         <div className="min-w-0 space-y-4">
           {brief && verBrief && <BriefView brief={brief} respostas={respostas} setRespostas={setRespostas} />}
@@ -92,6 +104,14 @@ export default function MotionHtml({ row, onProduzir, onRefinar, onSaved }: {
                 <button onClick={() => onProduzir(row, [respostasTexto(), ajuste].filter(Boolean).join("\n"))} className="btn btn-mint btn-sm"><I.spark className="w-4 h-4" />Aprovar e produzir</button>
                 <button disabled={!ajuste.trim()} onClick={() => onRefinar(row, [respostasTexto(), ajuste].filter(Boolean).join("\n"))} className="btn btn-ghost btn-sm">Refazer o brief com o ajuste</button>
               </div>
+            </div>
+          )}
+
+          {html && (
+            <div className="max-w-sm">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-2">Efeitos sonoros</p>
+              <EstiloSomSelect compacto value={somAtivo} onChange={(v) => setSom(v || "nenhum")} />
+              <p className="text-[11px] text-fog mt-1">Tocam na prévia e saem no MP4 e no WebM. Salve para guardar a escolha.</p>
             </div>
           )}
 
@@ -177,7 +197,7 @@ export function CapaMotion({ html, valores, className = "" }: { html: string; va
   );
 }
 
-export function Previa({ html, valores, w, h, duracao, className = "" }: { html: string; valores: Record<string, any>; w: number; h: number; duracao: number; className?: string }) {
+export function Previa({ html, valores, w, h, duracao, className = "", som, cenas }: { html: string; valores: Record<string, any>; w: number; h: number; duracao: number; className?: string; som?: string; cenas?: { inicio: number }[] }) {
   const box = useRef<HTMLDivElement>(null);
   const ifr = useRef<HTMLIFrameElement>(null);
   const frame = useRef<MotionFrame | null>(null);
@@ -187,6 +207,35 @@ export function Previa({ html, valores, w, h, duracao, className = "" }: { html:
   const [erro, setErro] = useState<string | null>(null);
   const [grade, setGrade] = useState(false);
   const doc = useMemo(() => montarDoc(html, valores), [html, valores]);
+  // som da prévia: a trilha de efeitos é montada uma vez e toca junto, a partir do segundo em que a peça está
+  const [tweens, setTweens] = useState<[number, number][] | null>(null);
+  const [mudo, setMudo] = useState(false);
+  const trilha = useRef<AudioBuffer | null>(null);
+  const actx = useRef<AudioContext | null>(null);
+  const fonte = useRef<AudioBufferSourceNode | null>(null);
+  const cenasKey = JSON.stringify(cenas || []);
+  const pararSom = () => { try { fonte.current?.stop(); } catch {} fonte.current = null; };
+  const tocarSom = (de: number) => {
+    pararSom();
+    if (mudo || !trilha.current) return;
+    if (!actx.current) actx.current = new AudioContext();
+    const a = actx.current; a.resume().catch(() => {});
+    const s = a.createBufferSource(); s.buffer = trilha.current; s.connect(a.destination);
+    s.start(0, Math.max(0, Math.min(de, trilha.current.duration - 0.01)));
+    fonte.current = s;
+  };
+  useEffect(() => {
+    trilha.current = null; pararSom();
+    if (!som || !tweens) return;
+    let vivo = true;
+    mixarEventos(som, eventosHtml(tweens, JSON.parse(cenasKey), duracao), duracao).then((b) => {
+      if (!vivo) return; trilha.current = b;
+      if (tocando && frame.current) frame.current.time().then((r) => { if (vivo && r.playing) tocarSom(r.t); }).catch(() => {});
+    }).catch(() => {});
+    return () => { vivo = false; };
+  }, [som, tweens, cenasKey, duracao]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (mudo) pararSom(); else if (tocando) tocarSom(t); }, [mudo]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { pararSom(); actx.current?.close().catch(() => {}); }, []);
 
   useEffect(() => {
     const el = box.current; if (!el) return;
@@ -201,23 +250,23 @@ export function Previa({ html, valores, w, h, duracao, className = "" }: { html:
     const id = setTimeout(async () => {
       setErro(null);
       await f.load(doc);
-      try { await f.info(); if (!vivo) return; await f.seek(Math.min(t, duracao)); await f.play(); setTocando(true); }
+      try { await f.info(); if (!vivo) return; setTweens(await f.eventos()); await f.seek(Math.min(t, duracao)); await f.play(); setTocando(true); tocarSom(Math.min(t, duracao)); }
       catch (e: any) { if (vivo) setErro(e.message); }
     }, 250);
-    return () => { vivo = false; clearTimeout(id); f.destroy(); };
+    return () => { vivo = false; clearTimeout(id); f.destroy(); pararSom(); };
   }, [doc]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!tocando) return;
-    const iv = setInterval(async () => { try { const r = await frame.current?.time(); if (r) { setT(r.t); if (!r.playing && r.t >= duracao - 0.05) { await frame.current?.seek(0); await frame.current?.play(); } } } catch {} }, 150);
+    const iv = setInterval(async () => { try { const r = await frame.current?.time(); if (r) { setT(r.t); if (!r.playing && r.t >= duracao - 0.05) { await frame.current?.seek(0); await frame.current?.play(); tocarSom(0); } } } catch {} }, 150);
     return () => clearInterval(iv);
   }, [tocando, duracao]);
 
   async function alternar() {
     if (!frame.current) return;
-    if (tocando) { await frame.current.pause(); setTocando(false); }
-    else { await frame.current.play(); setTocando(true); }
+    if (tocando) { await frame.current.pause(); setTocando(false); pararSom(); }
+    else { await frame.current.play(); setTocando(true); tocarSom(t >= duracao - 0.05 ? 0 : t); }
   }
-  async function ir(v: number) { setT(v); if (tocando) { await frame.current?.pause(); setTocando(false); } await frame.current?.seek(v); }
+  async function ir(v: number) { setT(v); pararSom(); if (tocando) { await frame.current?.pause(); setTocando(false); } await frame.current?.seek(v); }
 
   return (
     <div className={className}>
@@ -230,6 +279,7 @@ export function Previa({ html, valores, w, h, duracao, className = "" }: { html:
         <button onClick={alternar} className="chip" aria-label={tocando ? "Pausar" : "Tocar"}>{tocando ? "Pausar" : "Tocar"}</button>
         <input type="range" min={0} max={duracao || 1} step={0.01} value={t} onChange={(e) => ir(+e.target.value)} className="flex-1 accent-[var(--color-mint)]" aria-label="Tempo" />
         <span className="font-mono text-[11px] text-fog w-12 text-right">{t.toFixed(1)} s</span>
+        {som && <button onClick={() => setMudo((m) => !m)} className={`chip ${mudo ? "" : "chip-mint"}`} title="Efeitos sonoros do estilo de som">{mudo ? "Som desligado" : "Som"}</button>}
         <button onClick={() => setGrade((g) => !g)} className={`chip ${grade ? "chip-mint" : ""}`} title="Margem de 35 px e as faixas que o app do Instagram cobre">Área segura</button>
       </div>
     </div>

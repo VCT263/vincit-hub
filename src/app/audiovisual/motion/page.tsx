@@ -55,6 +55,9 @@ function Motion() {
   const [conta, setConta] = useState(() => q.get("perfil") || "");
   const [msg, setMsg] = useState<string | null>(null);
   const [falhas, setFalhas] = useState<Record<string, string>>({});
+  // abas no topo (28/11): Meus motions (a lista) e Criar motion (pedido ao Claude, modelos e estilos)
+  const [aba, setAba] = useState<"meus" | "criar">(() => { if (q.get("c")) return "criar"; try { return localStorage.getItem("motion-aba") === "criar" ? "criar" : "meus"; } catch { return "meus"; } });
+  const trocarAba = (k: "meus" | "criar") => { setAba(k); try { localStorage.setItem("motion-aba", k); } catch {} };
   // seleção de vários motions para mandar à lixeira de uma vez (28/11)
   const [selecao, setSelecao] = useState<Set<string> | null>(null);
   const marcar = (id: string) => setSelecao((s) => { const n = new Set(s || []); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -136,7 +139,7 @@ function Motion() {
   }, [rows, reenviar]);
 
   function abrir(r: Row) {
-    if (ehHtml(r)) { setOpen(null); setOpenHtml({ id: r.id, titulo: r.titulo, spec: r.spec, status: r.status, account_id: r.account_id }); setKey((k) => k + 1); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (ehHtml(r)) { setOpen(null); setOpenHtml({ id: r.id, titulo: r.titulo, spec: r.spec, status: r.status, account_id: r.account_id, kit_id: r.kit_id }); setKey((k) => k + 1); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     setOpenHtml(null);
     setOpen({ id: r.id, titulo: r.titulo, spec: normalizeSpec(r.spec), kit_id: r.kit_id, brand_id: r.brand_id, account_id: r.account_id });
     setKey((k) => k + 1);
@@ -168,7 +171,7 @@ function Motion() {
     const spec = { motor: "html", etapa: "brief", formato, pendente: { etapa: "brief" } };
     const { data, error } = await s.from("av_motions").insert({ titulo: "Pedido: " + texto.slice(0, 50), formato, spec, status: "pedido", pedido: texto, origem: "pedido", pasta: pastaAtual, ec_action_id: campanhaAtual, account_id: conta || null, kit_id: kit?.id || null }).select("id").single();
     if (error) { setMsg(error.message); return; }
-    setPedido(""); load();
+    setPedido(""); load(); trocarAba("meus");
     await etapa(data.id, { task: "motion_brief", etapa: "brief", motion_id: data.id, pedido: texto, formato, account_id: conta || null }, "Pedido enviado. Primeiro o Claude refina o pedido num brief para você aprovar.");
   }
   async function refinar(r: HtmlRow, ajuste: string) {
@@ -215,6 +218,7 @@ function Motion() {
     const m = [...MODELOS_HTML, ...ESTILOS_TEXTO].find((x) => x.id === id); if (!m) return;
     const { data, error } = await createClient().from("av_motions").insert({ titulo: `${m.nome} · ${m.marca}`, formato: "9:16", spec: { motor: "html", etapa: "pronto", html: m.html, valores: {}, modelo: m.id }, status: "pronto", origem: "hub", pasta: pastaAtual, ec_action_id: campanhaAtual }).select("id").single();
     if (error) { setMsg(error.message); return; }
+    trocarAba("meus");
     const list = await load();
     const r = list.find((x) => x.id === data.id);
     if (r) abrir(r);
@@ -253,6 +257,11 @@ function Motion() {
         </div>
         <button onClick={novo} className="btn btn-mint"><I.plus className="w-4 h-4" />Novo motion</button>
       </div>
+      <div className="flex gap-1 mb-4 border-b border-line" role="tablist">
+        {([["meus", `Meus motions${rows ? ` (${rows.length})` : ""}`], ["criar", "Criar motion"]] as const).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={aba === k} onClick={() => trocarAba(k)} className={`px-4 py-2 -mb-px text-sm font-semibold border-b-2 ${aba === k ? "border-mint text-mint" : "border-transparent text-fog hover:text-white"}`}>{l}</button>
+        ))}
+      </div>
       {msg && <p className="text-sm text-mint mb-3">{msg}</p>}
 
       {openHtml && (
@@ -266,6 +275,7 @@ function Motion() {
         </div>
       )}
 
+      {aba === "criar" && <>
       <section className="card p-5 mb-4">
         <p className="font-display text-lg font-extrabold">Pedir motion ao Claude</p>
         <p className="text-sm text-fog mt-1">Descreva a peça do seu jeito: para quê, o que aparece, o texto e o clima. O Claude primeiro refina o pedido num brief (ideia, visual da marca, movimento e cena a cena) para você aprovar; depois escreve a peça.</p>
@@ -308,7 +318,9 @@ function Motion() {
           ))}
         </div>
       </section>
+      </>}
 
+      {aba === "meus" && <>
       <section className="card p-5">
         <p className="font-mono text-[10px] uppercase tracking-widest text-fog mb-3">Meus motions</p>
         {rows === null && <p className="text-sm text-fog">Carregando…</p>}
@@ -395,6 +407,7 @@ function Motion() {
           );
         })}
       </section>
+      </>}
     </>
   );
 }
