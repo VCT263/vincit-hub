@@ -91,7 +91,7 @@ export default function TeleprompterPage() {
           </div>
           <div className="relative mb-3">
             <I.search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fog" />
-            <input className="input pl-9" placeholder="Buscar roteiro ou cliente" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="input !pl-9" placeholder="Buscar roteiro ou cliente" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           {!items && <p className="text-sm text-fog py-6 text-center">Carregando…</p>}
           {items && !list.length && (

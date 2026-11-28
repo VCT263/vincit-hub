@@ -66,7 +66,9 @@ export default function PostScheduler() {
 
   function openNew(date?: string, idea?: any) {
     setErr(null);
-    const acc = accounts.find((a) => a.id === idea?.account_id) || accounts.find((a) => a.connected) || accounts[0];
+    // o card pode estar num perfil cadastrado à mão (sem Instagram ligado); nesse caso usa o mesmo @ que está conectado
+    const doCard = accounts.find((a) => a.id === idea?.account_id);
+    const acc = (doCard && !doCard.connected && accounts.find((a) => a.connected && a.username === doCard.username)) || doCard || accounts.find((a) => a.connected) || accounts[0];
     const d = date || (idea?.planned_for && idea.planned_for.slice(0, 10) >= today ? idea.planned_for.slice(0, 10) : today);
     const peak = peakHour(grids[acc?.id || ""], d);
     setF({ account_id: acc?.id || "", kind: idea ? kindOf(idea.format) : "image", media_urls: [], caption: idea ? captionOf(idea) : "", idea_id: idea?.id || "", date: d, time: peak != null ? `${pad(peak)}:00` : "18:00", cover_url: "" });
@@ -104,6 +106,8 @@ export default function PostScheduler() {
   async function save(status: "rascunho" | "agendado" | "agora") {
     setErr(null);
     if (!f.account_id) return setErr("Escolha o perfil.");
+    const conta = accounts.find((a) => a.id === f.account_id);
+    if (status !== "rascunho" && conta && !conta.connected) return setErr(`@${conta.username} não está com o Instagram conectado neste perfil. Escolha o perfil conectado ou salve como rascunho.`);
     if (!f.media_urls.length) return setErr("Adicione a mídia.");
     if (f.kind === "carousel" && f.media_urls.length < 2) return setErr("Carrossel precisa de pelo menos 2 itens.");
     if (f.kind === "image" && isVideo(f.media_urls[0])) return setErr("Para vídeo, use Reels.");

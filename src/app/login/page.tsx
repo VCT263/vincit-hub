@@ -18,7 +18,7 @@ function PasswordInput({ value, onChange, placeholder, autoComplete, min = SENHA
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
-      <input className="input pr-11" type={show ? "text" : "password"} required minLength={min} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete={autoComplete} />
+      <input className="input !pr-11" type={show ? "text" : "password"} required minLength={min} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete={autoComplete} />
       <button type="button" onClick={() => setShow(!show)} className="absolute right-0 top-0 h-full px-3.5 text-fog hover:text-paper" aria-label={show ? "Ocultar senha" : "Mostrar senha"} title={show ? "Ocultar senha" : "Mostrar senha"}><Eye open={!show} /></button>
     </div>
   );

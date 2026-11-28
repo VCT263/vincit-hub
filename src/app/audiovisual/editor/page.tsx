@@ -40,7 +40,7 @@ export default function Editor() {
   const [busy, setBusy] = useState<Busy>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; size: number } | null>(null);
-  const [drive, setDrive] = useState<{ busy?: boolean; ok?: boolean; link?: string; caminho?: string; error?: string; needsScope?: boolean } | null>(null);
+  const [drive, setDrive] = useState<{ busy?: boolean; ok?: boolean; card?: boolean; link?: string; caminho?: string; error?: string; needsScope?: boolean } | null>(null);
   const [preset, setPreset] = useState("");
   const [addAs, setAddAs] = useState<"fala" | "broll">("fala");
   const [ask, setAsk] = useState("");
@@ -74,7 +74,12 @@ export default function Editor() {
   useEffect(() => {
     const s = createClient();
     s.from("av_style_kits").select("id,name,data").order("updated_at", { ascending: false }).then(({ data }) => setKits((data as any) || []));
-    s.from("content_ideas").select("id,title,hook,format,body,account_id").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => setContents(data || []));
+    s.from("content_ideas").select("id,title,hook,format,body,account_id,final_url").is("archived_at", null).order("updated_at", { ascending: false }).limit(80).then(({ data }) => {
+      setContents(data || []);
+      // veio do card do Quadro (?c=): o conteúdo já entra escolhido
+      const c = new URLSearchParams(window.location.search).get("c");
+      if (c && (data || []).some((x: any) => x.id === c)) setContentId(c);
+    });
     if (document.fonts) FONTS_LOAD.forEach((f) => document.fonts.load(f).catch(() => {}));
     loadMotions().then((list) => {
       const id = new URLSearchParams(window.location.search).get("motion");
@@ -98,6 +103,12 @@ export default function Editor() {
     const blob = await fetch(result.url).then((r) => r.blob());
     const r = await salvarNoDrive({ kind: "interno", nome, blob, accountId: c?.account_id || null });
     setDrive(r.ok ? { ok: true, caminho: r.caminho, link: r.link } : { error: r.error, needsScope: r.needsScope });
+    // o link do Drive vira a "versão final" do card (sem apagar um link que a pessoa já colou)
+    if (r.ok && r.link && c && !c.final_url) {
+      await createClient().from("content_ideas").update({ final_url: r.link }).eq("id", c.id);
+      setContents((l) => l.map((x) => (x.id === c.id ? { ...x, final_url: r.link } : x)));
+      setDrive((d) => ({ ...d, card: true }));
+    }
   }
 
   /* ---------- importar arquivos ---------- */
@@ -764,7 +775,7 @@ export default function Editor() {
               <p className="font-semibold">Vídeo pronto · {(result.size / 1048576).toFixed(1)} MB</p>
               <a href={result.url} download={`${(contents.find((c) => c.id === contentId)?.title || "video").replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 60)}.mp4`} className="mt-2 inline-flex px-3 py-1.5 rounded-lg bg-mint text-ink font-semibold">Baixar MP4</a>
               <button disabled={drive?.busy || drive?.ok} onClick={salvarDrive} className="mt-2 ml-2 inline-flex px-3 py-1.5 rounded-lg border border-mint-dim text-mint font-semibold disabled:opacity-50">{drive?.busy ? "Salvando…" : drive?.ok ? "No Drive" : "Salvar no Drive"}</button>
-              {drive?.ok && <p className="mt-2 text-xs text-fog">Salvo em {drive.caminho}{drive.link && <> · <a href={drive.link} target="_blank" rel="noreferrer" className="text-mint">abrir</a></>}</p>}
+              {drive?.ok && <p className="mt-2 text-xs text-fog">Salvo em {drive.caminho}{drive.card ? " e ligado ao card do Quadro" : ""}{drive.link && <> · <a href={drive.link} target="_blank" rel="noreferrer" className="text-mint">abrir</a></>}</p>}
               {drive?.error && <p className="mt-2 text-xs text-amber-300">{drive.error}{drive.needsScope && <> Libere em <Link href="/audiovisual/midia" className="text-mint">Banco de mídia</Link>, "Liberar organização do Drive".</>}</p>}
             </div>
           )}

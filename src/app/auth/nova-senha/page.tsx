@@ -70,7 +70,7 @@ export default function NovaSenha() {
               {email && <p className="text-xs text-fog mt-1 truncate">{email}</p>}
             </div>
             <div className="relative">
-              <input className="input pr-16" type={show ? "text" : "password"} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" minLength={SENHA_MIN} required autoFocus />
+              <input className="input !pr-16" type={show ? "text" : "password"} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Nova senha" autoComplete="new-password" minLength={SENHA_MIN} required autoFocus />
               <button type="button" onClick={() => setShow(!show)} className="absolute right-0 top-0 h-full px-3.5 text-fog hover:text-paper text-xs">{show ? "Ocultar" : "Mostrar"}</button>
             </div>
             <input className="input" type={show ? "text" : "password"} value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Repita a nova senha" autoComplete="new-password" required />
