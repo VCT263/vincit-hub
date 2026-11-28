@@ -7,6 +7,7 @@
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, WebMOutputFormat, canEncodeVideo } from "mediabunny";
 import type { Brief } from "@/lib/briefs";
 import { briefEmTexto } from "@/lib/briefs";
+import { ESTILOS_TEXTO } from "./estilos-texto";
 
 export const HF_VERSION = "0.9.104";
 const CDN = {
@@ -15,7 +16,7 @@ const CDN = {
   foto: "https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js",
 };
 
-export type Variavel = { id: string; type: string; label: string; default: any };
+export type Variavel = { id: string; type: string; label: string; default: any; options?: string[] };
 
 /** variáveis declaradas no <html data-composition-variables> (o que a tela deixa trocar: texto, cor) */
 export function variaveisDeclaradas(html: string): Variavel[] {
@@ -181,15 +182,23 @@ export async function exportarHtml(html: string, valores: Record<string, any>, o
 }
 
 /** Prompt de produção: o Claude escreve a composição HyperFrames a partir do brief aprovado. */
+/** quando o brief pede estilos do catálogo, explica cada um para a peça seguir o mesmo movimento */
+function estilosDoBrief(b: Brief) {
+  const nomes = Array.from(new Set(b.cenas.map((c) => c.estilo).filter(Boolean))) as string[];
+  const usados = ESTILOS_TEXTO.filter((e) => nomes.some((n) => n.toLowerCase() === e.nome.toLowerCase()));
+  if (!usados.length) return "";
+  return `\nEstilos de texto do catálogo do HUB que o brief pede (siga o mesmo movimento, nas cores do brief):\n${usados.map((e) => `- ${e.nome}: ${e.desc}`).join("\n")}\n`;
+}
+
 export function promptProduzirHtml(o: { brief: Brief; contexto?: string; ajuste?: string; htmlAnterior?: string }) {
   const b = o.brief;
   return `${o.contexto || ""}
 Você é motion designer sênior. Escreva a composição HyperFrames (HTML + CSS + GSAP) que realiza exatamente este brief aprovado:
 
 ${briefEmTexto(b)}
-${o.htmlAnterior ? `\nVersão anterior da composição (mude só o que o ajuste pede e mantenha o resto):\n${o.htmlAnterior.slice(0, 60000)}\n` : ""}${o.ajuste ? `\nAjuste pedido: """${o.ajuste.slice(0, 1500)}"""\n` : ""}
+${estilosDoBrief(b)}${o.htmlAnterior ? `\nVersão anterior da composição (mude só o que o ajuste pede e mantenha o resto):\n${o.htmlAnterior.slice(0, 60000)}\n` : ""}${o.ajuste ? `\nAjuste pedido: """${o.ajuste.slice(0, 1500)}"""\n` : ""}
 Contrato técnico (sem isso a peça não roda nem exporta):
-- Um arquivo HTML completo. <html lang="pt-BR" data-composition-variables='[...]'> declara as variáveis trocáveis (todo texto da tela e as cores principais): {"id","type":"string|color","label" em português,"default"}.
+- Um arquivo HTML completo. <html lang="pt-BR" data-composition-variables='[...]'> declara as variáveis trocáveis (todo texto da tela e as cores principais): {"id","type":"string|color|select","label" em português,"default"} (select leva "options").
 - No script, leia os valores com window.__hyperframes.getVariables() e aplique (textContent e variáveis CSS).
 - Raiz: <div id="root" data-composition-id="main" data-start="0" data-duration="${b.formato.duracao}" data-width="${b.formato.largura}" data-height="${b.formato.altura}">. html, body e #root com ${b.formato.largura}x${b.formato.altura} px e overflow hidden.
 - Cada bloco que aparece num trecho é um filho com class="clip", data-start e data-duration (em segundos). Fundo ${b.formato.fundo === "transparente" ? "transparente: não pinte html, body nem #root" : "pintado no #root"}.
