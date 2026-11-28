@@ -5,6 +5,8 @@ import { ESTILOS, estiloByNum, estiloTags } from "@/lib/editor/styles";
 import { igTokenForOwner } from "@/lib/tokens";
 import { contaInsights } from "@/lib/igInsights";
 import { porMes } from "@/lib/igHistorico";
+import { NOVIDADES, VERSAO_IA, novidadesDesde } from "@/lib/novidades";
+import { briefingProgress } from "@/lib/briefing";
 import { TEMAS, REGRAS_CONDUCAO, contextoPerfil, esquemaBriefing, limparProposta, type Turno } from "@/lib/entrevista";
 
 /**
@@ -51,6 +53,45 @@ const date = { type: "string", description: "Data no formato AAAA-MM-DD" };
 const accountId = { type: "string", description: "id do perfil (de listar_perfis). Opcional." };
 
 export const TOOLS: Tool[] = [
+  {
+    name: "comecar_no_hub",
+    title: "Começar no HUB",
+    description: "Chame uma vez no começo da conversa. Traz a conta do HUB, os perfis (briefing pronto em %, se há manual da marca), as pendências (pedidos de IA na fila, entrevistas em andamento) e as novidades de IA desde a última visita desta pessoa, e marca as novidades como vistas.",
+    inputSchema: { type: "object", properties: {} },
+    run: async (ctx) => {
+      const [{ data: perfis }, { data: marcas }, { count: pedidos }, { data: ents }, { data: visto }] = await Promise.all([
+        ctx.sb.from("ig_accounts").select("id, username, name, niche, briefing, connected").order("created_at"),
+        ctx.sb.from("design_projects").select("data").eq("kind", "marca").is("archived_at", null).not("data->>perfil_id", "is", null),
+        ctx.sb.from("ai_requests").select("id", { count: "exact", head: true }).in("status", ["pending", "running"]),
+        ctx.sb.from("brand_interviews").select("id, account_id, status, updated_at").in("status", ["andamento", "concluida"]).order("updated_at", { ascending: false }).limit(10),
+        ctx.sb.from("hub_ai_seen").select("versao").eq("user_id", ctx.userId).maybeSingle(),
+      ]);
+      const comManual = new Set((marcas || []).map((m: any) => m.data?.perfil_id));
+      const nomes = new Map((perfis || []).map((p: any) => [p.id, p.username]));
+      const novas = novidadesDesde(visto?.versao);
+      if (visto?.versao !== VERSAO_IA) await ctx.sb.from("hub_ai_seen").upsert({ user_id: ctx.userId, versao: VERSAO_IA, visto_em: new Date().toISOString() });
+      return {
+        conta: { email: ctx.email, nome: ctx.access.name || null, plano: ctx.access.plan || null, status: ctx.access.status },
+        perfis: (perfis || []).map((p: any) => ({ id: p.id, perfil: `@${p.username}`, nicho: p.niche || null, briefing_pronto_pct: briefingProgress(p.briefing), manual_da_marca: comManual.has(p.id), instagram_conectado: !!p.connected })),
+        pendencias: {
+          pedidos_de_ia_na_fila: pedidos || 0,
+          entrevistas: (ents || []).map((e: any) => ({ id: e.id, perfil: `@${nomes.get(e.account_id) || "?"}`, status: e.status === "concluida" ? "briefing proposto, falta aprovar no HUB" : "em andamento" })),
+        },
+        versao_ia: VERSAO_IA,
+        novidades: novas,
+        dica: novas.length ? "Conte as novidades em 2 ou 3 linhas antes de seguir." : "Sem novidades desde a última visita.",
+        prompts_prontos: ["Começar no HUB", "Pacote da semana", "Análise do perfil", "Responder pedidos de IA", "Entrevista de marca"],
+      };
+    },
+  },
+  {
+    name: "novidades",
+    title: "Novidades de IA do HUB",
+    description: "Lista as novidades de IA do VINCIT HUB (o que mudou nas ferramentas, prompts e regras), da mais nova para a mais antiga.",
+    inputSchema: { type: "object", properties: {} },
+    readOnly: true,
+    run: async () => ({ versao_ia: VERSAO_IA, novidades: NOVIDADES }),
+  },
   {
     name: "quem_sou_eu",
     title: "Minha conta no HUB",
