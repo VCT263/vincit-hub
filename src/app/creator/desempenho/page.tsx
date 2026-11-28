@@ -17,7 +17,7 @@ export default async function Desempenho() {
         <div className="card p-10 text-center">
           <p className="font-display text-xl font-bold">Nenhum perfil cadastrado</p>
           <p className="text-fog text-sm mt-2">Comece pela base: conecte ou cadastre um perfil.</p>
-          <Link href="/creator/perfis" className="btn btn-mint mt-5 inline-flex">Ir para Perfis & marca <I.arrow className="w-4 h-4" /></Link>
+          <Link href="/creator/perfis" className="btn btn-mint mt-5 inline-flex">Ir para Perfis e marcas <I.arrow className="w-4 h-4" /></Link>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
