@@ -48,8 +48,8 @@ export default function Perfil() {
   const [hist, setHist] = useState<any[]>([]);
   const [rankBy, setRankBy] = useState<"formato" | "pilar">("formato");
   const ai = useAI();
-  // ficha do perfil em abas, na ordem do fluxo (28/11). ?aba=resultado abre direto no desempenho
-  const [aba, setAbaS] = useState<Aba>("plano");
+  // ficha do perfil em abas, Resultado primeiro (28/11). ?aba= abre direto numa aba
+  const [aba, setAbaS] = useState<Aba>("resultado");
   useEffect(() => { const a = new URLSearchParams(location.search).get("aba"); if (ABAS.some(([k]) => k === a)) setAbaS(a as Aba); }, []);
   const setAba = (a: Aba) => { setAbaS(a); const u = new URL(location.href); u.searchParams.set("aba", a); history.replaceState(null, "", u); };
 

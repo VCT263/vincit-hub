@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { briefingProgress } from "@/lib/briefing";
 import { kitComMarca } from "@/lib/kitMarca";
 import { I } from "@/components/icons";
+import ResumoMarca from "@/components/creator/ResumoMarca";
 
 /**
  * Ficha do perfil (28/11, aprovado pelo Vinícius): Perfis & marca é o centro de cada perfil.
@@ -12,7 +13,8 @@ import { I } from "@/components/icons";
  * o que já existe em outras telas. Nada é copiado: o atalho abre o lugar onde a coisa é editada.
  */
 export type Aba = "plano" | "marca" | "conteudo" | "gravar" | "resultado";
-export const ABAS: [Aba, string][] = [["plano", "Plano"], ["marca", "Marca"], ["conteudo", "Conteúdo"], ["gravar", "Gravar e editar"], ["resultado", "Resultado"]];
+// Resultado vem primeiro (28/11, pedido do Vinícius): é o painel que o cliente abre para ver o perfil
+export const ABAS: [Aba, string][] = [["resultado", "Resultado"], ["plano", "Plano"], ["marca", "Marca"], ["conteudo", "Conteúdo"], ["gravar", "Gravar e editar"]];
 
 type Dados = {
   diag: any | null; entrevista: any | null; loja: any | null; acoes: any[];
@@ -104,7 +106,7 @@ export default function FichaPerfil({ aba, acc, marcaEVoz, cadastro }: { aba: Ex
 
   if (aba === "plano") return (
     <>
-      <Bloco titulo="1 · Plano">
+      <Bloco titulo="Plano">
         <Linha href={`/creator/perfis?tab=briefing&perfil=${id}`} titulo="Briefing" sub="Negócio, público, manifesto e direção" fim={`${bp}%`}>
           <div className="h-1 bg-panel2 rounded-full overflow-hidden mt-2"><div className="h-full bg-mint" style={{ width: `${bp}%` }} /></div>
         </Linha>
@@ -125,7 +127,8 @@ export default function FichaPerfil({ aba, acc, marcaEVoz, cadastro }: { aba: Ex
 
   if (aba === "marca") return (
     <>
-      <Bloco titulo="2 · Marca">
+      {d.marca && <ResumoMarca d={d.marca.data || {}} nome={d.marca.title} />}
+      <Bloco titulo="Manual">
         {d.marca ? (
           <Linha href={`/design/marcas/${d.marca.id}?etapa=manual`} titulo={`Manual de marca · ${d.marca.title}`} sub={[d.marca.data?.type?.title, d.marca.data?.type?.body].filter(Boolean).join(" + ") || "Design"}>
             <div className="flex gap-1 mt-1.5">{pal.slice(0, 6).map((p, i) => <span key={i} className="w-5 h-5 rounded-md border border-line" style={{ background: p.hex }} title={p.name || p.role} />)}</div>
@@ -141,7 +144,7 @@ export default function FichaPerfil({ aba, acc, marcaEVoz, cadastro }: { aba: Ex
 
   if (aba === "conteudo") return (
     <>
-      <Bloco titulo="3 · Conteúdo">
+      <Bloco titulo="Conteúdo">
         <Linha href={`/creator/producao?perfil=${id}`} titulo="Quadro de produção" sub={`${d.cards.ativos} em produção · ${d.cards.publicados} publicados`} />
         <Linha href={`/creator/pauta?perfil=${id}`} titulo="Calendário" sub={d.cards.proximos.length ? d.cards.proximos.map((c) => `${dia(c.planned_for)} ${c.title}`).join(" · ") : "Nada marcado daqui para frente"} />
         <Linha href="/creator/referencias?tab=posts" titulo="Estilos de referência" sub={d.estilos.length ? d.estilos.map((e) => e.name).join(", ") : "Nenhum deste perfil ainda"} fim={d.estilos.length ? String(d.estilos.length) : undefined} />
@@ -153,7 +156,7 @@ export default function FichaPerfil({ aba, acc, marcaEVoz, cadastro }: { aba: Ex
 
   return (
     <>
-      <Bloco titulo="4 · Gravar e editar">
+      <Bloco titulo="Gravar e editar">
         {d.kit ? (
           <Linha href={`/audiovisual/kit?kit=${d.kit.id}`} titulo={`Kit de estilo · ${d.kit.name}`} sub={d.kit.marca ? `Cores e fonte da marca ${d.kit.marca.title}, ao vivo` : "Cores próprias do kit"}>{cores(d.kit.data?.cores)}</Linha>
         ) : (
