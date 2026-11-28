@@ -38,8 +38,10 @@ export default function TopBar() {
   );
   /* celular: barra fixa embaixo só com ícones, como aplicativo (nome em aria-label e no title) */
   const bottom = (
-    <nav aria-label="Áreas do HUB" className="bottom-nav md:hidden print:hidden fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ink/95 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex items-stretch justify-around px-2 h-14">
+    <nav aria-label="Áreas do HUB" className="bottom-nav md:hidden print:hidden fixed z-40 rounded-2xl border border-line bg-panel shadow-[0_8px_30px_rgba(0,0,0,.45)]"
+      // solta das bordas: os cantos arredondados do iPhone e a barra de gestos não cortam os ícones
+      style={{ left: "max(14px, env(safe-area-inset-left))", right: "max(14px, env(safe-area-inset-right))", bottom: "max(12px, calc(env(safe-area-inset-bottom) + 6px))" }}>
+      <div className="flex items-stretch justify-around px-1.5 h-14">
         {visible.map(({ href, label, Icon }) => {
           const on = isActive(href);
           return (
