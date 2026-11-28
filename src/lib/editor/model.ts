@@ -65,7 +65,7 @@ export type MotionClip = { id: string; start: number; spec: MotionSpec; nome: st
 export const motionEnd = (m: MotionClip) => m.start + motionDuration(m.spec);
 export const activeMotions = (p: Project, t: number) => (p.motions || []).filter((m) => t >= m.start && t < motionEnd(m));
 /** B-roll por cima da fala: o vídeo/imagem cobre a tela (cheia) ou entra num cartão do lado; o som continua o da fala */
-export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade" | "pagina";
+export type OverlayMode = "cheia" | "esquerda" | "direita" | "polaroid" | "circulo" | "metade" | "pagina" | "motion";
 export const OVERLAY_MODES: [OverlayMode, string][] = [["cheia", "Tela cheia"], ["esquerda", "Cartão à esquerda"], ["direita", "Cartão à direita"], ["polaroid", "Polaroid inclinada"], ["circulo", "Círculo"], ["metade", "Metade de cima"], ["pagina", "Página branca (foto em cartão, fundo claro)"]];
 export type Overlay = { id: string; mediaId: string; start: number; end: number; in: number; mode: OverlayMode };
 
@@ -1048,6 +1048,13 @@ export function drawInsert(ctx: Ctx, ov: Overlay, src: CanvasImageSource, sw: nu
   if (!sw || !sh) return;
   const k = Math.min(1, (t - ov.start) / 0.25, (ov.end - t) / 0.25);
   ctx.save();
+  if (ov.mode === "motion") {
+    // motion HyperFrames (WebM transparente): a peça inteira por cima, sem zoom nem fade (a animação já tem entrada e saída)
+    const s = Math.max(W / sw, H / sh);
+    ctx.drawImage(src, (W - sw * s) / 2, (H - sh * s) / 2, sw * s, sh * s);
+    ctx.restore();
+    return;
+  }
   if (ov.mode === "pagina") {
     // página branca: fundo claro cobre a fala e a foto entra num cartão arredondado, levemente girado
     const wide = isWide(), e = Math.max(0, Math.min(1, k));
