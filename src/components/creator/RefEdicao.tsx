@@ -196,10 +196,10 @@ export function RefEdicaoArea({ refs, onChange, onOpen }: { refs: any[]; onChang
     if (!estiloId && linhas?.[0]) onOpen(linhas[0].id);
     setMsg(`${novos.length} ${novos.length === 1 ? "vídeo" : "vídeos"} na fila do Claude. Ele baixa cada um no seu Mac e quebra plano a plano.${estiloId ? " Quando terminar, a folha do estilo é refeita sozinha." : ""}`);
     let feitos = 0;
-    const res = await Promise.all((linhas || []).map((l: any) => pedir(l.id).then((x) => { feitos++; setMsg(`${feitos} de ${novos.length} desmontados.`); onChange(); return x; })));
+    const res = await Promise.all((linhas || []).map((l: any) => pedir(l.id).then((x) => { if (x.ok) feitos++; setMsg(`${feitos} de ${novos.length} desmontados.`); onChange(); return x; })));
     const erros = res.filter((x) => !x.ok).length;
     if (estiloId && res.some((x) => x.ok)) {
-      setMsg(`${feitos - erros} de ${novos.length} desmontados. Agora o Claude refaz a folha do estilo com todos os vídeos dele.`);
+      setMsg(`${feitos} de ${novos.length} desmontados${erros ? ` (${erros} sem conseguir ver o vídeo)` : ""}. Agora o Claude refaz a folha do estilo com todos os vídeos dele.`);
       const f = await pedirFolha(estiloId);
       setMsg(f.ok ? "Folha do estilo atualizada. Confira e aprove para virar Kit." : f.error);
     } else setMsg(erros ? `${erros} não ${erros === 1 ? "voltou" : "voltaram"}: ${(res.find((x) => !x.ok) as any)?.error}` : "Análise pronta. Abra o card na Biblioteca.");
@@ -246,7 +246,7 @@ function EstiloCard({ est, refs, soltas, aberto, onToggle, onChange, contas }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const retomou = useRef(false);
-  const prontas = refs.filter((r) => r.edicao);
+  const prontas = refs.filter((r) => r.edicao?.planos?.length);
   const pendentes = refs.filter((r) => !r.edicao && r.edicao_request);
   const usadas: string[] = est.folha_refs || [];
   const desatualizada = prontas.length > 0 && (prontas.length !== usadas.length || prontas.some((r) => !usadas.includes(r.id)));

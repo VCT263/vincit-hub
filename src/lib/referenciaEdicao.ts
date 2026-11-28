@@ -101,7 +101,7 @@ Como fazer (sem custo, sem API paga):
 1. Baixe o vídeo no computador: yt-dlp -o ref.mp4 "${o.url}" (o Instagram pode pedir --cookies-from-browser chrome).
 2. Quebre plano a plano com o rea-video (github.com/JuneYaooo/rea-video, Apache-2.0, só ffmpeg, modo offline sem chave): rea-video decompose ref.mp4 -o out/ref. Leia out/ref/VIDEO.md e video/timeline.md, rhythm.md, packaging.md, look.md e sound.md, e olhe os quadros-chave.
 3. Sem terminal: abra o link no Chrome e veja um quadro a cada 0,5 a 1 s (e o áudio, se der).
-4. Se não conseguir ver o vídeo de jeito nenhum, recuse o pedido dizendo o motivo. Não invente.
+4. Se você não tem terminal nem navegador (ex.: o painel do HUB no claude.ai), não responda este pedido: deixe para o Claude do Mac. Se mesmo assim não conseguir ver o vídeo, use recusar_pedido_ia com o motivo; não mande JSON vazio e não invente.
 
 Regras:
 - Números (cortes por minuto, duração dos planos, primeiro corte) só se foram medidos; senão deixe 0 e diga em como_foi_medido.
