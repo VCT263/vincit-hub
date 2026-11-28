@@ -7,6 +7,7 @@ import { BRIEFING, briefingText } from "@/lib/briefing";
 import { createClient } from "@/lib/supabase/server";
 import { brandPrompt } from "@/lib/brandPrompt";
 import { knowledgeText, TYPE_SYSTEMS } from "@/lib/brand-knowledge";
+import { promptTurno, promptBriefing, limparProposta } from "@/lib/entrevista";
 
 export const maxDuration = 300;
 
@@ -119,6 +120,21 @@ async function handle(req: Request) {
         prompt: `${ctx}\nCrie o calendário de conteúdo de ${days} dias começando em ${start} (datas no formato AAAA-MM-DD).\nFrequência desejada: ${data.frequency || "ver briefing"}\nFormatos prioritários: ${(data.formats || []).join(", ") || "ver briefing"}\nFoco do período: ${data.focus || "crescimento e autoridade"}\n${data.strategy ? `Estratégia vigente:\n${data.strategy}\n` : ""}Equilibre o mix (prova, ensino, opinião, história, oferta — no máximo 1 oferta a cada 5), use os pilares do briefing, varie as cartas de formatos criativos e considere datas sazonais do período.\nCartas disponíveis (id: nome): ${cards}\n\nResponda SOMENTE com JSON: {"logica": "2 frases sobre a lógica do período", "posts": [{"data": "AAAA-MM-DD", "formato": "Reels|Carrossel|Stories|YouTube|Foto", "pilar": "...", "tipo": "prova|ensino|opiniao|historia|oferta", "titulo": "tema em até 80 caracteres", "gancho": "frase de abertura", "carta": "id da carta", "roteiro": "3-5 linhas com a estrutura do conteúdo", "cta": "um único CTA"}]}`,
       });
       return NextResponse.json(extractJson(text));
+    }
+
+    // entrevista de marca (/creator/entrevista): a próxima fala da entrevistadora e a proposta de briefing
+    if (task === "entrevista_turno" || task === "entrevista_briefing") {
+      const sb = await createClient();
+      const { data: ent } = await sb.from("brand_interviews").select("id, account_id, turns").eq("id", data?.id).maybeSingle();
+      if (!ent) return NextResponse.json({ error: "Entrevista não encontrada." }, { status: 404 });
+      const { data: acc } = await sb.from("ig_accounts").select("id, username, name, niche, goals, brand_voice, briefing").eq("id", ent.account_id).maybeSingle();
+      if (task === "entrevista_turno") {
+        const text = await callClaude({ maxTokens: 600, prompt: promptTurno(acc, ent.turns || []) });
+        const r = extractJson(text);
+        return NextResponse.json({ fala: String(r?.fala || "Pode me contar um pouco mais?").slice(0, 800), tema: Number(r?.tema) || null, nota: String(r?.nota || "").slice(0, 400), fim: !!r?.fim });
+      }
+      const text = await callClaude({ maxTokens: 4000, prompt: promptBriefing(acc, ent.turns || []) });
+      return NextResponse.json(limparProposta(extractJson(text)));
     }
 
     if (task === "briefing_draft") {

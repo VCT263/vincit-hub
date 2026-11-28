@@ -55,7 +55,7 @@ async function byFollow(id: string, token: string, since: number, until: number)
 }
 
 /** seguidores online por dia da semana × hora (horário de Brasília), média dos últimos dias */
-async function online(id: string, token: string, end: number) {
+export async function online(id: string, token: string, end: number) {
   try {
     const j = await gget(`${id}/insights`, { access_token: token, metric: "online_followers", period: "lifetime", since: String(end - 29 * DAY), until: String(end) });
     const vals = j.data?.[0]?.values || [];

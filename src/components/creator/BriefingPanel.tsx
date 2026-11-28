@@ -99,6 +99,7 @@ export default function BriefingPanel() {
         </div>
         <span className="text-xs text-fog w-20 text-right">{state === "saving" ? "Salvando…" : state === "saved" ? "Salvo ✓" : ""}</span>
         <button onClick={() => setShowAI(!showAI)} className="btn btn-ghost btn-sm"><I.spark className="w-4 h-4" />Preencher com IA</button>
+        <Link href={`/creator/entrevista${accId ? `?perfil=${accId}` : ""}`} className="btn btn-mint btn-sm"><I.mic className="w-4 h-4" />Entrevista por voz</Link>
       </div>
 
       {showAI && (

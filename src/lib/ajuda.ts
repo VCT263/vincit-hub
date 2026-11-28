@@ -21,6 +21,7 @@ export const AJUDA_TELA: Record<string, Dica> = {
   "/creator/diagnostico": { titulo: "Raio-X e estratégia", texto: "Diagnóstico do perfil em 5 eixos de crescimento, só com dados reais. Vira prioridades e um plano de 30/60/90 dias." },
   "/creator/referencias": { titulo: "Referências", texto: "Estude perfis e posts que funcionaram. A IA desmonta o que deu certo e adapta para o seu briefing; mande as melhores ideias para o Quadro." },
   "/creator/tendencias": { titulo: "Tendências", texto: "Pesquisa o que está em alta no seu nicho. Pedidos com pesquisa na web são respondidos no chat do Claude." },
+  "/creator/agendar": { titulo: "Agendar publicações", texto: "Agende posts, carrosséis, Reels e Stories. O HUB publica no horário marcado e move o card do Quadro para Publicado. O horário sugerido é o pico dos seus seguidores online." },
   "/creator/automacoes": { titulo: "Automações", texto: "Respostas automáticas no direct e publicações agendadas no Instagram. Só funciona com o Instagram conectado." },
   "/creator/estrategia": { titulo: "Estratégia de crescimento", texto: "Plano de 30/60/90 dias feito do briefing, das métricas e do último Raio-X." },
 

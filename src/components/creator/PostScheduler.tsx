@@ -19,6 +19,14 @@ const WD = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const pad = (n: number) => String(n).padStart(2, "0");
 const localDate = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600e3).toISOString();
 const isVideo = (u: string) => /\.(mp4|mov|m4v)(\?|$)/i.test(u);
+const captionOf = (i: any) => i?.caption || (i?.body || "").match(/## Legenda[^\n]*\n([\s\S]*?)(\n## |$)/)?.[1]?.trim() || i?.title || "";
+const kindOf = (format?: string) => /reel|v[ií]deo/i.test(format || "") ? "reels" : /carross/i.test(format || "") ? "carousel" : /stor/i.test(format || "") ? "story" : "image";
+/** hora com mais seguidores online no dia da semana da data (grade em horário de Brasília) */
+const peakHour = (grid: number[][] | null | undefined, date: string) => {
+  const row = grid?.[new Date(`${date}T12:00:00-03:00`).getUTCDay()];
+  if (!row || !row.some((x) => x > 0)) return null;
+  return row.indexOf(Math.max(...row));
+};
 
 export default function PostScheduler() {
   const { accounts } = useAccounts();
@@ -29,16 +37,26 @@ export default function PostScheduler() {
   const [f, setF] = useState<any>(null);
   const [up, setUp] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // seguidores online (dia da semana × hora, Brasília) do perfil escolhido: sugere o horário de postar
+  const [grids, setGrids] = useState<Record<string, number[][] | null>>({});
+  const [fromCard, setFromCard] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const s = createClient();
     const [{ data: p }, { data: i }] = await Promise.all([
       s.from("scheduled_posts").select("*, ig_accounts(username)").order("scheduled_at", { ascending: true, nullsFirst: true }),
-      s.from("content_ideas").select("id,title,body,caption,format,status,planned_for").neq("status", "publicado").is("archived_at", null).order("created_at", { ascending: false }).limit(40),
+      s.from("content_ideas").select("id,title,body,caption,format,status,planned_for,account_id").neq("status", "publicado").is("archived_at", null).order("created_at", { ascending: false }).limit(40),
     ]);
     setPosts(p || []); setIdeas(i || []);
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { const c = new URLSearchParams(location.search).get("c"); if (c) setFromCard(c); }, []);
+  const accId = f?.account_id || "";
+  useEffect(() => {
+    if (!accId || accId in grids) return;
+    setGrids((g) => ({ ...g, [accId]: null }));
+    fetch(`/api/meta/horarios?account_id=${accId}`).then((r) => r.json()).then((j) => setGrids((g) => ({ ...g, [accId]: j.grid || null }))).catch(() => {});
+  }, [accId, grids]);
 
   const y = cursor.getFullYear(), m = cursor.getMonth();
   const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
@@ -46,11 +64,22 @@ export default function PostScheduler() {
   const byDay = useMemo(() => { const o: Record<string, any[]> = {}; posts.forEach((p) => { if (p.scheduled_at) (o[localDate(p.scheduled_at).slice(0, 10)] ||= []).push(p); }); return o; }, [posts]);
   const today = localDate(new Date().toISOString()).slice(0, 10);
 
-  function openNew(date?: string) {
+  function openNew(date?: string, idea?: any) {
     setErr(null);
-    const acc = accounts.find((a) => a.connected) || accounts[0];
-    setF({ account_id: acc?.id || "", kind: "image", media_urls: [], caption: "", date: date || today, time: "18:00", cover_url: "" });
+    const acc = accounts.find((a) => a.id === idea?.account_id) || accounts.find((a) => a.connected) || accounts[0];
+    const d = date || (idea?.planned_for && idea.planned_for.slice(0, 10) >= today ? idea.planned_for.slice(0, 10) : today);
+    const peak = peakHour(grids[acc?.id || ""], d);
+    setF({ account_id: acc?.id || "", kind: idea ? kindOf(idea.format) : "image", media_urls: [], caption: idea ? captionOf(idea) : "", idea_id: idea?.id || "", date: d, time: peak != null ? `${pad(peak)}:00` : "18:00", cover_url: "" });
   }
+  // veio do card do Quadro (?c=): abre a publicação já com o conteúdo, uma vez
+  useEffect(() => {
+    if (!fromCard || !accounts.length) return;
+    const card = ideas.find((i) => i.id === fromCard);
+    const existing = posts.find((p) => p.idea_id === fromCard && p.status !== "erro");
+    if (existing) openEdit(existing); else if (card) openNew(undefined, card); else return;
+    setFromCard(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromCard, accounts, ideas, posts]);
   function openEdit(p: any) {
     setErr(null);
     const l = p.scheduled_at ? localDate(p.scheduled_at) : "";
@@ -89,7 +118,7 @@ export default function PostScheduler() {
     if (error) return setErr(error.message);
     setF(null); load();
   }
-  async function del(p: any) { if (!(await apagarComLixeira({ tabela: "scheduled_posts", filtro: { id: p.id }, oque: "esta publicação agendada", rotulo: "Publicação agendada: " + ((p.caption || "sem legenda").slice(0, 50)), link: "/creator/automacoes" }))) return; setF(null); load(); }
+  async function del(p: any) { if (!(await apagarComLixeira({ tabela: "scheduled_posts", filtro: { id: p.id }, oque: "esta publicação agendada", rotulo: "Publicação agendada: " + ((p.caption || "sem legenda").slice(0, 50)), link: "/creator/agendar" }))) return; setF(null); load(); }
 
   const Thumb = ({ u, className = "w-full h-full" }: { u?: string; className?: string }) => !u ? <div className={`${className} bg-panel2`} /> : isVideo(u) ? <video src={u} className={`${className} object-cover`} muted /> : <img loading="lazy" decoding="async" src={u} alt="" className={`${className} object-cover`} />;
   const tags = (f?.caption || "").match(/#[\p{L}\d_]+/gu) || [];
@@ -142,7 +171,7 @@ export default function PostScheduler() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="label">Perfil</label><select className="input" value={f.account_id} onChange={(e) => setF({ ...f, account_id: e.target.value })}>{accounts.map((a) => <option key={a.id} value={a.id}>@{a.username}{a.connected ? "" : " (não conectado)"}</option>)}</select></div>
-                <div><label className="label">A partir do Quadro</label><select className="input" value={f.idea_id || ""} onChange={(e) => { const i = ideas.find((x) => x.id === e.target.value); setF({ ...f, idea_id: e.target.value, caption: f.caption || i?.caption || (i?.body || "").match(/## Legenda[^\n]*\n([\s\S]*?)(\n## |$)/)?.[1]?.trim() || i?.title || "" }); }}><option value="">—</option>{ideas.map((i) => <option key={i.id} value={i.id}>{i.title.slice(0, 50)}</option>)}</select></div>
+                <div><label className="label">A partir do Quadro</label><select className="input" value={f.idea_id || ""} onChange={(e) => { const i = ideas.find((x) => x.id === e.target.value); setF({ ...f, idea_id: e.target.value, caption: f.caption || captionOf(i) }); }}><option value="">—</option>{ideas.map((i) => <option key={i.id} value={i.id}>{i.title.slice(0, 50)}</option>)}</select></div>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">{Object.entries(KINDS).map(([k, v]) => <button key={k} onClick={() => setF({ ...f, kind: k, media_urls: v.multi ? f.media_urls : f.media_urls.slice(0, 1) })} className={`rounded-xl border p-2.5 text-left ${f.kind === k ? "border-mint bg-mint/10" : "border-line hover:border-slate"}`}><p className="text-sm font-semibold">{v.l}</p><p className="text-[10px] text-fog">{v.d}</p></button>)}</div>
               <div>
@@ -156,6 +185,9 @@ export default function PostScheduler() {
               {f.kind !== "story" && <div><div className="flex justify-between"><label className="label">Legenda</label><span className={`text-[11px] ${(f.caption || "").length > 2200 || tags.length > 5 ? "text-danger" : "text-fog"}`}>{(f.caption || "").length}/2200 · {tags.length}/5 hashtags</span></div><textarea className="input min-h-[150px]" value={f.caption || ""} onChange={(e) => setF({ ...f, caption: e.target.value })} placeholder="1ª linha forte (aparece antes do 'mais'), um único CTA, até 5 hashtags." /></div>}
               {f.kind === "reels" && <div><label className="label">Capa (URL de imagem, opcional)</label><input className="input" value={f.cover_url || ""} onChange={(e) => setF({ ...f, cover_url: e.target.value })} placeholder="https://…" /></div>}
               <div className="grid grid-cols-2 gap-3"><div><label className="label">Data</label><input type="date" className="input" min={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div><div><label className="label">Horário (Brasília)</label><input type="time" className="input" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></div></div>
+              {(() => { const h = peakHour(grids[f.account_id], f.date); return h == null ? null : (
+                <p className="text-xs text-fog -mt-2">Seus seguidores estão mais online às <b className="text-paper">{h}h</b> nesse dia da semana.{f.time !== `${pad(h)}:00` && <button type="button" onClick={() => setF({ ...f, time: `${pad(h)}:00` })} className="text-mint ml-1 underline">Usar {h}h</button>}</p>
+              ); })()}
               {f.error && <p className="text-sm text-danger">Último erro: {f.error}</p>}
               {err && <p className="text-sm text-danger">{err}</p>}
               <div className="flex flex-wrap gap-2 justify-between">
