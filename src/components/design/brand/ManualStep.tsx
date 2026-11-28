@@ -10,7 +10,8 @@ import { I } from "@/components/icons";
 import type { StepProps } from "./types";
 import LinkApresentacao from "../briefing/LinkApresentacao";
 import BrandAIPanel from "./BrandAIPanel";
-import { printAll } from "./lazy";
+import { printAll, useLite } from "./lazy";
+import { PaginasLista, PaginasStatus, type Paginas } from "./pages";
 import { VideoControls } from "./Motion";
 
 /* processo de entrega (Design Academy): escopo, apresentação e aprovação, entrega dos arquivos */
@@ -33,6 +34,9 @@ export default function ManualStep({ d, id, set }: StepProps) {
   const mockups = useMockups();
   const { x, slides } = useDeck(d, format, mockups || []);
   const [show, setShow] = useState<number | null>(null);
+  const lite = useLite();
+  // no celular, a lista e a tela cheia usam as páginas já prontas em imagem (se estiverem em dia com o formato)
+  const pg: Paginas | null = lite && d.paginas?.urls?.length && d.paginas.format === format ? d.paginas : null;
   const ent = d.entrega || {};
   const setEnt = (patch: any) => set({ entrega: { ...ent, ...patch } });
   async function logoFile(kind: "svg" | "png") {
@@ -71,6 +75,7 @@ export default function ManualStep({ d, id, set }: StepProps) {
               <span className="text-[11px] text-fog">Estilo</span>
               <div className="flex flex-wrap gap-1.5">{(Object.keys(STYLES) as DeckStyle[]).map((k) => <button key={k} onClick={() => set({ deck_style: k })} className={`chip !px-3 !py-1 ${styleFor(d) === k ? "chip-mint" : ""}`} title={STYLES[k].d}>{STYLES[k].l}</button>)}</div>
             </div>
+            <PaginasStatus id={id} d={d} set={set} x={x} slides={slides} format={format} mockups={mockups} />
             <p className="text-[11px] text-fog leading-relaxed">{slides.length} slides · {STYLES[styleFor(d)].l}{d.deck_style ? "" : " (pelo nicho)"}: {STYLES[styleFor(d)].d}</p>
             <details className="text-[11px] text-fog">
               <summary className="cursor-pointer select-none hover:text-paper">Como salvar o PDF</summary>
@@ -124,11 +129,11 @@ export default function ManualStep({ d, id, set }: StepProps) {
         <p className="text-[11px] text-fog mt-2">{Object.values(ent.itens || {}).filter(Boolean).length} de {ENTREGAVEIS.length} entregues. Apresente, colete o ok do cliente e só então envie os arquivos.</p>
       </div>
 
-      <div className="deck-list space-y-6">
+      {pg ? <PaginasLista pg={pg} onOpen={setShow} /> : <div className="deck-list space-y-6">
         {slides.map((s, i) => <div key={s.key} onClick={() => setShow(i)} className="cursor-zoom-in"><ScaledSlide x={x} s={s} n={i + 1} total={slides.length} /></div>)}
-      </div>
+      </div>}
       <PrintDeck x={x} slides={slides} />
-      {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} />}
+      {show !== null && <Presenter x={x} slides={slides} start={show} onClose={() => setShow(null)} imgs={pg?.urls} />}
     </div>
   );
 }
