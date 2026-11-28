@@ -4,7 +4,8 @@
  * a composição roda num iframe isolado (sandbox só com scripts), o runtime do HyperFrames posiciona cada quadro,
  * o html-to-image (MIT) fotografa o quadro e o Mediabunny grava MP4 ou WebM transparente.
  */
-import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, WebMOutputFormat, canEncodeVideo } from "mediabunny";
+import { AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, WebMOutputFormat, canEncodeAudio, canEncodeVideo } from "mediabunny";
+import { eventosHtml, mixarEventos } from "./som";
 import type { Brief } from "@/lib/briefs";
 import { briefEmTexto } from "@/lib/briefs";
 import { ESTILOS_TEXTO } from "./estilos-texto";
@@ -69,6 +70,9 @@ if(d.cmd==='info'){await ready();await document.fonts.ready;var r=root();parent.
 else if(d.cmd==='seek'){await seek(d.t);parent.postMessage({__hub:'motion',id:d.id,ok:true},'*')}
 else if(d.cmd==='play'){await ready();window.__player.play();parent.postMessage({__hub:'motion',id:d.id,ok:true},'*')}
 else if(d.cmd==='pause'){await ready();window.__player.pause();parent.postMessage({__hub:'motion',id:d.id,ok:true,t:window.__player.getTime()},'*')}
+else if(d.cmd==='eventos'){await ready();var tls=window.__timelines||{};var tl=tls.main||tls[Object.keys(tls)[0]];var out=[];
+if(tl&&tl.getChildren){tl.getChildren(true,true,false).forEach(function(c){var st=c.startTime(),p=c.parent;while(p&&p!==tl){st+=p.startTime();p=p.parent}if(out.length<400)out.push([st,c.duration()])})}
+parent.postMessage({__hub:'motion',id:d.id,ok:true,tweens:out},'*')}
 else if(d.cmd==='time'){parent.postMessage({__hub:'motion',id:d.id,ok:true,t:window.__player?window.__player.getTime():0,playing:window.__player?window.__player.isPlaying():false},'*')}
 else if(d.cmd==='frame'){await seek(d.t);var el=root();if(d.transparente){document.documentElement.style.background='transparent';document.body.style.background='transparent'}
 var c=await htmlToImage.toCanvas(el,{width:d.w,height:d.h,pixelRatio:1,cacheBust:false,backgroundColor:d.transparente?undefined:getComputedStyle(el).backgroundColor});
@@ -133,13 +137,15 @@ export class MotionFrame {
   seek(t: number) { return this.ask({ cmd: "seek", t }); }
   play() { return this.ask({ cmd: "play" }); }
   pause() { return this.ask({ cmd: "pause" }); }
+  /** inícios e durações das animações da timeline (para pôr os efeitos sonoros no tempo certo) */
+  async eventos(): Promise<[number, number][]> { try { return (await this.ask({ cmd: "eventos" }, 8000)).tweens || []; } catch { return []; } }
   time() { return this.ask({ cmd: "time" }, 3000) as Promise<{ t: number; playing: boolean }>; }
   async frame(t: number, w: number, h: number, transparente = false): Promise<ImageBitmap> { return (await this.ask({ cmd: "frame", t, w, h, transparente })).bmp; }
   destroy() { window.removeEventListener("message", this.onMsg); }
 }
 
 /** exporta a composição em MP4 (H.264) ou WebM VP9 com transparência, quadro a quadro, no navegador */
-export async function exportarHtml(html: string, valores: Record<string, any>, o: { tipo?: "mp4" | "webm"; fps?: number; onProgress?: (f: number) => void; signal?: { cancel: boolean } } = {}) {
+export async function exportarHtml(html: string, valores: Record<string, any>, o: { tipo?: "mp4" | "webm"; fps?: number; onProgress?: (f: number) => void; signal?: { cancel: boolean }; som?: string; cenas?: { inicio: number }[] } = {}) {
   const tipo = o.tipo || "mp4";
   const fps = o.fps || 30;
   const iframe = document.createElement("iframe");
@@ -160,7 +166,17 @@ export async function exportarHtml(html: string, valores: Record<string, any>, o
     const output = new Output({ format: tipo === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat({ fastStart: "in-memory" }), target: new BufferTarget() });
     const src = new CanvasSource(canvas, { codec, bitrate: QUALITY_HIGH, keyFrameInterval: 2, ...(tipo === "webm" ? { alpha: "keep" as const } : {}) });
     output.addVideoTrack(src, { frameRate: fps });
+    // efeitos sonoros do estilo de som (28/11): AAC no MP4 (Opus se faltar), Opus no WebM; sem suporte, sai mudo
+    let audio: AudioBufferSource | null = null, trilha: AudioBuffer | null = null;
+    if (o.som) {
+      const codecs = tipo === "webm" ? (["opus"] as const) : (["aac", "opus"] as const);
+      let ac: "aac" | "opus" | null = null;
+      for (const c of codecs) if (await canEncodeAudio(c).catch(() => false)) { ac = c; break; }
+      if (ac) trilha = await mixarEventos(o.som, eventosHtml(await f.eventos(), o.cenas || [], total), total).catch(() => null);
+      if (ac && trilha) { audio = new AudioBufferSource({ codec: ac, quality: QUALITY_HIGH }); output.addAudioTrack(audio); }
+    }
     await output.start();
+    if (audio && trilha) { await audio.add(trilha); audio.close(); }
     const n = Math.max(1, Math.round(total * fps));
     for (let i = 0; i < n; i++) {
       if (o.signal?.cancel) { await output.cancel(); throw new Error("Exportação cancelada."); }
