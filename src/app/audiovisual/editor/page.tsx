@@ -87,6 +87,27 @@ export default function Editor() {
   }
 
   /* ---------- importar arquivos ---------- */
+  /** duração e tamanho do vídeo. No iPhone o <video> solto não carrega os metadados (o Safari ignora preload),
+      então ele entra mudo e inline, com load(); se em 6 s não vier nada, lê o arquivo com o mediabunny. */
+  async function metaDoVideo(file: File, url: string): Promise<{ d: number; w: number; h: number }> {
+    const peloVideo = new Promise<{ d: number; w: number; h: number }>((res) => {
+      const v = document.createElement("video");
+      v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.preload = "metadata";
+      v.onloadedmetadata = () => res({ d: isFinite(v.duration) ? v.duration : 0, w: v.videoWidth, h: v.videoHeight });
+      v.onerror = () => res({ d: 0, w: 0, h: 0 });
+      v.src = url; v.load();
+      setTimeout(() => res({ d: 0, w: 0, h: 0 }), 6000);
+    });
+    const m = await peloVideo;
+    if (m.d) return m;
+    try {
+      const { ALL_FORMATS, BlobSource, Input } = await import("mediabunny");
+      const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+      const vt = await input.getPrimaryVideoTrack();
+      const d = await input.computeDuration();
+      return { d, w: vt?.displayWidth || 1080, h: vt?.displayHeight || 1920 };
+    } catch { return { d: 0, w: 0, h: 0 }; }
+  }
   async function addFiles(files: FileList | null, as: "fala" | "broll" = addAs) {
     if (!files?.length) return;
     const added: Media[] = [];
@@ -97,12 +118,7 @@ export default function Editor() {
       const url = URL.createObjectURL(file);
       const meta = isImg
         ? await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; })
-        : await new Promise<{ d: number; w: number; h: number }>((res) => {
-          const v = document.createElement("video");
-          v.preload = "metadata"; v.src = url;
-          v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight });
-          v.onerror = () => res({ d: 0, w: 0, h: 0 });
-        });
+        : await metaDoVideo(file, url);
       if (!meta.d) { setMsg(`Não consegui abrir ${file.name}. Use MP4 ou MOV em H.264/H.265, ou JPG/PNG.`); continue; }
       added.push({ id: uid(), name: file.name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: isImg, broll: as === "broll" });
     }
@@ -418,7 +434,7 @@ export default function Editor() {
       const file = new File([blob], name, { type: blob.type });
       const url = URL.createObjectURL(file);
       const meta = isVid
-        ? await new Promise<{ d: number; w: number; h: number }>((res) => { const v = document.createElement("video"); v.preload = "metadata"; v.src = url; v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); v.onerror = () => res({ d: 0, w: 0, h: 0 }); })
+        ? await metaDoVideo(file, url)
         : await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; });
       if (!meta.d) throw new Error("arquivo não abriu");
       const m: Media = { id: uid(), name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: !isVid, broll: true };
@@ -569,7 +585,7 @@ export default function Editor() {
               </div>
               <label className="block border border-dashed border-line rounded-xl p-4 text-center text-sm text-fog cursor-pointer hover:border-mint-dim">
                 <input type="file" accept={addAs === "broll" ? "video/*,image/*,.mov,.mp4" : "video/*,.mov,.mp4"} multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos do computador"}
+                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos (computador ou celular)"}
               </label>
               {selSeg && selMedia ? (
                 <div className="rounded-xl border border-line p-3 space-y-2">
