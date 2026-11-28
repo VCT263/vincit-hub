@@ -1,4 +1,5 @@
 "use client";
+import { briefEmTexto, normalizeBrief } from "@/lib/briefs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAMERAS as LUT_CAMERAS, ESTILOS as LUT_ESTILOS } from "@/lib/luts/catalog";
 import Ajuda from "@/components/ajuda/Ajuda";
@@ -15,7 +16,7 @@ import { ESTILOS, aplicarEstilo, estiloByNum, estiloTags, projetoDoEstilo } from
 import MotionStudio, { MotionThumb, fileToDataUrl, type MotionDoc } from "@/components/av/MotionStudio";
 import { aiFetch } from "@/lib/aiFetch";
 import { coresDoKit, motionDuration, normalizeSpec, onImageLoad, specDoModelo, type Cena, type MotionSpec } from "@/lib/motion/engine";
-import { motionEnd, type MotionClip } from "@/lib/editor/model";
+import { aplicarVocabulario, motionEnd, type MotionClip } from "@/lib/editor/model";
 
 type Busy = { f: number; msg: string } | null;
 const EMPTY: Project = { segments: [], titles: [], zooms: [], captionsOn: true, edits: {} };
@@ -87,6 +88,27 @@ export default function Editor() {
   }
 
   /* ---------- importar arquivos ---------- */
+  /** duração e tamanho do vídeo. No iPhone o <video> solto não carrega os metadados (o Safari ignora preload),
+      então ele entra mudo e inline, com load(); se em 6 s não vier nada, lê o arquivo com o mediabunny. */
+  async function metaDoVideo(file: File, url: string): Promise<{ d: number; w: number; h: number }> {
+    const peloVideo = new Promise<{ d: number; w: number; h: number }>((res) => {
+      const v = document.createElement("video");
+      v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.preload = "metadata";
+      v.onloadedmetadata = () => res({ d: isFinite(v.duration) ? v.duration : 0, w: v.videoWidth, h: v.videoHeight });
+      v.onerror = () => res({ d: 0, w: 0, h: 0 });
+      v.src = url; v.load();
+      setTimeout(() => res({ d: 0, w: 0, h: 0 }), 6000);
+    });
+    const m = await peloVideo;
+    if (m.d) return m;
+    try {
+      const { ALL_FORMATS, BlobSource, Input } = await import("mediabunny");
+      const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+      const vt = await input.getPrimaryVideoTrack();
+      const d = await input.computeDuration();
+      return { d, w: vt?.displayWidth || 1080, h: vt?.displayHeight || 1920 };
+    } catch { return { d: 0, w: 0, h: 0 }; }
+  }
   async function addFiles(files: FileList | null, as: "fala" | "broll" = addAs) {
     if (!files?.length) return;
     const added: Media[] = [];
@@ -97,12 +119,7 @@ export default function Editor() {
       const url = URL.createObjectURL(file);
       const meta = isImg
         ? await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; })
-        : await new Promise<{ d: number; w: number; h: number }>((res) => {
-          const v = document.createElement("video");
-          v.preload = "metadata"; v.src = url;
-          v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight });
-          v.onerror = () => res({ d: 0, w: 0, h: 0 });
-        });
+        : await metaDoVideo(file, url);
       if (!meta.d) { setMsg(`Não consegui abrir ${file.name}. Use MP4 ou MOV em H.264/H.265, ou JPG/PNG.`); continue; }
       added.push({ id: uid(), name: file.name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: isImg, broll: as === "broll" });
     }
@@ -309,7 +326,7 @@ export default function Editor() {
     const { transcribe } = await import("@/lib/editor/transcribe");
     try {
       for (const [i, m] of pending.entries()) {
-        const words = await transcribe(m.file, (f, msgx) => setBusy({ f, msg: `${msgx} (${i + 1}/${pending.length})` }));
+        const words = aplicarVocabulario(await transcribe(m.file, (f, msgx) => setBusy({ f, msg: `${msgx} (${i + 1}/${pending.length})` })), kit.vocabulario);
         setMedia((all) => all.map((x) => (x.id === m.id ? { ...x, words } : x)));
       }
       setMsg("Legenda pronta. Confira o texto na aba Legenda.");
@@ -418,7 +435,7 @@ export default function Editor() {
       const file = new File([blob], name, { type: blob.type });
       const url = URL.createObjectURL(file);
       const meta = isVid
-        ? await new Promise<{ d: number; w: number; h: number }>((res) => { const v = document.createElement("video"); v.preload = "metadata"; v.src = url; v.onloadedmetadata = () => res({ d: v.duration, w: v.videoWidth, h: v.videoHeight }); v.onerror = () => res({ d: 0, w: 0, h: 0 }); })
+        ? await metaDoVideo(file, url)
         : await new Promise<{ d: number; w: number; h: number }>((res) => { const im = new Image(); im.onload = () => res({ d: 5, w: im.naturalWidth, h: im.naturalHeight }); im.onerror = () => res({ d: 0, w: 0, h: 0 }); im.src = url; });
       if (!meta.d) throw new Error("arquivo não abriu");
       const m: Media = { id: uid(), name, file, url, duration: meta.d, width: meta.w, height: meta.h, image: !isVid, broll: true };
@@ -569,7 +586,7 @@ export default function Editor() {
               </div>
               <label className="block border border-dashed border-line rounded-xl p-4 text-center text-sm text-fog cursor-pointer hover:border-mint-dim">
                 <input type="file" accept={addAs === "broll" ? "video/*,image/*,.mov,.mp4" : "video/*,.mov,.mp4"} multiple className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos do computador"}
+                <I.plus className="w-5 h-5 mx-auto mb-1" />{addAs === "broll" ? "Adicionar B-roll (vídeo ou imagem)" : "Adicionar vídeos (computador ou celular)"}
               </label>
               {selSeg && selMedia ? (
                 <div className="rounded-xl border border-line p-3 space-y-2">
@@ -859,6 +876,7 @@ export default function Editor() {
             ) : (
               <div className="mt-2 space-y-2">
                 {plan.plan?.resumo && <p className="text-paper">{plan.plan.resumo}</p>}
+                {plan.plan?.brief && <details className="mt-1"><summary className="cursor-pointer text-purple-300">Brief da edição</summary><pre className="mt-1 whitespace-pre-wrap text-[11px] text-fog">{briefEmTexto(normalizeBrief(plan.plan.brief, "edicao"))}</pre></details>}
                 <p className="text-fog">{["cortes", "zooms", "titulos"].map((k) => `${(plan.plan?.[k] || []).length} ${k}`).join(" · ")}</p>
                 {(plan.plan?.insercoes || []).length > 0 && <ul className="text-fog list-disc pl-4">{plan.plan.insercoes.slice(0, 6).map((x: any, i: number) => <li key={i}>B-roll em {fmt(+x.inicio)}: {x.midia}</li>)}</ul>}
                 <div className="flex gap-2"><button onClick={applyPlan} className="px-3 py-1.5 rounded-lg bg-purple-400 text-ink font-semibold">Aplicar</button><button onClick={() => setPlan(null)} className="px-3 py-1.5 rounded-lg border border-line">Descartar</button></div>
